@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# skills-flow Worker+Reviewer Loop — 持续领取任务、修复、审查、commit
+# Harness Worker+Reviewer Loop — 持续领取任务、修复、审查、commit
 # 用法:
 #   ./sf-worker-reviewer.sh          # 单次循环（领一个任务）
 #   ./sf-worker-reviewer.sh --loop   # 持续循环直到没有可做的任务
@@ -45,7 +45,7 @@ run_worker() {
 
   # 读取必读文档，注入上下文
   WORKER_DOCS=""
-  for doc in "CLAUDE.md" "TODO.md" ".planning/research/PITFALLS.md"; do
+  for doc in "CLAUDE.md" "TODO.md"; do
     if [ -f "$doc" ]; then
       WORKER_DOCS="${WORKER_DOCS}
 
@@ -85,7 +85,7 @@ run_reviewer() {
 
   # 读取 TODO.md（最新状态）和相关文档
   REVIEWER_DOCS=""
-  for doc in "CLAUDE.md" "TODO.md" ".planning/research/PITFALLS.md"; do
+  for doc in "CLAUDE.md" "TODO.md"; do
     if [ -f "$doc" ]; then
       REVIEWER_DOCS="${REVIEWER_DOCS}
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# skills-flow Inspector — 定时巡检，发现问题写入 TODO.md
+# Harness Inspector — 定时巡检，发现问题写入 TODO.md
 # 用法: bash sf-inspector.sh ["用户额外指令"]
 set -euo pipefail
 
@@ -17,14 +17,11 @@ cd "$PROJECT_DIR"
 
 echo "=== Inspector starting at $(date) ==="
 
-# 将核心定位文档内容注入 prompt（全量注入）
-# 研究文档只注入路径提示，Inspector 可按需读取
+# 将核心文档内容注入 prompt
 DOCS_CONTEXT=""
 for doc in \
   "CLAUDE.md" \
-  ".planning/PROJECT.md" \
-  "TODO.md" \
-  ".planning/STATE.md"; do
+  "TODO.md"; do
   if [ -f "$doc" ]; then
     DOCS_CONTEXT="${DOCS_CONTEXT}
 
@@ -32,22 +29,6 @@ for doc in \
 ### ${doc}
 $(cat "$doc")
 "
-  fi
-done
-
-# 研究文档只列出路径，不注入内容（避免 prompt 过大）
-RESEARCH_DOCS=""
-for doc in \
-  ".planning/REQUIREMENTS.md" \
-  ".planning/ROADMAP.md" \
-  ".planning/research/PITFALLS.md" \
-  ".planning/research/FEATURES.md" \
-  ".planning/research/ARCHITECTURE.md" \
-  ".planning/research/STACK.md" \
-  "docs/architecture.md"; do
-  if [ -f "$doc" ]; then
-    RESEARCH_DOCS="${RESEARCH_DOCS}
-- ${doc}"
   fi
 done
 
@@ -68,12 +49,9 @@ claude -p "$(cat "$PROMPT_FILE")
 项目路径: $PROJECT_DIR
 当前时间: $(date '+%Y-%m-%d %H:%M:%S')
 
-以下是核心文档的完整内容（已注入）：
+以下是核心文档的完整内容：
 
 ${DOCS_CONTEXT}
-
-以下是研究文档的路径（未注入内容，请按需读取）：
-${RESEARCH_DOCS}
 ${EXTRA_PROMPT}
 
 请按巡检流程执行，更新 TODO.md。

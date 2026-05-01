@@ -101,7 +101,7 @@ echo "用户额外指令: <用户输入的自然语言>" > /tmp/harness-context.
 ### Step 2 — 确认项目环境
 
 ```bash
-# 确认在 skills-flow 项目根目录
+# 确认在项目根目录
 test -f CLAUDE.md && test -f TODO.md || echo "NOT_SKILLS_FLOW"
 # 确认 skill 脚本存在（相对于 skill 目录）
 test -f ../harness/inspector.sh && test -f ../harness/worker-reviewer.sh || echo "SCRIPTS_MISSING"
@@ -111,7 +111,7 @@ test -f ../harness/inspector.sh && test -f ../harness/worker-reviewer.sh || echo
 
 如果 `TODO.md` 不存在，创建一个最小模板：
 ```markdown
-# Skills Flow Improvement Board
+# Project Improvement Board
 
 ## Current Phase: 初始化
 
