@@ -51,10 +51,10 @@ license: MIT
 **每个角色都必须验证自己的产出，不能只"做完了"就交差。**
 
 - Inspector：产出任务后，检查任务描述是否足够清晰、hint 是否可操作
-- Worker：修完代码后，跑单元测试 + 尽力跑端到端验证（`sf run`）
-- Reviewer：审查时，如果 Worker 没做端到端验证且改动影响 workflow，应拒绝或补验
+- Worker：修完代码后，按项目文档（`AGENTS.md` / `CLAUDE.md` / `TODO.md` / README 等）定义的验证命令执行相关检查；如果项目定义了端到端或真实流程验证，必须执行并记录结果
+- Reviewer：审查时，确认 Worker 已执行与本次改动相关的验证命令；如果项目定义了端到端或真实流程验证且改动影响该路径，Worker 未验证时应拒绝或补验
 
-端到端验证不是可选的。如果因外部依赖不可用而无法验证，必须显式记录原因。
+端到端验证不是可选的。如果项目没有特定的 E2E/真实流程验证，或因外部依赖不可用而无法执行，必须显式记录原因。
 
 ```
 Inspector (规划师)          — 决定方向，发现任务
@@ -64,8 +64,8 @@ TODO.md (共享看板)
 Worker (修复者)             — 领任务，改代码
   [待领取] → [进行中] → [待审查]
   ↓
-Reviewer (审查者)           — 审查代码，commit 或打回
-  通过 → Done Log + git commit
+Reviewer (审查者)           — 审查代码，按项目规则决定是否提交或打回
+  通过 → Done Log + （仅在允许时）git commit
   不通过 → [被拒绝] + 修复指引
   ↓
 Worker 重新领取 [被拒绝]...
@@ -108,6 +108,13 @@ test -f ../harness/inspector.sh && test -f ../harness/worker-reviewer.sh || echo
 ```
 
 如果环境不对，停止并告知用户。
+
+运行方式示例：
+```bash
+cd <project> && bash ~/.codex/skills/harness/inspector.sh
+cd <project> && bash ~/.codex/skills/harness/worker-reviewer.sh --loop
+HARNESS_PROJECT_DIR=/abs/path/to/project bash ~/.codex/skills/harness/inspector.sh
+```
 
 如果 `TODO.md` 不存在，创建一个最小模板：
 ```markdown
@@ -208,6 +215,8 @@ Worker+Reviewer:
 3. **用户额外上下文** — 从 `/tmp/harness-context.txt` 读取，注入到 prompt 末尾
 
 三部分拼接后传给 `claude -p`，确保子进程既有项目全貌，又有用户本轮的具体意图。
+
+默认情况下，脚本会把**调用脚本时的当前工作目录**（`pwd -P`）视为项目目录；如果需要从别处调用，可通过 `HARNESS_PROJECT_DIR=/abs/path/to/project` 显式覆盖。skill 安装目录只用于定位脚本和 prompts，不会被当成项目目录。
 
 ## 文件清单
 

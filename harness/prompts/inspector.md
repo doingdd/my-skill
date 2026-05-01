@@ -75,16 +75,16 @@
 
 ### Phase 3: 本地巡检
 
-#### 3.1 运行测试
-```bash
-python -m pytest tests/ -x -q
-```
+#### 3.1 运行项目定义的验证命令
 
-#### 3.2 检查最近的运行日志
-```bash
-ls -lt sf-runs/ | head -5
-cat sf-runs/<latest>/engine.log
-```
+从 `AGENTS.md`、`CLAUDE.md`、`TODO.md`、README 等项目文档中找出适合巡检阶段的验证命令，优先执行能快速暴露当前状态的问题检查，例如：
+- 单元测试 / 集成测试
+- lint / typecheck / build / preflight
+- 项目明确要求的其他静态或自动化检查
+
+#### 3.2 检查最近的运行日志或构建产物
+
+如果项目文档定义了日志目录、运行产物目录或排查入口，检查最近一次相关输出；如果没有明确约定，就跳过并记录原因，不要臆造固定路径。
 
 ### Phase 4: 更新 TODO.md
 

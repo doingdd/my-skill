@@ -30,6 +30,14 @@ npx @yourname/my-skill@latest
 |-------|------|--------|
 | [harness](./harness/) | Harness Engineering 最小实践 — 三角色 AI 自治循环 | `/harness` |
 
+### Harness 脚本直跑示例
+
+```bash
+cd <project> && bash ~/.codex/skills/harness/inspector.sh
+cd <project> && bash ~/.codex/skills/harness/worker-reviewer.sh --loop
+HARNESS_PROJECT_DIR=/abs/path/to/project bash ~/.codex/skills/harness/inspector.sh
+```
+
 ## 开发自己的 Skill
 
 参考 [Agent Skills 开放标准](https://agentskills.io) 创建你的 skill，发布后可通过上述方式安装。

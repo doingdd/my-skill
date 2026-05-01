@@ -1,11 +1,24 @@
 #!/usr/bin/env bash
 # Harness Inspector — 定时巡检，发现问题写入 TODO.md
-# 用法: bash sf-inspector.sh ["用户额外指令"]
+# 用法: bash inspector.sh ["用户额外指令"]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROMPT_FILE="$SCRIPT_DIR/prompts/inspector.md"
+
+resolve_project_dir() {
+  if [ -n "${HARNESS_PROJECT_DIR:-}" ]; then
+    (
+      cd "$HARNESS_PROJECT_DIR"
+      pwd -P
+    )
+    return
+  fi
+
+  pwd -P
+}
+
+PROJECT_DIR="$(resolve_project_dir)"
 
 # 用户额外上下文（可选）
 USER_CONTEXT="${1:-}"
