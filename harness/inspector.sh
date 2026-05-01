@@ -76,6 +76,7 @@ ${EXTRA_PROMPT}
 2. 保留所有 [进行中] 和 [被拒绝] 状态的任务不变
 3. 你的输出会直接影响 Worker 下一步做什么，请确保任务描述包含清晰的 hint" \
   --permission-mode bypassPermissions \
+  --verbose \
   --output-format stream-json 2>&1 | tail -5
 
 echo "=== Inspector finished at $(date) ==="

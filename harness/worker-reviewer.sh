@@ -88,6 +88,7 @@ ${EXTRA_PROMPT}
 4. 根据项目文档中定义的验证命令执行相关自动化检查；如果项目定义了端到端或真实流程验证，必须执行并记录结果
 5. 严格按照任务状态机操作：[待领取] → [进行中] → [待审查]" \
     --permission-mode bypassPermissions \
+    --verbose \
     --output-format stream-json 2>&1 | tail -3
 
   echo "=== Worker finished at $(date) ==="
@@ -127,6 +128,7 @@ Worker 刚完成了任务。请审查 Worker 的改动，更新 TODO.md。
 3. 不通过：标记 [被拒绝] + 写清楚 issues 和 suggestion
 4. 同一任务失败 3 次后标记为 blocked" \
     --permission-mode bypassPermissions \
+    --verbose \
     --output-format stream-json 2>&1 | tail -3
 
   echo "=== Reviewer finished at $(date) ==="
