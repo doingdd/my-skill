@@ -33,7 +33,9 @@ echo "=== Inspector starting at $(date) ==="
 # 将核心文档内容注入 prompt
 DOCS_CONTEXT=""
 for doc in \
+  "AGENTS.md" \
   "CLAUDE.md" \
+  "README.md" \
   "TODO.md"; do
   if [ -f "$doc" ]; then
     DOCS_CONTEXT="${DOCS_CONTEXT}

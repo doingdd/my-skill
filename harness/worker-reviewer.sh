@@ -58,7 +58,7 @@ run_worker() {
 
   # 读取必读文档，注入上下文
   WORKER_DOCS=""
-  for doc in "CLAUDE.md" "TODO.md"; do
+  for doc in "AGENTS.md" "CLAUDE.md" "README.md" "TODO.md"; do
     if [ -f "$doc" ]; then
       WORKER_DOCS="${WORKER_DOCS}
 
@@ -98,7 +98,7 @@ run_reviewer() {
 
   # 读取 TODO.md（最新状态）和相关文档
   REVIEWER_DOCS=""
-  for doc in "CLAUDE.md" "TODO.md"; do
+  for doc in "AGENTS.md" "CLAUDE.md" "README.md" "TODO.md"; do
     if [ -f "$doc" ]; then
       REVIEWER_DOCS="${REVIEWER_DOCS}
 

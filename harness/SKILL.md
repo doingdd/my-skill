@@ -23,7 +23,7 @@ license: MIT
 用户可以在命令后附带自然语言指令，作为本轮循环的额外上下文。例如：
 - `/harness 这次重点关注静默数据丢失问题`
 - `/harness work 先修 P0 的环境变量检测`
-- `/harness inspect 跳过竞争分析，只做本地巡检`
+- `/harness inspect 只校准当前骨架目标，不执行 Worker`
 
 ### 定时调度（cron）
 
@@ -102,7 +102,7 @@ echo "用户额外指令: <用户输入的自然语言>" > /tmp/harness-context.
 
 ```bash
 # 确认在项目根目录
-test -f CLAUDE.md && test -f TODO.md || echo "NOT_SKILLS_FLOW"
+test -f TODO.md || echo "NOT_HARNESS_PROJECT"
 # 确认 skill 脚本存在（相对于 skill 目录）
 test -f ../harness/inspector.sh && test -f ../harness/worker-reviewer.sh || echo "SCRIPTS_MISSING"
 ```
@@ -162,9 +162,9 @@ cd <项目目录> && bash <skill目录>/worker-reviewer.sh --loop
 Harness 循环完成
 
 Inspector:
-  - 生存判定: 继续/终止/转型
-  - 新增任务: N 个
-  - 方向调整: 有/无
+  - 当前目标: ...
+  - 架构判断: ...
+  - 新增/调整任务: N 个
 
 Worker+Reviewer:
   - 完成任务: N 个
@@ -211,7 +211,7 @@ Worker+Reviewer:
 每个子进程（Inspector / Worker / Reviewer）通过 `claude -p` 启动，输入由三部分组成：
 
 1. **角色提示词** — `<skill目录>/prompts/inspector.md` 等
-2. **项目文档** — 脚本自动拼接 CLAUDE.md、TODO.md 等文件内容
+2. **项目文档** — 脚本自动拼接 AGENTS.md、CLAUDE.md、README、TODO.md 等文件内容
 3. **用户额外上下文** — 从 `/tmp/harness-context.txt` 读取，注入到 prompt 末尾
 
 三部分拼接后传给 `claude -p`，确保子进程既有项目全貌，又有用户本轮的具体意图。
