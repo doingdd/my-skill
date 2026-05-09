@@ -27,6 +27,22 @@ registry: https://github.com/hanzhangzzz/my-skill
 }
 ```
 
+### gpt-image2-prompt-director
+
+```json
+{
+  "name": "gpt-image2-prompt-director",
+  "version": "1.0.0",
+  "description": "GPT image2 提示词导演：把弱点子升级成高质量生图 brief，并用 benchmark 与 hard gates 评测头像、表情包、信息图、卡片、海报等 prompt",
+  "trigger": "$gpt-image2-prompt-director",
+  "keywords": ["gpt-image2", "image generation", "prompt", "avatar", "sticker", "infographic", "visual design", "evaluation"],
+  "compatibility": "Claude Code, Codex",
+  "install_path": "gpt-image2-prompt-director/",
+  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "license": "MIT"
+}
+```
+
 ## 安装指令模板
 
 Agent 可以通过以下方式安装本市场中的 skill：
@@ -38,12 +54,23 @@ Agent 可以通过以下方式安装本市场中的 skill：
 描述：这是一个三角色 AI 自治循环系统，包含 Inspector、Worker、Reviewer，通过 TODO.md 共享看板驱动持续改进
 ```
 
+```
+请从 https://github.com/hanzhangzzz/my-skill 安装 gpt-image2-prompt-director skill
+描述：这是一个 GPT image2 提示词导演，可从弱点子生成高质量生图 brief，并用 benchmark/hard gates 做评测
+```
+
 ### 直接引用
 
 ```
 安装 skill：harness
 来源：https://github.com/hanzhangzzz/my-skill
 路径：harness/
+```
+
+```
+安装 skill：gpt-image2-prompt-director
+来源：https://github.com/hanzhangzzz/my-skill
+路径：gpt-image2-prompt-director/
 ```
 
 ## 市场运营指南

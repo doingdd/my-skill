@@ -1,0 +1,3 @@
+display_name: GPT Image2 Prompt Director
+short_description: Turns weak ideas into expert GPT image2 prompts and evaluates them against a benchmark.
+default_prompt: Turn my rough image idea into a complete GPT image2 prompt with creative direction, visual system, anti-failure constraints, and output QA.
