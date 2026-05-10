@@ -1,0 +1,44 @@
+<svg width="1200" height="520" viewBox="0 0 1200 520" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">GPT Image2 Prompt Director workflow</title>
+  <desc id="desc">A visual overview showing weak idea, director brief, hard gates, and image-ready prompt output.</desc>
+  <rect width="1200" height="520" rx="28" fill="#F7F2EA"/>
+  <rect x="36" y="36" width="1128" height="448" rx="24" fill="#FFFDF8" stroke="#25221F" stroke-width="2"/>
+  <text x="72" y="96" fill="#25221F" font-family="Arial, PingFang SC, sans-serif" font-size="38" font-weight="700">GPT Image2 Prompt Director</text>
+  <text x="72" y="132" fill="#665F58" font-family="Arial, PingFang SC, sans-serif" font-size="18">把弱点子升级成可执行的创意总监 brief，并在生成前先过质量门禁</text>
+
+  <g transform="translate(72 180)">
+    <rect width="230" height="210" rx="18" fill="#E9F4F1" stroke="#25221F" stroke-width="1.5"/>
+    <text x="26" y="44" fill="#25221F" font-family="Arial, PingFang SC, sans-serif" font-size="22" font-weight="700">弱输入</text>
+    <text x="26" y="82" fill="#39342F" font-family="Arial, PingFang SC, sans-serif" font-size="16">“做个头像”</text>
+    <text x="26" y="112" fill="#39342F" font-family="Arial, PingFang SC, sans-serif" font-size="16">“想要小红书封面”</text>
+    <text x="26" y="142" fill="#39342F" font-family="Arial, PingFang SC, sans-serif" font-size="16">“把概念做高级点”</text>
+    <text x="26" y="178" fill="#6D5F53" font-family="Arial, PingFang SC, sans-serif" font-size="14">支持无点子、修 prompt、评测</text>
+  </g>
+
+  <path d="M330 285H406" stroke="#25221F" stroke-width="3" stroke-linecap="round"/>
+  <path d="M394 272L408 285L394 298" stroke="#25221F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g transform="translate(430 180)">
+    <rect width="300" height="210" rx="18" fill="#FFF1CE" stroke="#25221F" stroke-width="1.5"/>
+    <text x="26" y="44" fill="#25221F" font-family="Arial, PingFang SC, sans-serif" font-size="22" font-weight="700">导演式 brief</text>
+    <text x="26" y="80" fill="#39342F" font-family="Arial, PingFang SC, sans-serif" font-size="16">角色定位 + 反定义</text>
+    <text x="26" y="110" fill="#39342F" font-family="Arial, PingFang SC, sans-serif" font-size="16">内容策划 + 视觉系统</text>
+    <text x="26" y="140" fill="#39342F" font-family="Arial, PingFang SC, sans-serif" font-size="16">构图、层级、阅读路径</text>
+    <text x="26" y="170" fill="#39342F" font-family="Arial, PingFang SC, sans-serif" font-size="16">输出规格 + 自检</text>
+  </g>
+
+  <path d="M760 285H836" stroke="#25221F" stroke-width="3" stroke-linecap="round"/>
+  <path d="M824 272L838 285L824 298" stroke="#25221F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g transform="translate(860 180)">
+    <rect width="230" height="210" rx="18" fill="#EDE8FF" stroke="#25221F" stroke-width="1.5"/>
+    <text x="26" y="44" fill="#25221F" font-family="Arial, PingFang SC, sans-serif" font-size="22" font-weight="700">生成前门禁</text>
+    <text x="26" y="82" fill="#39342F" font-family="Arial, PingFang SC, sans-serif" font-size="16">40 个 benchmark</text>
+    <text x="26" y="112" fill="#39342F" font-family="Arial, PingFang SC, sans-serif" font-size="16">hard gates 防跑偏</text>
+    <text x="26" y="142" fill="#39342F" font-family="Arial, PingFang SC, sans-serif" font-size="16">80+ 才建议生图</text>
+    <text x="26" y="178" fill="#635A75" font-family="Arial, PingFang SC, sans-serif" font-size="14">头像、小红书、海报、产品图</text>
+  </g>
+
+  <rect x="72" y="426" width="1018" height="1.5" fill="#25221F" opacity="0.12"/>
+  <text x="72" y="456" fill="#665F58" font-family="Arial, PingFang SC, sans-serif" font-size="16">README 示例图是流程示意，不代表真实 GPT image2 输出；真实输出质量仍取决于最终模型和输入素材。</text>
+</svg>
