@@ -1,0 +1,5 @@
+# repo-map 的机器级配置与缓存含个人邮箱、内部域名、本地仓库清单，绝不入库
+repo-map.config.json
+repo-map-cache.json
+*.jsonl
+.serena/
