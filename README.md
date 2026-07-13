@@ -10,6 +10,7 @@
 | --- | --- | --- | --- |
 | [gpt-image2-prompt-director](./gpt-image2-prompt-director/) | GPT image2 提示词导演，把弱点子升级成可生图、可评测的创意 brief | 做头像、表情包、信息图、平台封面、海报、产品图，或修复跑偏 prompt | `$gpt-image2-prompt-director` |
 | [harness](./harness/) | Harness Engineering 最小实践，用 Inspector、Worker、Reviewer 推动代码仓库持续改进 | 想让 Agent 自动巡检、拆任务、修复、复审并维护 TODO.md 看板 | `/harness` |
+| [repo-map](./repo-map/) | 本地仓库地图：扫描全部本地 git 仓库生成增量自愈索引，提到仓库名自动注入路径与读写角色 | 本地多仓库开发，跨仓库引用/修改时 AI 总要你手贴路径 | `仓库地图` / `repo-map` |
 | [wechat-article-md-local](./wechat-article-md-local/) | 微信公众号文章下载为本地 Markdown，图片自动本地化 | 收到公众号文章链接，需要存档、分析或引用 | (收到 mp.weixin.qq.com 链接自动触发) |
 | [x-article-download](./x-article-download/) | X/Twitter 内容下载，支持单条推文和整账号批量 | 收到 X 推文/账号链接，需要存档或分析 | (收到 x.com 链接自动触发) |
 | [xiaohongshu-downloader](./xiaohongshu-downloader/) | 小红书视频下载 + Whisper 口播转录为 Markdown 逐字稿 | 收到小红书视频链接，需要分析或翻译口播内容 | (收到 xiaohongshu.com/xhslink.com 链接自动触发) |
@@ -23,6 +24,8 @@ git clone https://github.com/hanzhangzzz/my-skill.git
 cd my-skill
 cp -r gpt-image2-prompt-director ~/.codex/skills/
 cp -r harness ~/.codex/skills/
+# repo-map 的自动注入依赖 Claude Code 的 UserPromptSubmit hook；Codex 侧仅 resolve 命令可用
+cp -r repo-map ~/.codex/skills/
 cp -r wechat-article-md-local ~/.codex/skills/
 cp -r x-article-download ~/.codex/skills/
 cp -r xiaohongshu-downloader ~/.codex/skills/
@@ -35,6 +38,7 @@ git clone https://github.com/hanzhangzzz/my-skill.git
 cd my-skill
 cp -r gpt-image2-prompt-director ~/.claude/skills/
 cp -r harness ~/.claude/skills/
+cp -r repo-map ~/.claude/skills/
 cp -r wechat-article-md-local ~/.claude/skills/
 cp -r x-article-download ~/.claude/skills/
 cp -r xiaohongshu-downloader ~/.claude/skills/
@@ -55,6 +59,14 @@ cp -r xiaohongshu-downloader ~/.claude/skills/
 ```text
 安装 skill：harness
 描述：三角色 AI 自治循环系统，包含 Inspector、Worker、Reviewer，通过 TODO.md 共享看板驱动持续改进
+安装源：https://github.com/hanzhangzzz/my-skill
+```
+
+或：
+
+```text
+安装 skill：repo-map
+描述：本地仓库地图（全局项目自动索引），扫描本地全部 git 仓库生成增量自愈索引，提到仓库名自动注入路径与读写角色；安装后 skill 会引导完成扫描根探测、身份选择与 hook 注册
 安装源：https://github.com/hanzhangzzz/my-skill
 ```
 

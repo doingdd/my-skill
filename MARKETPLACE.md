@@ -43,6 +43,22 @@ registry: https://github.com/hanzhangzzz/my-skill
 }
 ```
 
+### repo-map
+
+```json
+{
+  "name": "repo-map",
+  "version": "1.0.0",
+  "description": "本地仓库地图（全局项目自动索引）：扫描本地全部 git 仓库生成增量自愈缓存，UserPromptSubmit hook 在用户提到仓库名时自动注入路径与读写角色，跨仓库引用不再手贴路径；关联关系按'宁可漏掉，不能沉淀错'选择性沉淀",
+  "trigger": "仓库地图 / repo-map",
+  "keywords": ["repo-map", "仓库地图", "跨仓库", "multi-repo", "索引", "hook", "registry"],
+  "compatibility": "Claude Code（完整体验）；Codex 仅 resolve 命令，无 hook 自动注入",
+  "install_path": "repo-map/",
+  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "license": "MIT"
+}
+```
+
 ### wechat-article-md-local
 
 ```json
