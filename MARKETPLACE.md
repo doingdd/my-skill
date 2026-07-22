@@ -107,6 +107,22 @@ registry: https://github.com/hanzhangzzz/my-skill
 }
 ```
 
+### md2view
+
+```json
+{
+  "name": "md2view",
+  "version": "1.0.0",
+  "description": "把 Markdown 重编码成可溯源的人类阅读视图——抽出信息结构换成图/表/dashboard，输出左原文·右重组·滚动同步的单文件 HTML；保真靠建模→制图→视觉校验多环对账。md2html 的继任者。",
+  "trigger": "/md2view",
+  "keywords": ["md2view", "markdown", "信息重组", "information design", "dashboard", "可视化", "双栏阅读", "source map", "溯源", "html"],
+  "compatibility": "Claude Code, Codex",
+  "install_path": "md2view/",
+  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "license": "MIT"
+}
+```
+
 ## 安装指令模板
 
 Agent 可以通过以下方式安装本市场中的 skill：
