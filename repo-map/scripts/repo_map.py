@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""本地 git 仓库地图（repo-map）：扫描、增量缓存、名称解析。
+"""本地 git 仓库地图（repo-map）：扫描、增量缓存、名称解析、定时自愈。
 
 用法:
   repo_map.py scan            强制全量重扫（重新分析所有仓库）
   repo_map.py resolve <词>    解析名称/关键词 → 路径与读写角色（自动增量同步）
   repo_map.py list            列出全部仓库（自动增量同步）
+  repo_map.py sync            静默增量同步 + 重析未成型仓库（供定时任务调用）
+  repo_map.py schedule on [间隔秒]   注册 macOS launchd 定时增量同步（默认 3600s）
+  repo_map.py schedule off           注销定时任务
+  repo_map.py schedule status        查看定时任务状态（未开启时 exit 3）
 
 配置: ~/.claude/repo-map.config.json
   {"scan_roots": ["~/code"], "self_emails": ["you@example.com"],
@@ -15,11 +19,14 @@
   有本人 commit → 自研·可写；无 remote → 本地·可写（不存在上游，谈不上第三方）；
   remote host 在 trusted_hosts → 协作·可写；其余 → 第三方·只读。
 
-新增/删除/移动仓库无需任何维护动作：每次 resolve/list 先做低成本一致性
-检查（find .git 清单 vs 缓存路径集合），只对差集做增量分析与剪枝。
+一致性维护：resolve/list/sync 都先做低成本检查（find .git 清单 vs 缓存路径集合），
+只对差集做增量分析与剪枝。sync 额外重析"未成型仓库"（无 remote 或无提交）——
+刚 git init 的新仓库会被记成本地·可写且无摘要，等它配好远端/首次提交后必须复查。
+不开定时任务时，这套自愈只在用户手动跑 resolve/list 的那一刻发生。
 """
 import json
 import os
+import plistlib
 import re
 import subprocess
 import sys
@@ -31,6 +38,12 @@ CACHE_PATH = Path.home() / '.claude' / 'repo-map-cache.json'
 MAXDEPTH = 6
 SKIP_DIRS = {'node_modules', 'venv', '.venv', 'vendor', '__pycache__',
              'dist', 'build', 'target', 'Library'}
+
+LABEL = 'com.claude-code.repo-map-sync'
+PLIST_PATH = Path.home() / 'Library' / 'LaunchAgents' / f'{LABEL}.plist'
+SYNC_LOG = Path.home() / '.claude' / 'logs' / 'repo-map-sync.log'
+DEFAULT_INTERVAL = 3600
+MIN_INTERVAL = 300
 
 
 def fail(msg):
@@ -139,19 +152,30 @@ def analyze_repo(path, cfg):
     }
 
 
-def sync(cfg, force=False):
+def write_cache(repos):
+    """原子替换：hook 与定时任务并发时，读方绝不会看到半个文件。"""
+    tmp = CACHE_PATH.parent / f'{CACHE_PATH.name}.{os.getpid()}.tmp'
+    tmp.write_text(json.dumps(
+        {'updated': time.strftime('%Y-%m-%d %H:%M:%S'), 'repos': repos},
+        ensure_ascii=False, indent=1))
+    os.replace(tmp, CACHE_PATH)
+
+
+def sync(cfg, force=False, recheck_unsettled=False):
     old = (json.loads(CACHE_PATH.read_text()).get('repos', {})
            if CACHE_PATH.exists() else {})
     current = find_repo_paths(cfg['scan_roots'])
     kept = {} if force else {p: r for p, r in old.items() if p in current}
+    if recheck_unsettled:
+        # 无 remote 或无提交 = 仓库还没定型，重析一次（成本仅几个仓库）
+        kept = {p: r for p, r in kept.items()
+                if r.get('remote') and r.get('last_active')}
     fresh = {p: analyze_repo(p, cfg)
              for p in sorted(current - set(kept))}
     repos = {**kept, **fresh}
     removed = sorted(set(old) - current)
     if fresh or removed or force or not CACHE_PATH.exists():
-        CACHE_PATH.write_text(json.dumps(
-            {'updated': time.strftime('%Y-%m-%d %H:%M:%S'), 'repos': repos},
-            ensure_ascii=False, indent=1))
+        write_cache(repos)
     return repos, len(fresh), len(removed)
 
 
@@ -178,17 +202,126 @@ def cmd_resolve(cfg, keyword):
         print(fmt(r))
 
 
+def cmd_sync(cfg):
+    t0 = time.time()
+    repos, added, removed = sync(cfg, recheck_unsettled=True)
+    print(f'[{time.strftime("%Y-%m-%d %H:%M:%S")}] 增量同步完成: {len(repos)} 个仓库'
+          f'（新增/重析 {added}，剪枝 {removed}），耗时 {time.time() - t0:.1f}s',
+          flush=True)
+
+
+# ---------- 定时任务（macOS launchd）----------
+
+def launchctl(*args):
+    r = subprocess.run(['launchctl', *args], capture_output=True, text=True)
+    return r.returncode, (r.stdout + r.stderr).strip()
+
+
+def require_macos():
+    if sys.platform != 'darwin':
+        fail(f'schedule 仅支持 macOS（launchd），当前平台 {sys.platform}。'
+             '其他平台请用 cron 调用本脚本的 sync 子命令。')
+
+
+def python_bin():
+    """launchd 不继承 shell PATH，也不跑 pyenv 初始化：优先系统自带解释器。"""
+    return '/usr/bin/python3' if Path('/usr/bin/python3').exists() else sys.executable
+
+
+def schedule_on(interval):
+    require_macos()
+    if interval < MIN_INTERVAL:
+        fail(f'间隔 {interval}s 过小（最小 {MIN_INTERVAL}s）；增量同步虽轻，'
+             '也不该每几秒扫一遍磁盘。')
+    SYNC_LOG.parent.mkdir(parents=True, exist_ok=True)
+    PLIST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(PLIST_PATH, 'wb') as f:
+        plistlib.dump({
+            'Label': LABEL,
+            'ProgramArguments': [python_bin(),
+                                 str(Path(__file__).resolve()), 'sync'],
+            'StartInterval': interval,
+            'RunAtLoad': True,
+            'StandardOutPath': str(SYNC_LOG),
+            'StandardErrorPath': str(SYNC_LOG),
+        }, f)
+    domain = f'gui/{os.getuid()}'
+    launchctl('bootout', f'{domain}/{LABEL}')  # 幂等：先卸旧，忽略未加载时的报错
+    code, out = launchctl('bootstrap', domain, str(PLIST_PATH))
+    if code != 0:
+        fail(f'launchctl bootstrap 失败（exit {code}）: {out or "无输出"}')
+    print(f'定时增量同步已开启: 每 {interval}s 一次（RunAtLoad，注册即跑一次）\n'
+          f'  任务: {LABEL}\n  plist: {PLIST_PATH}\n  日志: {SYNC_LOG}')
+
+
+def schedule_off():
+    require_macos()
+    code, out = launchctl('bootout', f'gui/{os.getuid()}/{LABEL}')
+    if code != 0 and 'no such process' not in out.lower():
+        print(f'警告: launchctl bootout 返回 {code}: {out}', file=sys.stderr)
+    existed = PLIST_PATH.exists()
+    if existed:
+        PLIST_PATH.unlink()
+    print('定时增量同步已关闭' + ('' if existed else '（原本未注册）'))
+
+
+def schedule_status():
+    require_macos()
+    code, out = launchctl('print', f'gui/{os.getuid()}/{LABEL}')
+    loaded = code == 0
+    if not loaded and not PLIST_PATH.exists():
+        print('定时增量同步: 未开启')
+        sys.exit(3)
+    interval = re.search(r'run interval\s*=\s*(\d+)', out)
+    state = re.search(r'state\s*=\s*([^\n]+)', out)
+    last = re.search(r'last exit (?:code|status)\s*=\s*(\S+)', out)
+    print(f'定时增量同步: {"已开启" if loaded else "plist 存在但未加载（需重新 on）"}'
+          + (f'，间隔 {interval.group(1)}s' if interval else ''))
+    print(f'  任务: {LABEL}（state={state.group(1) if state else "?"}，'
+          f'last exit={last.group(1) if last else "?"}）')
+    print(f'  plist: {PLIST_PATH}')
+    if CACHE_PATH.exists():
+        c = json.loads(CACHE_PATH.read_text())
+        print(f'  缓存: {c.get("updated", "?")}，{len(c.get("repos", {}))} 个仓库')
+    if SYNC_LOG.exists():
+        tail = SYNC_LOG.read_text(errors='replace').strip().splitlines()[-1:]
+        print(f'  日志: {SYNC_LOG}' + (f'\n    最近: {tail[0]}' if tail else ''))
+    if not loaded:
+        sys.exit(3)
+
+
+def cmd_schedule(argv):
+    action = argv[2] if len(argv) > 2 else ''
+    if action == 'on':
+        try:
+            interval = int(argv[3]) if len(argv) > 3 else DEFAULT_INTERVAL
+        except ValueError:
+            fail(f'间隔必须是整数秒，收到: {argv[3]}')
+        schedule_on(interval)
+    elif action == 'off':
+        schedule_off()
+    elif action == 'status':
+        schedule_status()
+    else:
+        fail('用法: schedule on [间隔秒] | schedule off | schedule status')
+
+
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ('scan', 'resolve', 'list'):
+    if len(sys.argv) < 2 or sys.argv[1] not in (
+            'scan', 'resolve', 'list', 'sync', 'schedule'):
         print(__doc__)
         sys.exit(1)
-    cfg = load_config()
     cmd = sys.argv[1]
+    if cmd == 'schedule':  # 不依赖配置，装/卸定时任务与扫描根无关
+        return cmd_schedule(sys.argv)
+    cfg = load_config()
     if cmd == 'scan':
         t0 = time.time()
         repos, added, removed = sync(cfg, force=True)
         print(f'全量重扫完成: {len(repos)} 个仓库'
               f'（重析 {added}，剪枝 {removed}），耗时 {time.time() - t0:.1f}s')
+    elif cmd == 'sync':
+        cmd_sync(cfg)
     elif cmd == 'resolve':
         if len(sys.argv) < 3:
             fail('用法: resolve <名称或关键词>')
