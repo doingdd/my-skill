@@ -139,6 +139,88 @@ async function collectEdgeHealth(page) {
   }));
 }
 
+async function assertFactInteractions(page) {
+  const factCase = await page.evaluate(() => {
+    const splitIds = el => (el.getAttribute('data-source-blocks') || '').trim().split(/\s+/).filter(Boolean);
+    const facts = [...document.querySelectorAll('#paneR .mv-fact[data-source-blocks]')];
+    if (!facts.length) return null;
+
+    const nodeSourceIds = new Set();
+    document.querySelectorAll('#paneR .mv-node[data-source-blocks]').forEach(node => {
+      splitIds(node).forEach(id => nodeSourceIds.add(id));
+    });
+
+    let factOnly = null;
+    facts.forEach((fact, index) => {
+      if (factOnly) return;
+      const sourceId = splitIds(fact).find(id => !nodeSourceIds.has(id));
+      if (sourceId) factOnly = { index, sourceId };
+    });
+
+    return {
+      first: { index: 0, sourceId: splitIds(facts[0])[0] || null },
+      factOnly,
+    };
+  });
+  if (!factCase) return;
+
+  const fact = page.locator('#paneR .mv-fact[data-source-blocks]').nth(factCase.first.index);
+  await fact.focus();
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(140);
+  const factPinHealth = await fact.evaluate((el, sourceId) => {
+    const source = sourceId ? document.querySelector(`#paneL [data-block-id="${CSS.escape(sourceId)}"]`) : null;
+    return {
+      factPinned: el.classList.contains('is-pinned'),
+      sourceId,
+      sourcePinned: source ? source.classList.contains('is-pinned') : false,
+    };
+  }, factCase.first.sourceId);
+  if (!factPinHealth.factPinned || !factPinHealth.sourcePinned) {
+    throw new Error(`[shot] fact 键盘 Enter 未精确 pin fact 与原文: ${JSON.stringify(factPinHealth)}`);
+  }
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(80);
+  if (await page.locator('.is-pinned').count()) throw new Error('[shot] fact Escape 未清除 pinned 状态');
+
+  if (!factCase.factOnly) return;
+
+  await page.locator('[data-md2view-mode="l"]').click();
+  await page.waitForTimeout(180);
+  await page.evaluate(sourceId => {
+    document.querySelector(`#paneL [data-block-id="${CSS.escape(sourceId)}"]`)?.scrollIntoView({ block: 'center', inline: 'nearest' });
+  }, factCase.factOnly.sourceId);
+  await page.evaluate(sourceId => {
+    const source = document.querySelector(`#paneL [data-block-id="${CSS.escape(sourceId)}"]`);
+    if (!source) throw new Error(`missing source ${sourceId}`);
+    source.click();
+  }, factCase.factOnly.sourceId);
+  await page.waitForTimeout(100);
+  await page.locator('[data-md2view-mode="r"]').click();
+  await page.waitForTimeout(420);
+
+  const factOnly = page.locator('#paneR .mv-fact[data-source-blocks]').nth(factCase.factOnly.index);
+  const factOnlyHealth = await factOnly.evaluate((el, sourceId) => {
+    const pane = document.querySelector('#paneR');
+    const paneRect = pane.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
+    const nodePinned = [...document.querySelectorAll('#paneR .mv-node.is-pinned')].some(node => {
+      return (node.getAttribute('data-source-blocks') || '').trim().split(/\s+/).includes(sourceId);
+    });
+    return {
+      sourceId,
+      factPinned: el.classList.contains('is-pinned'),
+      nodePinned,
+      visible: rect.bottom > paneRect.top && rect.top < paneRect.bottom,
+    };
+  }, factCase.factOnly.sourceId);
+  if (!factOnlyHealth.factPinned || factOnlyHealth.nodePinned || !factOnlyHealth.visible) {
+    throw new Error(`[shot] fact-only 原文映射未精确落到 fact: ${JSON.stringify(factOnlyHealth)}`);
+  }
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(80);
+}
+
 async function runAssertions(page, width) {
   await assertLocator(page, '[data-md2view-split]', '双栏容器');
   await assertLocator(page, '[data-md2view-status]', '状态反馈节点');
@@ -277,6 +359,7 @@ async function runAssertions(page, width) {
     throw new Error(`[shot] 原文单栏 -> 信息重组预定位失败: ${JSON.stringify(reverseRevealHealth)}`);
   }
   await page.keyboard.press('Escape');
+  await assertFactInteractions(page);
   const bothMode = page.locator('[data-md2view-mode="both"]');
   if (await bothMode.isVisible()) await bothMode.click();
   else await page.locator('[data-md2view-mode="r"]').click();
