@@ -16,8 +16,31 @@
 | [x-article-download](./x-article-download/) | X/Twitter 内容下载，支持单条推文和整账号批量 | 收到 X 推文/账号链接，需要存档或分析 | (收到 x.com 链接自动触发) |
 | [xiaohongshu-downloader](./xiaohongshu-downloader/) | 小红书视频下载 + Whisper 口播转录为 Markdown 逐字稿 | 收到小红书视频链接，需要分析或翻译口播内容 | (收到 xiaohongshu.com/xhslink.com 链接自动触发) |
 | [md2view](./md2view/) | 把 Markdown 重编码成可溯源的人类视图（图/表/dashboard），输出左原文·右重组·滚动同步的单文件 HTML | 复盘/报告/规格/长文档要给人读、易吸收、可分享 | `/md2view` |
+| [git-push-guard](./git-push-guard/) | 纯 hook 插件（无 skill）：拦截直推默认分支 master/main，ask 确认放行，支持按仓库路径白名单永久放行 | AI 帮你提交代码时想守住共享分支纪律 | (git push 到 master/main 自动触发；仅 Plugin 安装方式可用) |
 
 ## 安装
+
+### 方式一：Claude Code Plugin（推荐，hook 自动生效）
+
+一个 plugin 只含一个 skill，按需安装、独立启停、跟随仓库更新：
+
+```bash
+# 在 Claude Code 中执行
+/plugin marketplace add hanzhangzzz/my-skill
+
+# 按需安装，装哪个用哪个
+/plugin install repo-tidy@my-skill        # 含 SessionStart 仓库状态注入 hook
+/plugin install repo-map@my-skill         # 含 UserPromptSubmit 仓库地图注入 hook
+/plugin install git-push-guard@my-skill   # 纯 hook：直推 master/main 拦截
+/plugin install md2view@my-skill
+/plugin install harness@my-skill
+/plugin install gpt-image2-prompt-director@my-skill
+/plugin install wechat-article-md-local@my-skill
+/plugin install x-article-download@my-skill
+/plugin install xiaohongshu-downloader@my-skill
+```
+
+带 hook 的 plugin（repo-tidy、repo-map、git-push-guard）装上即生效，**无需手动改 settings.json**；后续用 `/plugin update <name>@my-skill` 跟进更新，`/plugin uninstall` 干净卸载。
 
 ### 复制到 Codex
 
