@@ -140,7 +140,7 @@ grep -r "/Users/" <skill-name>/ || echo "无用户路径 ✓"
 
 #### 7.2 更新 README.md
 
-在 `## Available Skills` 表格中添加一行：
+在 `## 当前 Skills` 表格中添加一行：
 
 ```markdown
 | [<skill-name>](./<skill-name>/) | <描述> | /<skill-name> |

@@ -20,7 +20,7 @@
 
 ## 安装
 
-### 方式一：Claude Code Plugin（推荐，hook 自动生效）
+### Claude Code Plugin 安装（推荐，hook 自动生效）
 
 一个 plugin 只含一个 skill，按需安装、独立启停、跟随仓库更新：
 
