@@ -221,6 +221,46 @@ async function assertFactInteractions(page) {
   await page.waitForTimeout(80);
 }
 
+async function collectDensityMetrics(page, width) {
+  const originalMode = await page.locator('[data-md2view-split]').getAttribute('data-layout') || 'both';
+  await page.evaluate(() => window.setMode && window.setMode('r'));
+  await page.waitForTimeout(180);
+  const views = await page.$$eval('#paneR section.view', (sections, viewportWidth) => {
+    const pane = document.querySelector('#paneR');
+    const viewportHeight = pane ? pane.clientHeight : window.innerHeight;
+    const round = (value, digits = 2) => Number(value.toFixed(digits));
+    return sections.map((view, index) => {
+      const flow = view.querySelector('[data-flow]');
+      const nodes = [...view.querySelectorAll('.mv-node')].filter(el => el.offsetParent);
+      const facts = [...view.querySelectorAll('.mv-fact')].filter(el => el.offsetParent);
+      const flowRect = flow && flow.getBoundingClientRect();
+      const nonOverlappingFacts = facts.filter(fact => !fact.closest('.mv-node'));
+      const contentArea = [...nodes, ...nonOverlappingFacts].reduce((sum, el) => {
+        const rect = el.getBoundingClientRect();
+        return sum + rect.width * rect.height;
+      }, 0);
+      const flowArea = flowRect ? flowRect.width * flowRect.height : 0;
+      const units = nodes.length + facts.length;
+      const viewHeight = view.getBoundingClientRect().height;
+      return {
+        width: viewportWidth,
+        id: view.id || `view-${index + 1}`,
+        nodes: nodes.length,
+        facts: facts.length,
+        units,
+        viewHeight: Math.round(viewHeight),
+        flowHeight: flowRect ? Math.round(flowRect.height) : 0,
+        viewportRatio: viewportHeight ? round(viewHeight / viewportHeight) : 0,
+        contentAreaRatio: flowArea ? round(contentArea / flowArea) : 0,
+        unitsPerViewport: viewHeight ? round(units * viewportHeight / viewHeight, 1) : 0,
+      };
+    });
+  }, width);
+  await page.evaluate(mode => window.setMode && window.setMode(mode), originalMode);
+  await page.waitForTimeout(120);
+  return views;
+}
+
 async function runAssertions(page, width) {
   await assertLocator(page, '[data-md2view-split]', '双栏容器');
   await assertLocator(page, '[data-md2view-status]', '状态反馈节点');
@@ -446,6 +486,7 @@ async function preparePage(page, html) {
   const browser = await chromium.launch();
   const failures = [];
   const warnings = [];
+  const densityReports = [];
 
   try {
     for (const width of cfg.viewports) {
@@ -463,6 +504,19 @@ async function preparePage(page, html) {
         await preparePage(page, cfg.html);
         if (cfg.assertions) await runAssertions(page, width);
         if (pageErrors.length) throw new Error(`[shot] 页面错误: ${pageErrors.join(' | ')}`);
+        if (cfg.assertions) {
+          const metrics = await collectDensityMetrics(page, width);
+          densityReports.push(...metrics);
+          metrics.forEach(metric => {
+            const ordinary = metric.nodes <= 8 && metric.facts <= 6;
+            if (ordinary && metric.viewportRatio > 0.85) {
+              warnings.push(`[shot] ${width}px ${metric.id} 超过 0.85 内容视口: ${metric.viewportRatio}`);
+            }
+            if (metric.units >= 4 && metric.contentAreaRatio < 0.28) {
+              warnings.push(`[shot] ${width}px ${metric.id} 主体内容面积偏低: ${(metric.contentAreaRatio * 100).toFixed(0)}%`);
+            }
+          });
+        }
 
         await page.screenshot({ path: path.join(cfg.outDir, `full-${width}.png`), fullPage: true });
         for (const sel of cfg.selectors) {
@@ -486,6 +540,11 @@ async function preparePage(page, html) {
     await browser.close();
   }
 
+  for (const metric of densityReports) {
+    console.log(`[shot] density ${metric.width}px ${metric.id}: ${metric.nodes}+${metric.facts} units, ` +
+      `${metric.viewportRatio} viewport, ${(metric.contentAreaRatio * 100).toFixed(0)}% content-area, ` +
+      `${metric.unitsPerViewport} units/viewport`);
+  }
   for (const warning of warnings) console.warn(warning);
   if (failures.length) {
     console.error('[shot] 回归失败:');

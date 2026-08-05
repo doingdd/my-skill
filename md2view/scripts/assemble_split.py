@@ -191,37 +191,72 @@ def validate_fragment(fragment, view, source_ids):
     parser = FragmentContract(source_ids)
     parser.feed(fragment)
     if not parser.has_flow:
-        if parser.problems:
-            raise ValueError('%s fragment 合同失败:\n- %s' % (view['id'], '\n- '.join(parser.problems)))
-        return
-    expected_nodes = {element['id'] for element in view.get('elements', [])}
-    actual_nodes = {node for flow in parser.flows for node in flow['nodes']}
-    missing_nodes = sorted(expected_nodes - actual_nodes)
-    extra_nodes = sorted(actual_nodes - expected_nodes)
+        parser.problems.append('fragment v2 缺少 data-flow 语义作用域')
+        raise ValueError('%s fragment 合同失败:\n- %s' % (view['id'], '\n- '.join(parser.problems)))
+    expected_nodes = {}
+    for element in view.get('elements', []):
+        node_id = element.get('id')
+        if not node_id:
+            parser.problems.append('views.json element 缺少 id')
+            continue
+        if node_id in expected_nodes:
+            parser.problems.append('views.json 重复 element id: %s' % node_id)
+        sources = element.get('sourceBlockIds', [])
+        if not sources:
+            parser.problems.append('%s 缺少 sourceBlockIds' % node_id)
+        unknown = [bid for bid in sources if bid not in source_ids]
+        if unknown:
+            parser.problems.append('%s 引用了不存在的源块: %s' % (node_id, ', '.join(unknown)))
+        expected_nodes[node_id] = set(sources)
+    actual_node_items = [(node, set(sources)) for flow in parser.flows for node, sources in flow['nodes'].items()]
+    actual_nodes = {node: sources for node, sources in actual_node_items}
+    duplicate_nodes = sorted(node for node in actual_nodes if sum(1 for key, _ in actual_node_items if key == node) > 1)
+    if duplicate_nodes:
+        parser.problems.append('跨 data-flow 重复 data-node-id: %s' % ', '.join(duplicate_nodes))
+    missing_nodes = sorted(set(expected_nodes) - set(actual_nodes))
+    extra_nodes = sorted(set(actual_nodes) - set(expected_nodes))
     if missing_nodes:
         parser.problems.append('缺少 views.json 节点: %s' % ', '.join(missing_nodes))
     if extra_nodes:
         parser.problems.append('出现 views.json 外节点: %s' % ', '.join(extra_nodes))
-    expected_facts = set()
+    for node_id in sorted(set(expected_nodes) & set(actual_nodes)):
+        if expected_nodes[node_id] != actual_nodes[node_id]:
+            parser.problems.append('%s 的 data-source-blocks 与 views.json 不一致: 期望 %s，实际 %s' % (
+                node_id, ' '.join(sorted(expected_nodes[node_id])), ' '.join(sorted(actual_nodes[node_id]))))
+
+    expected_facts = {}
+    scoped_facts = list(view.get('facts', []))
     for element in view.get('elements', []):
-        for fact in element.get('facts', []):
-            fact_id = fact.get('id')
-            if not fact_id:
-                parser.problems.append('%s 的 fact 缺少 id' % element.get('id', 'element'))
-                continue
-            if fact_id in expected_facts:
-                parser.problems.append('views.json 重复 fact id: %s' % fact_id)
-            expected_facts.add(fact_id)
-            unknown = [bid for bid in fact.get('sourceBlockIds', []) if bid not in source_ids]
-            if unknown:
-                parser.problems.append('%s 引用了不存在的源块: %s' % (fact_id, ', '.join(unknown)))
-    actual_facts = {fact for flow in parser.flows for fact in flow['facts']}
-    missing_facts = sorted(expected_facts - actual_facts)
-    extra_facts = sorted(actual_facts - expected_facts)
+        scoped_facts.extend(element.get('facts', []))
+    for fact in scoped_facts:
+        fact_id = fact.get('id')
+        if not fact_id:
+            parser.problems.append('views.json fact 缺少 id')
+            continue
+        if fact_id in expected_facts:
+            parser.problems.append('views.json 重复 fact id: %s' % fact_id)
+        sources = fact.get('sourceBlockIds', [])
+        if not sources:
+            parser.problems.append('%s 缺少 sourceBlockIds' % fact_id)
+        unknown = [bid for bid in sources if bid not in source_ids]
+        if unknown:
+            parser.problems.append('%s 引用了不存在的源块: %s' % (fact_id, ', '.join(unknown)))
+        expected_facts[fact_id] = set(sources)
+    actual_fact_items = [(fact, set(sources)) for flow in parser.flows for fact, sources in flow['facts'].items()]
+    actual_facts = {fact: sources for fact, sources in actual_fact_items}
+    duplicate_facts = sorted(fact for fact in actual_facts if sum(1 for key, _ in actual_fact_items if key == fact) > 1)
+    if duplicate_facts:
+        parser.problems.append('跨 data-flow 重复 data-fact-id: %s' % ', '.join(duplicate_facts))
+    missing_facts = sorted(set(expected_facts) - set(actual_facts))
+    extra_facts = sorted(set(actual_facts) - set(expected_facts))
     if missing_facts:
         parser.problems.append('缺少 views.json facts: %s' % ', '.join(missing_facts))
     if extra_facts:
         parser.problems.append('出现 views.json 外 facts: %s' % ', '.join(extra_facts))
+    for fact_id in sorted(set(expected_facts) & set(actual_facts)):
+        if expected_facts[fact_id] != actual_facts[fact_id]:
+            parser.problems.append('%s 的 data-source-blocks 与 views.json 不一致: 期望 %s，实际 %s' % (
+                fact_id, ' '.join(sorted(expected_facts[fact_id])), ' '.join(sorted(actual_facts[fact_id]))))
     expected_edges = {(edge['from'], edge['to']) for edge in view.get('relations', [])}
     actual_edges = {edge for flow in parser.flows for edge in flow['edges']}
     missing_edges = sorted(expected_edges - actual_edges)
@@ -308,14 +343,14 @@ section.view .compressed-out{font-size:11px;color:var(--muted);margin-top:9px;pa
 .mv-node:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--border));box-shadow:0 10px 24px rgba(44,34,24,.11)}
 .mv-node:active{box-shadow:0 3px 10px rgba(44,34,24,.09)}
 .mv-node[data-tone=good]::before{background:var(--good)}.mv-node[data-tone=warn]::before{background:var(--warn)}
-.mv-node-title{margin:0;min-width:0;font:700 13px/1.28 var(--sans);letter-spacing:-.01em;white-space:nowrap}.mv-node-detail{margin:0;min-width:0;color:var(--muted);font-size:11px;line-height:1.35}
+.mv-node-title{margin:0;min-width:0;font:700 13px/1.28 var(--sans);letter-spacing:-.01em;white-space:nowrap}.mv-node-detail{margin:0;min-width:0;color:var(--muted);font-size:11px;line-height:1.35;overflow-wrap:anywhere}
 .mv-node-meta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
 .mv-node-meta span{display:inline-flex;align-items:center;min-height:17px;padding:1px 6px;border-radius:999px;background:var(--accent-soft);color:var(--accent-strong);font:600 9.5px/1.2 var(--mono)}
-.mv-fact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:7px;margin:9px 0 0}
+.mv-fact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:7px;margin:9px 0 0}
 .mv-fact{min-width:0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--border) 84%,transparent);border-radius:8px;background:color-mix(in srgb,var(--surface) 90%,transparent);cursor:pointer;transition:background 140ms,border-color 140ms,box-shadow 140ms}
 .mv-fact:hover{border-color:color-mix(in srgb,var(--accent) 42%,var(--border));box-shadow:0 5px 14px rgba(44,34,24,.07)}
-.mv-fact strong{display:block;margin:0 0 2px;color:var(--text);font:700 11.5px/1.25 var(--sans)}
-.mv-fact span{display:block;color:var(--muted);font-size:10.5px;line-height:1.35}
+.mv-fact-label,.mv-fact>strong{display:block;margin:0 0 2px;color:var(--text);font:700 11.5px/1.25 var(--sans)}
+.mv-fact-value,.mv-fact>span{display:block;color:var(--muted);font-size:10.5px;line-height:1.35;overflow-wrap:anywhere}
 .mv-edge{display:none!important}
 .mv-edge-layer{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;overflow:visible}
 .mv-edge-path{fill:none;stroke:#837a6e;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;opacity:.82;transition:stroke 160ms,stroke-width 160ms,opacity 160ms,stroke-dashoffset 460ms var(--ease)}
@@ -359,6 +394,9 @@ JS = """
     if(!el.matches('button,a,input,select,textarea,[tabindex]'))el.tabIndex=0;
     if(!el.hasAttribute('role')&&!el.matches('button,a,input,select,textarea'))el.setAttribute('role','button');
     if(!el.hasAttribute('aria-label'))el.setAttribute('aria-label','定位原文：'+(el.getAttribute('data-label')||el.textContent.trim().slice(0,24)));
+  });
+  Object.keys(rIndex).forEach(function(bid){
+    rIndex[bid].sort(function(a,b){var af=a.classList.contains('mv-fact')?0:1,bf=b.classList.contains('mv-fact')?0:1;return af-bf||idsOf(a).length-idsOf(b).length;});
   });
   L.querySelectorAll('[data-block-id]').forEach(function(el){
     var bid=el.getAttribute('data-block-id');lIndex[bid]=el;el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label','定位信息重组：'+bid);
