@@ -26,7 +26,7 @@ python3 $SK/scripts/parse_blocks.py <input.md> blocks.json
 1. **视图必须切过章节结构**。先问自己："这份文档描述的系统 / 该在读者脑中建立的心智模型，是什么图？"把散在多个章节的同类概念聚成一个视图。**若每个视图对应原文一章 = 失败，重来。**
 2. **右栏必须决策完备。** 脱离左栏后仍能回答：发生了什么、为什么重要、条件 / 取舍是什么、下一步如何判断或行动。左栏只承担核证与细节下钻。
 3. **分层压缩，不是删成空壳。** 每视图通常 4–12 个结构节点；`label` ≤ 10 字，`detail` ≤ 40 字。会改变理解或决策的条件、证据、约束、风险、比较维度进入 `facts`，不能塞进 `compressedOut`。
-4. **控制事实粒度。** 一个视图通常 0–9 条事实；`label` ≤ 8 字，`value` ≤ 42 字。跨节点的比较 / 约束放 `view.facts`，只属于某节点的证据放 `element.facts`。事实不得复述节点 `detail`，也不得为了提高计数拆碎同一句话。
+4. **控制事实粒度。** 一个视图通常 0–9 条 `view.facts`；`label` ≤ 8 字，`value` ≤ 42 字。facts 承载跨节点比较、约束、证据和不变项；只属于单个节点的短信息留在该节点 `detail / tags / data`。事实不得复述节点 `detail`，也不得为了提高计数拆碎同一句话。
 5. **所有语义单元都可溯源。** `elements` 与 `facts` 必须带 `sourceBlockIds`；fragment 的映射必须与模型精确一致，不只是引用一个“差不多”的原文块。
 6. **决策 / 对比场景逐维保留。** 方案矩阵、证据矩阵、取舍判断不能只剩 A/B 标签或两条短流程；路径、依赖、风险、故障边界、改动面、测试、成本等所有会改变选择的维度都要进入 `facts`。等价维度可合并，但必须能解释合并依据。
 7. **流程场景保住运行条件。** 主路径放 `elements / relations`；guard、invariant、checkpoint、失败边界放紧凑 `facts`，不要为每个条件再造一张大卡片。
@@ -45,8 +45,7 @@ python3 $SK/scripts/parse_blocks.py <input.md> blocks.json
       "elements": [
         {"id":"e1","label":"≤10字","detail":"≤40字","sourceBlockIds":["b006","b007"],
          "tags":["高依赖","难定位"],
-         "data":{"value":94,"unit":"次","pct":"0.058%"},
-         "facts":[{"id":"f-local","label":"局部证据","value":"只属于 e1 的证据","sourceBlockIds":["b006"]}]}
+         "data":{"value":94,"unit":"次","pct":"0.058%"}}
       ],
       "facts": [
         {"id":"f-global","label":"比较维度","value":"跨节点的条件或取舍","sourceBlockIds":["b010","b012"]}
@@ -84,7 +83,7 @@ fragment v2 把职责切开：**agent 决定信息如何重编码，运行时决
 | `data-flow` | 声明一个独立的流程图作用域；节点 id 和边引用只在此容器内解析。 |
 | `data-layout` | 声明布局意图，例如 `horizontal`、`vertical` 或 `lanes`；运行时可按可用宽度降级重排。 |
 | `data-node-id` | 节点在当前 `data-flow` 内的稳定唯一 id，通常与 `views.json.elements[].id` 一致。 |
-| `data-fact-id` | 事实条在当前视图内的稳定唯一 id，与 `view.facts` / `element.facts` 对应；用于 `.mv-fact` 承载比较维度、条件或证据。 |
+| `data-fact-id` | 事实条在当前视图内的稳定唯一 id，与 `view.facts` 对应；用于 `.mv-fact` 承载比较维度、条件或证据。 |
 | `data-source-blocks` | 空格分隔的源块 id。每个承载事实、判断或数字的内容节点都必须有，用于点击 / 键盘溯源和双栏同步。 |
 | `data-from` / `data-to` | 只声明一条边的起止节点 id；两端必须存在于同一个 `data-flow`。 |
 | `data-kind` / `data-label` | 可选的关系类型和短标签，对应 `relations[].kind` / `label`。 |
@@ -125,6 +124,8 @@ fragment v2 把职责切开：**agent 决定信息如何重编码，运行时决
 ```
 
 `.mv-edge` 是机器可读的关系声明，不是可见线条；组装器会在同一流程容器上生成一层共享 SVG overlay，并依据节点的真实 DOM 边界绘制 `.mv-edge-path`。窗口缩放、分隔条拖动、字体加载或节点尺寸变化后，运行时重新测量并路由，因此 fragment 不保存像素坐标。
+
+节点与 facts 的 DOM 阅读顺序必须分别与 `views.json.elements`、`views.json.facts` 一致；CSS grid area 或 flex order 只改变视觉位置，不能改写屏幕阅读器、键盘和运行时编号所依赖的语义顺序。组装器会拒绝顺序漂移的 fragment。
 
 ### 铁律
 
@@ -180,7 +181,7 @@ node $SK/scripts/shot.js reader.html <out-dir> --viewports=1440,1280,1024,768 "#
 - **响应式**：四个视口都无页面横向溢出；宽屏双栏可用，窄屏单栏切换正确。
 - **双栏调宽**：拖动分隔条即时反馈；方向键可调；双击复位；刷新后恢复上次比例。
 - **模式与溯源**：原文 / 双栏 / 信息重组三种模式可切换；鼠标点击和键盘 Enter / Space 都能锁定映射、定位原文并显示明确选中态，Esc 可清除。
-- **连线连续性**：每个边声明都生成有效 `.mv-edge-path`；端点贴合对应节点，路径非空、无 `NaN`、不越界、不被节点遮成视觉断线；改变栏宽后仍成立。
+- **连线连续性**：每个边声明都生成有效 `.mv-edge-path`；端点贴合对应节点，路径非空、无 `NaN`、不越界、不被节点遮成视觉断线；关系标签不互相重叠、也不压住节点；改变栏宽后仍成立。
 - **视觉与动效**：节点层级、对比度、焦点态清楚；动效不抢阅读焦点，并在 `prefers-reduced-motion` 下关闭非必要过渡。
 - **语义密度**：信息单栏独立阅读能回答“什么 / 为什么 / 条件取舍 / 下一步”；比较视图逐维呈现，流程视图的 guard / invariant / checkpoint 在场；`compressedOut` 不含决策信息。
 - **视觉密度**：检查每视图的 `nodes + facts`、主体高度与装饰性留白；普通视图以 85% 内容视口为目标，超出时先修局部网格或共享 spacing，不删语义。

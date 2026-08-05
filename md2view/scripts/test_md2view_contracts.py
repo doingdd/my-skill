@@ -100,7 +100,7 @@ class FragmentContractFactTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'f1 的 data-source-blocks 与 views\.json 不一致'):
             validate_fragment(fragment, view_with_fact(), SOURCE_IDS)
 
-    def test_accepts_element_scoped_fact(self):
+    def test_rejects_element_scoped_fact(self):
         view = view_with_fact()
         view['facts'] = []
         view['elements'][0]['facts'] = [{
@@ -110,7 +110,8 @@ class FragmentContractFactTests(unittest.TestCase):
             'sourceBlockIds': ['b002'],
         }]
 
-        validate_fragment(valid_fragment(), view, SOURCE_IDS)
+        with self.assertRaisesRegex(ValueError, 'element\.facts；请移到 view\.facts'):
+            validate_fragment(valid_fragment(), view, SOURCE_IDS)
 
     def test_rejects_fact_outside_flow(self):
         fragment = """
@@ -127,6 +128,46 @@ class FragmentContractFactTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, 'fragment v2 缺少 data-flow 语义作用域'):
             validate_fragment(fragment, view_with_fact(), SOURCE_IDS)
+
+    def test_rejects_node_dom_order_that_differs_from_model(self):
+        fragment = valid_fragment().replace(
+            '<div class="mv-node" data-node-id="n1" data-source-blocks="b001">\n'
+            '        <span class="mv-node-title">入口</span>\n'
+            '      </div>',
+            '',
+        ).replace(
+            '<div class="mv-node" data-node-id="n2" data-source-blocks="b003">',
+            '<div class="mv-node" data-node-id="n2" data-source-blocks="b003">',
+        ).replace(
+            '      <span class="mv-edge" data-from="n1" data-to="n2" hidden></span>',
+            '      <div class="mv-node" data-node-id="n1" data-source-blocks="b001">\n'
+            '        <span class="mv-node-title">入口</span>\n'
+            '      </div>\n'
+            '      <span class="mv-edge" data-from="n1" data-to="n2" hidden></span>',
+        )
+
+        with self.assertRaisesRegex(ValueError, '节点 DOM 阅读顺序与 views\.json 不一致'):
+            validate_fragment(fragment, view_with_fact(), SOURCE_IDS)
+
+    def test_rejects_fact_dom_order_that_differs_from_model(self):
+        view = view_with_fact()
+        view['facts'].append({
+            'id': 'f2',
+            'label': '边界',
+            'value': '输出必须可追溯',
+            'sourceBlockIds': ['b003'],
+        })
+        fragment = valid_fragment().replace(
+            '<div class="mv-fact" data-fact-id="f1" data-source-blocks="b002">',
+            '<div class="mv-fact" data-fact-id="f2" data-source-blocks="b003">\n'
+            '        <span class="mv-fact-label">边界</span>\n'
+            '        <span class="mv-fact-value">输出必须可追溯</span>\n'
+            '      </div>\n'
+            '      <div class="mv-fact" data-fact-id="f1" data-source-blocks="b002">',
+        )
+
+        with self.assertRaisesRegex(ValueError, 'facts DOM 阅读顺序与 views\.json 不一致'):
+            validate_fragment(fragment, view, SOURCE_IDS)
 
 
 class SourceMapCoverageTests(unittest.TestCase):

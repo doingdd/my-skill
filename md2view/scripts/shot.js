@@ -139,6 +139,37 @@ async function collectEdgeHealth(page) {
   }));
 }
 
+async function collectEdgeLabelCollisions(page) {
+  return page.$$eval('.mv-edge-label', labels => {
+    const visible = labels.filter(label => (label.textContent || '').trim() && label.getBoundingClientRect().width > 0);
+    const overlaps = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2 &&
+      Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2;
+    const collisions = [];
+    visible.forEach((label, index) => {
+      const rect = label.getBoundingClientRect();
+      for (let otherIndex = index + 1; otherIndex < visible.length; otherIndex += 1) {
+        const other = visible[otherIndex];
+        if (overlaps(rect, other.getBoundingClientRect())) {
+          collisions.push({
+            reason: 'label-label',
+            labels: [(label.textContent || '').trim(), (other.textContent || '').trim()],
+          });
+        }
+      }
+      const flow = label.closest('[data-flow]');
+      const node = flow && [...flow.querySelectorAll('.mv-node')].find(candidate => overlaps(rect, candidate.getBoundingClientRect()));
+      if (node) {
+        collisions.push({
+          reason: 'label-node',
+          label: (label.textContent || '').trim(),
+          node: node.getAttribute('data-node-id') || '',
+        });
+      }
+    });
+    return collisions;
+  });
+}
+
 async function assertFactInteractions(page) {
   const factCase = await page.evaluate(() => {
     const splitIds = el => (el.getAttribute('data-source-blocks') || '').trim().split(/\s+/).filter(Boolean);
@@ -354,11 +385,20 @@ async function runAssertions(page, width) {
   if (!await page.locator('[data-source-blocks].is-pinned').count()) throw new Error('[shot] 点击映射元素后没有出现 pinned 状态');
   const edgeFocus = await mapped.evaluate(el => {
     const flow = el.closest('[data-flow]');
+    const node = el.closest('.mv-node');
+    const nodeId = node && node.getAttribute('data-node-id');
     const active = [...document.querySelectorAll('.mv-edge-path.is-active')];
-    return { active: active.length, outside: active.filter(path => path.closest('[data-flow]') !== flow).length };
+    const incident = flow && nodeId
+      ? [...flow.querySelectorAll('.mv-edge-path')].filter(path => path.dataset.from === nodeId || path.dataset.to === nodeId).length
+      : 0;
+    return {
+      active: active.length,
+      incident,
+      outside: active.filter(path => path.closest('[data-flow]') !== flow).length,
+    };
   });
-  if (!edgeFocus.active || edgeFocus.outside) {
-    throw new Error(`[shot] 连线高亮越过当前 flow: ${JSON.stringify(edgeFocus)}`);
+  if (edgeFocus.active !== edgeFocus.incident || edgeFocus.outside) {
+    throw new Error(`[shot] 连线高亮范围错误: ${JSON.stringify(edgeFocus)}`);
   }
 
   const sourceId = await mapped.evaluate(el => (el.getAttribute('data-source-blocks') || '').trim().split(/\s+/)[0]);
@@ -452,22 +492,32 @@ async function runAssertions(page, width) {
   });
   if (factHealth.problems.length) throw new Error(`[shot] facts 合同失败: ${JSON.stringify(factHealth.problems.slice(0, 4))}`);
 
-  const edgeCount = await assertLocator(page, '.mv-edge-path', '动态连线路径');
-  const edgeHealth = await collectEdgeHealth(page);
-  const broken = edgeHealth.filter(edge => {
-    return !edge.d.trim() ||
-      edge.numberCount < 4 ||
-      !edge.finiteNumbers ||
-      edge.lengthError ||
-      !Number.isFinite(edge.totalLength) ||
-      edge.totalLength <= 0 ||
-      !Number.isFinite(edge.startGap) || edge.startGap > 3 ||
-      !Number.isFinite(edge.endGap) || edge.endGap > 3 ||
-      !edge.withinLayer ||
-      edge.crossesNode;
-  });
-  if (broken.length) {
-    throw new Error(`[shot] ${broken.length}/${edgeCount} 条连线路径无效: ${JSON.stringify(broken.slice(0, 3))}`);
+  const declaredEdgeCount = await page.locator('.mv-edge[data-from][data-to]').count();
+  const edgeCount = await page.locator('.mv-edge-path').count();
+  if (edgeCount !== declaredEdgeCount) {
+    throw new Error(`[shot] 动态连线路径数量与声明不一致: 声明 ${declaredEdgeCount}，路径 ${edgeCount}`);
+  }
+  if (declaredEdgeCount) {
+    const edgeHealth = await collectEdgeHealth(page);
+    const broken = edgeHealth.filter(edge => {
+      return !edge.d.trim() ||
+        edge.numberCount < 4 ||
+        !edge.finiteNumbers ||
+        edge.lengthError ||
+        !Number.isFinite(edge.totalLength) ||
+        edge.totalLength <= 0 ||
+        !Number.isFinite(edge.startGap) || edge.startGap > 3 ||
+        !Number.isFinite(edge.endGap) || edge.endGap > 3 ||
+        !edge.withinLayer ||
+        edge.crossesNode;
+    });
+    if (broken.length) {
+      throw new Error(`[shot] ${broken.length}/${edgeCount} 条连线路径无效: ${JSON.stringify(broken.slice(0, 3))}`);
+    }
+    const labelCollisions = await collectEdgeLabelCollisions(page);
+    if (labelCollisions.length) {
+      throw new Error(`[shot] ${labelCollisions.length} 处连线标签碰撞: ${JSON.stringify(labelCollisions.slice(0, 4))}`);
+    }
   }
 }
 

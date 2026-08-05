@@ -194,6 +194,7 @@ def validate_fragment(fragment, view, source_ids):
         parser.problems.append('fragment v2 缺少 data-flow 语义作用域')
         raise ValueError('%s fragment 合同失败:\n- %s' % (view['id'], '\n- '.join(parser.problems)))
     expected_nodes = {}
+    expected_node_order = []
     for element in view.get('elements', []):
         node_id = element.get('id')
         if not node_id:
@@ -201,6 +202,7 @@ def validate_fragment(fragment, view, source_ids):
             continue
         if node_id in expected_nodes:
             parser.problems.append('views.json 重复 element id: %s' % node_id)
+        expected_node_order.append(node_id)
         sources = element.get('sourceBlockIds', [])
         if not sources:
             parser.problems.append('%s 缺少 sourceBlockIds' % node_id)
@@ -209,6 +211,7 @@ def validate_fragment(fragment, view, source_ids):
             parser.problems.append('%s 引用了不存在的源块: %s' % (node_id, ', '.join(unknown)))
         expected_nodes[node_id] = set(sources)
     actual_node_items = [(node, set(sources)) for flow in parser.flows for node, sources in flow['nodes'].items()]
+    actual_node_order = [node for node, _ in actual_node_items]
     actual_nodes = {node: sources for node, sources in actual_node_items}
     duplicate_nodes = sorted(node for node in actual_nodes if sum(1 for key, _ in actual_node_items if key == node) > 1)
     if duplicate_nodes:
@@ -219,15 +222,20 @@ def validate_fragment(fragment, view, source_ids):
         parser.problems.append('缺少 views.json 节点: %s' % ', '.join(missing_nodes))
     if extra_nodes:
         parser.problems.append('出现 views.json 外节点: %s' % ', '.join(extra_nodes))
+    if not missing_nodes and not extra_nodes and not duplicate_nodes and expected_node_order != actual_node_order:
+        parser.problems.append('节点 DOM 阅读顺序与 views.json 不一致: 期望 %s，实际 %s' % (
+            ' → '.join(expected_node_order), ' → '.join(actual_node_order)))
     for node_id in sorted(set(expected_nodes) & set(actual_nodes)):
         if expected_nodes[node_id] != actual_nodes[node_id]:
             parser.problems.append('%s 的 data-source-blocks 与 views.json 不一致: 期望 %s，实际 %s' % (
                 node_id, ' '.join(sorted(expected_nodes[node_id])), ' '.join(sorted(actual_nodes[node_id]))))
 
     expected_facts = {}
+    expected_fact_order = []
     scoped_facts = list(view.get('facts', []))
     for element in view.get('elements', []):
-        scoped_facts.extend(element.get('facts', []))
+        if element.get('facts'):
+            parser.problems.append('%s 使用了不受支持的 element.facts；请移到 view.facts' % element.get('id', 'element'))
     for fact in scoped_facts:
         fact_id = fact.get('id')
         if not fact_id:
@@ -235,6 +243,7 @@ def validate_fragment(fragment, view, source_ids):
             continue
         if fact_id in expected_facts:
             parser.problems.append('views.json 重复 fact id: %s' % fact_id)
+        expected_fact_order.append(fact_id)
         sources = fact.get('sourceBlockIds', [])
         if not sources:
             parser.problems.append('%s 缺少 sourceBlockIds' % fact_id)
@@ -243,6 +252,7 @@ def validate_fragment(fragment, view, source_ids):
             parser.problems.append('%s 引用了不存在的源块: %s' % (fact_id, ', '.join(unknown)))
         expected_facts[fact_id] = set(sources)
     actual_fact_items = [(fact, set(sources)) for flow in parser.flows for fact, sources in flow['facts'].items()]
+    actual_fact_order = [fact for fact, _ in actual_fact_items]
     actual_facts = {fact: sources for fact, sources in actual_fact_items}
     duplicate_facts = sorted(fact for fact in actual_facts if sum(1 for key, _ in actual_fact_items if key == fact) > 1)
     if duplicate_facts:
@@ -253,6 +263,9 @@ def validate_fragment(fragment, view, source_ids):
         parser.problems.append('缺少 views.json facts: %s' % ', '.join(missing_facts))
     if extra_facts:
         parser.problems.append('出现 views.json 外 facts: %s' % ', '.join(extra_facts))
+    if not missing_facts and not extra_facts and not duplicate_facts and expected_fact_order != actual_fact_order:
+        parser.problems.append('facts DOM 阅读顺序与 views.json 不一致: 期望 %s，实际 %s' % (
+            ' → '.join(expected_fact_order), ' → '.join(actual_fact_order)))
     for fact_id in sorted(set(expected_facts) & set(actual_facts)):
         if expected_facts[fact_id] != actual_facts[fact_id]:
             parser.problems.append('%s 的 data-source-blocks 与 views.json 不一致: 期望 %s，实际 %s' % (

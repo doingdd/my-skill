@@ -69,7 +69,7 @@ cp -r my-skill/md2view ~/.claude/skills/     # Claude Code
 # 或 ~/.codex/skills/ （Codex）
 ```
 
-`scripts/` 里四个 python 脚本零第三方依赖；视觉校验环的 `shot.js` 需要 playwright（可选，有 fallback）。
+`scripts/` 里的 Python 脚本零第三方依赖；视觉校验环的 `shot.js` 必须能加载 `@playwright/test` 或 `playwright`，并安装 Chromium。
 
 ## 用法
 

@@ -23,7 +23,9 @@ description: 把 Markdown 重编码成可溯源的人类阅读视图——不是
 4. **确定性组装** — `scripts/assemble_split.py` 注入共享视觉、响应式双栏、动态连线和溯源交互，产出推荐的自包含单文件 HTML；`assemble_view.py` 保留为不需要动态流程线的单栏溯源输出。
 5. **浏览器校验**（不可省）— 在 1440 / 1280 / 1024 / 768 多视口验证截图、双栏调宽、模式切换、点击溯源、键盘操作、横向溢出和连线连续性；失败后修 fragment 或生成器，再完整回归。
 
-**保真机制**：不是靠某一层不犯错，是靠环与环之间对账——建模的引用/数字错被 fragment 层回源拦截，布局与交互 bug 被浏览器校验拦截。`scripts/coverage.py blocks.json out.html` 机检内容覆盖率 + 关键数字在场。
+**保真机制**：不是靠某一层不犯错，是靠环与环之间对账——建模的引用/数字错被 fragment 层回源拦截，布局与交互 bug 被浏览器校验拦截。`scripts/coverage.py blocks.json out.html` 同时报告全文覆盖、右栏 source-map 投影率和 nodes/facts 计数；全文覆盖不能替代重组完整性。
+
+fragment 的节点与 facts 必须保持模型中的 DOM 阅读顺序；视觉分支和泳道只能通过 CSS 布局表达，不能牺牲键盘顺序、屏幕阅读器顺序或运行时编号。
 
 ## 重组质量下限
 
