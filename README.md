@@ -11,6 +11,7 @@
 | [gpt-image2-prompt-director](./gpt-image2-prompt-director/) | GPT image2 提示词导演，把弱点子升级成可生图、可评测的创意 brief | 做头像、表情包、信息图、平台封面、海报、产品图，或修复跑偏 prompt | `$gpt-image2-prompt-director` |
 | [harness](./harness/) | Harness Engineering 最小实践，用 Inspector、Worker、Reviewer 推动代码仓库持续改进 | 想让 Agent 自动巡检、拆任务、修复、复审并维护 TODO.md 看板 | `/harness` |
 | [repo-map](./repo-map/) | 本地仓库地图：扫描全部本地 git 仓库生成增量自愈索引，提到仓库名自动注入路径与读写角色，可选 macOS launchd 定时同步让新仓库自动进图 | 本地多仓库开发，跨仓库引用/修改时 AI 总要你手贴路径 | `仓库地图` / `repo-map` |
+| [repo-tidy](./repo-tidy/) | 仓库归位与并行任务底座：tidy 清理已合并分支/废弃 worktree 并切回最新 master，`--new` 一条命令归位+开任务分支（主检出被占用时自动建并行 worktree），SessionStart hook 开局注入仓库状态 | 本地多仓库 + AI 多任务并行，任务分支越积越乱，想让每个任务都从最新 master 出发 | `归位` / `repo tidy` / `开新任务` |
 | [wechat-article-md-local](./wechat-article-md-local/) | 微信公众号文章下载为本地 Markdown，图片自动本地化 | 收到公众号文章链接，需要存档、分析或引用 | (收到 mp.weixin.qq.com 链接自动触发) |
 | [x-article-download](./x-article-download/) | X/Twitter 内容下载，支持单条推文和整账号批量 | 收到 X 推文/账号链接，需要存档或分析 | (收到 x.com 链接自动触发) |
 | [xiaohongshu-downloader](./xiaohongshu-downloader/) | 小红书视频下载 + Whisper 口播转录为 Markdown 逐字稿 | 收到小红书视频链接，需要分析或翻译口播内容 | (收到 xiaohongshu.com/xhslink.com 链接自动触发) |
@@ -27,6 +28,8 @@ cp -r gpt-image2-prompt-director ~/.codex/skills/
 cp -r harness ~/.codex/skills/
 # repo-map 的自动注入依赖 Claude Code 的 UserPromptSubmit hook；Codex 侧仅 resolve 命令可用
 cp -r repo-map ~/.codex/skills/
+# repo-tidy 的开局状态注入依赖 Claude Code 的 SessionStart hook（注册方式见 repo-tidy/SKILL.md）；tidy/--new 命令两端可用
+cp -r repo-tidy ~/.codex/skills/
 cp -r wechat-article-md-local ~/.codex/skills/
 cp -r x-article-download ~/.codex/skills/
 cp -r xiaohongshu-downloader ~/.codex/skills/
@@ -41,6 +44,7 @@ cd my-skill
 cp -r gpt-image2-prompt-director ~/.claude/skills/
 cp -r harness ~/.claude/skills/
 cp -r repo-map ~/.claude/skills/
+cp -r repo-tidy ~/.claude/skills/
 cp -r wechat-article-md-local ~/.claude/skills/
 cp -r x-article-download ~/.claude/skills/
 cp -r xiaohongshu-downloader ~/.claude/skills/

@@ -107,6 +107,22 @@ registry: https://github.com/hanzhangzzz/my-skill
 }
 ```
 
+### repo-tidy
+
+```json
+{
+  "name": "repo-tidy",
+  "version": "1.0.0",
+  "description": "仓库归位与并行任务底座：tidy 清理已合并/upstream 消亡分支与废弃 worktree 并切回最新 master；--new 一条命令归位+开新任务分支，主检出被占用时自动建并行 worktree；SessionStart hook 开局注入分支/ahead-behind/脏净状态。安全底线：未推提交/脏工作区/刚切出的空分支只报告不动手。",
+  "trigger": "归位 / repo tidy / 开新任务",
+  "keywords": ["repo-tidy", "git", "worktree", "分支清理", "归位", "并行任务", "master 同步", "branch hygiene"],
+  "compatibility": "Claude Code, Codex（SessionStart hook 仅 Claude Code）",
+  "install_path": "repo-tidy/",
+  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "license": "MIT"
+}
+```
+
 ### md2view
 
 ```json
