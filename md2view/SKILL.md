@@ -19,7 +19,7 @@ description: 把 Markdown 重编码成可溯源的人类阅读视图——不是
 
 1. **块切分**（确定性）`scripts/parse_blocks.py <md> blocks.json` — 切成带 id 的 source blocks。
 2. **语义建模**（模型）→ `views.json` — 抽概念结构，切过章节、压到一屏、每元素带 `sourceBlockIds`、数字逐字准。
-3. **分视图编码**（模型·并行）→ `fragments/<vid>.html` — 每视图一个 agent 输出语义节点、边和布局意图；每个内容节点挂 `data-source-blocks`，制图前回源核对。流程连线只声明 `data-from` / `data-to`，禁止手写绝对坐标 SVG 路径。
+3. **分视图编码**（模型·并行）→ `fragments/<vid>.html` — 每视图一个 agent 输出语义节点、边和布局意图；每个内容节点挂 `data-source-blocks`，制图前回源核对。流程连线只声明 `data-from` / `data-to`，禁止手写绝对坐标 SVG 路径；布局与语义都以信息密度优先，必须保留比较维度、证据点和取舍标签，压掉装饰性大留白、宽松错层和孤立卡片。
 4. **确定性组装** — `scripts/assemble_split.py` 注入共享视觉、响应式双栏、动态连线和溯源交互，产出推荐的自包含单文件 HTML；`assemble_view.py` 保留为不需要动态流程线的单栏溯源输出。
 5. **浏览器校验**（不可省）— 在 1440 / 1280 / 1024 / 768 多视口验证截图、双栏调宽、模式切换、点击溯源、键盘操作、横向溢出和连线连续性；失败后修 fragment 或生成器，再完整回归。
 

@@ -8,9 +8,39 @@ import html as htmllib
 import json
 import re
 import sys
+from html.parser import HTMLParser
 
 MD_SYNTAX = re.compile(r'\[[ xX]\]|[#>*`|_\-\[\]()!]|\d+[.)]\s')
 WS_PUNCT = re.compile(r'[\s，。：；、,.:;·—\-()（）「」“”"\'<>=/\\+*#`|_\[\]{}!?？！]')
+
+
+class SourceMapParser(HTMLParser):
+    """Collect source-map references and semantic element counts."""
+
+    def __init__(self):
+        super().__init__()
+        self.source_ids = set()
+        self.nodes = 0
+        self.facts = 0
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        classes = set((attrs.get('class') or '').split())
+        source_blocks = attrs.get('data-source-blocks')
+        if source_blocks:
+            self.source_ids.update(source_blocks.split())
+        if 'mv-node' in classes:
+            self.nodes += 1
+        if 'mv-fact' in classes:
+            self.facts += 1
+
+
+def html_source_map(path):
+    parser = SourceMapParser()
+    with open(path) as f:
+        parser.feed(f.read())
+    parser.close()
+    return parser
 
 
 def norm(s):
@@ -56,6 +86,7 @@ def block_chunks(block):
 
 def measure(blocks, html_path):
     text = html_text(html_path)
+    source_map = html_source_map(html_path)
     covered, partial, missing = [], [], []
     chunk_total = chunk_hit = 0
     for b in blocks:
@@ -73,6 +104,13 @@ def measure(blocks, html_path):
         else:
             missing.append(b['id'])
     n = len(covered) + len(partial) + len(missing)
+    projection_ids = [
+        b['id'] for b in blocks
+        if b['type'] != 'heading' and block_chunks(b)
+    ]
+    mapped = [block_id for block_id in projection_ids if block_id in source_map.source_ids]
+    unmapped = [block_id for block_id in projection_ids if block_id not in source_map.source_ids]
+    projection_total = len(projection_ids)
     return {
         'html': html_path,
         'blocks_measured': n,
@@ -83,6 +121,12 @@ def measure(blocks, html_path):
         'chunk_coverage': round(chunk_hit / chunk_total * 100, 1),
         'missing_ids': missing,
         'partial_ids': partial,
+        'source_map_measured': projection_total,
+        'source_map_mapped': len(mapped),
+        'source_map_coverage': round(len(mapped) / projection_total * 100, 1) if projection_total else 0.0,
+        'nodes': source_map.nodes,
+        'facts': source_map.facts,
+        'unmapped_ids': unmapped,
     }
 
 
@@ -97,3 +141,8 @@ if __name__ == '__main__':
         print(f"  chunk 覆盖: {r['chunk_coverage']}%")
         if r['missing_ids']:
             print(f"  missing: {' '.join(r['missing_ids'])}")
+        print(f"  source-map 投影: {r['source_map_mapped']}/{r['source_map_measured']} = "
+              f"{r['source_map_coverage']}%")
+        print(f"  nodes/facts: {r['nodes']}/{r['facts']}")
+        if r['unmapped_ids']:
+            print(f"  unmapped: {' '.join(r['unmapped_ids'])}")

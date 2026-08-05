@@ -302,6 +302,33 @@ async function runAssertions(page, width) {
   })).filter(item => item.client > 0 && item.scroll > item.client + 1));
   if (internalOverflow.length) throw new Error(`[shot] ${width}px 内部容器横向溢出: ${JSON.stringify(internalOverflow.slice(0, 4))}`);
 
+  const semanticOverflow = await page.$$eval('.mv-node-title,.mv-node-detail,.mv-node-meta span,.mv-fact strong,.mv-fact span', elements => elements.map(el => ({
+    text: (el.textContent || '').trim().slice(0, 28),
+    className: el.className,
+    client: el.clientWidth,
+    scroll: el.scrollWidth,
+  })).filter(item => item.client > 0 && item.scroll > item.client + 1));
+  if (semanticOverflow.length) throw new Error(`[shot] ${width}px 语义文本溢出: ${JSON.stringify(semanticOverflow.slice(0, 4))}`);
+
+  const factHealth = await page.$$eval('.mv-fact', facts => {
+    const flows = [...document.querySelectorAll('[data-flow]')];
+    const seen = new Set();
+    const problems = [];
+    facts.forEach(fact => {
+      const id = fact.getAttribute('data-fact-id') || '';
+      const source = (fact.getAttribute('data-source-blocks') || '').trim();
+      const flow = fact.closest('[data-flow]');
+      const scope = flow ? flows.indexOf(flow) : -1;
+      const scopedId = `${scope}:${id}`;
+      if (!id) problems.push({ reason: 'missing-id', text: (fact.textContent || '').trim().slice(0, 32) });
+      if (!source) problems.push({ reason: 'missing-source', id });
+      if (id && seen.has(scopedId)) problems.push({ reason: 'duplicate-id', id });
+      if (id) seen.add(scopedId);
+    });
+    return { count: facts.length, problems };
+  });
+  if (factHealth.problems.length) throw new Error(`[shot] facts 合同失败: ${JSON.stringify(factHealth.problems.slice(0, 4))}`);
+
   const edgeCount = await assertLocator(page, '.mv-edge-path', '动态连线路径');
   const edgeHealth = await collectEdgeHealth(page);
   const broken = edgeHealth.filter(edge => {

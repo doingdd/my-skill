@@ -26,10 +26,11 @@ python3 $SK/scripts/parse_blocks.py <input.md> blocks.json
 1. **视图必须切过章节结构**。先问自己："这份文档描述的系统 / 该在读者脑中建立的心智模型，是什么图？"把散在多个章节的同类概念聚成一个视图。**若每个视图对应原文一章 = 失败，重来。**
 2. **每个视图是压缩**：元素 ≤ 12，`label` ≤ 10 字，`detail` ≤ 40 字。
 3. **每个元素带 `sourceBlockIds`**（提炼自哪些块），供下钻。压缩掉的不是丢弃，是没被投影。
-4. **数字场景（dashboard）每元素带 `data`**（数值 / 单位 / 占比），从原文**逐字抄录，禁心算改写**，建模后逐个对照原文自检。
-5. `concept` 从词汇表选或自创：`layers / pipeline / flow / matrix / timeline / graph / tree / quadrant / funnel / trend / distribution / evidence-chain / kpi-strip`。
-6. `relations` 表达元素关系 `{from,to,label,kind}`，`kind ∈ depends/triggers/guards/produces/escalates/contains`。
-7. `coverage_note`：哪些内容**不进**任何视图（运行命令、维护细则等查阅型细节），它们留给全文层 / 左栏。
+4. **决策 / 对比场景保留维度。** 方案矩阵、证据矩阵、取舍判断不能只剩 A/B 标签；必须抽出可比较维度（路径、依赖、风险、边界、测试、成本等）并在 `data` 或元素结构中保留。
+5. **数字场景（dashboard）每元素带 `data`**（数值 / 单位 / 占比），从原文**逐字抄录，禁心算改写**，建模后逐个对照原文自检。
+6. `concept` 从词汇表选或自创：`layers / pipeline / flow / matrix / timeline / graph / tree / quadrant / funnel / trend / distribution / evidence-chain / kpi-strip`。
+7. `relations` 表达元素关系 `{from,to,label,kind}`，`kind ∈ depends/triggers/guards/produces/escalates/contains`。
+8. `coverage_note`：哪些内容**不进**任何视图（运行命令、维护细则等查阅型细节），它们留给全文层 / 左栏。
 
 ### views.json schema
 ```json
@@ -40,7 +41,8 @@ python3 $SK/scripts/parse_blocks.py <input.md> blocks.json
       "id": "v1", "title": "…", "concept": "layers", "insight": "5 秒看懂什么（一句话）",
       "elements": [
         {"id":"e1","label":"≤10字","detail":"≤40字","sourceBlockIds":["b006","b007"],
-         "data":{"value":94,"unit":"次","pct":"0.058%"}}
+         "data":{"value":94,"unit":"次","pct":"0.058%"},
+         "facts":[{"id":"f1","label":"维度","detail":"≤40字","sourceBlockIds":["b006"]}]}
       ],
       "relations": [{"from":"e1","to":"e2","label":"…","kind":"guards"}],
       "compressedOut": "这个视图省略了什么、去哪看"
@@ -70,6 +72,7 @@ fragment v2 把职责切开：**agent 决定信息如何重编码，运行时决
 | `data-flow` | 声明一个独立的流程图作用域；节点 id 和边引用只在此容器内解析。 |
 | `data-layout` | 声明布局意图，例如 `horizontal`、`vertical` 或 `lanes`；运行时可按可用宽度降级重排。 |
 | `data-node-id` | 节点在当前 `data-flow` 内的稳定唯一 id，通常与 `views.json.elements[].id` 一致。 |
+| `data-fact-id` | 可选事实条在当前 `data-flow` 内的稳定唯一 id；用于 `.mv-fact` 承载比较维度或证据点。 |
 | `data-source-blocks` | 空格分隔的源块 id。每个承载事实、判断或数字的内容节点都必须有，用于点击 / 键盘溯源和双栏同步。 |
 | `data-from` / `data-to` | 只声明一条边的起止节点 id；两端必须存在于同一个 `data-flow`。 |
 | `data-kind` / `data-label` | 可选的关系类型和短标签，对应 `relations[].kind` / `label`。 |
@@ -111,6 +114,8 @@ fragment v2 把职责切开：**agent 决定信息如何重编码，运行时决
 4. **禁外部库、外部资源和自带 JS。** 片段保持离线可组装；交互和连线由运行时统一实现。允许少量视图专属 CSS 表达网格区域、顺序或强调层级，但不能重定义共享节点、连线、焦点和动效规则；类名加视图 id 前缀（`v1-…`）避免污染全局。
 5. **制图前回源核对。** 按 `sourceBlockIds` 核对数字 / 事实；发现不存在的块或错误数字，按原文纠正并标注，这是保真的关键拦截点。
 6. **继续压缩。** 图上只放 `label` / `detail` 级短语，不搬原文段落；被省略内容通过左栏和 `compressed-out` 保留访问路径。
+7. **提高语义密度。** 压缩不是删成空壳。每个关键节点优先保留 1-3 个决策相关微事实，可用 `.mv-node-meta` 做短标签；矩阵 / 取舍视图应追加 `.mv-fact-grid` / `.mv-fact[data-fact-id][data-source-blocks]`，把路径、依赖、风险、边界、测试等比较维度做成可溯源事实条。
+8. **控制视觉密度。** 默认把一个视图压进 600px 左右的阅读高度；留白只服务于分组、层级和连线避让。不要用装饰性大间距、过窄节点、松散错层或“每个概念一张孤立卡片”来制造高级感。若为了避让连线必须留空间，应优先扩大节点宽度、压缩 lane padding，再保留必要的路由通道。
 
 ---
 
@@ -155,6 +160,7 @@ node $SK/scripts/shot.js reader.html <out-dir> --viewports=1440,1280,1024,768 "#
 - **模式与溯源**：原文 / 双栏 / 信息重组三种模式可切换；鼠标点击和键盘 Enter / Space 都能锁定映射、定位原文并显示明确选中态，Esc 可清除。
 - **连线连续性**：每个边声明都生成有效 `.mv-edge-path`；端点贴合对应节点，路径非空、无 `NaN`、不越界、不被节点遮成视觉断线；改变栏宽后仍成立。
 - **视觉与动效**：节点层级、对比度、焦点态清楚；动效不抢阅读焦点，并在 `prefers-reduced-motion` 下关闭非必要过渡。
+- **信息密度**：截图中每个视图的核心流程不应像海报一样松散；桌面信息单栏下优先检查视图高度、节点面积占比和装饰性留白，必要时修 fragment 的局部网格或组装器的全局 spacing。
 - **运行健康**：无浏览器 console error / page error；每个 fragment 的 source map 仍可用。
 
 `shot.js` 的 assertions 负责确定性 smoke 检查，截图仍需人工看层级、留白、标签碰撞和线路观感。若问题来自共享布局、连线或交互，应修组装器而不是逐个修生成产物；只有某个视图的语义顺序、分组或局部网格错误时才修对应 fragment。
