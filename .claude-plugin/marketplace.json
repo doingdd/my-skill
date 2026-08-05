@@ -1,0 +1,125 @@
+{
+  "name": "my-skill",
+  "owner": {
+    "name": "hanzhangzzz",
+    "url": "https://github.com/hanzhangzzz/my-skill"
+  },
+  "metadata": {
+    "description": "My Skill Market — 轻量级 Agent Skills 市场，一个 plugin 只含一个 skill，按需安装",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "repo-tidy",
+      "source": "./",
+      "strict": false,
+      "description": "仓库归位与并行任务底座：tidy 清理已合并分支/废弃 worktree 并切回最新 master，--new 一条命令归位+开任务分支；含 SessionStart hook 开局注入仓库状态",
+      "version": "1.0.0",
+      "skills": ["./repo-tidy"],
+      "hooks": {
+        "SessionStart": [
+          {
+            "matcher": "*",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "${CLAUDE_PLUGIN_ROOT}/repo-tidy/scripts/git-repo-status.sh",
+                "timeout": 10
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "repo-map",
+      "source": "./",
+      "strict": false,
+      "description": "本地仓库地图：扫描全部本地 git 仓库生成增量自愈索引；含 UserPromptSubmit hook，提到仓库名自动注入路径与读写角色",
+      "version": "1.0.0",
+      "skills": ["./repo-map"],
+      "hooks": {
+        "UserPromptSubmit": [
+          {
+            "matcher": "*",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3 ${CLAUDE_PLUGIN_ROOT}/repo-map/scripts/prompt_hook.py"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "git-push-guard",
+      "source": "./",
+      "strict": false,
+      "description": "纯 hook 插件：拦截直推默认分支 master/main（ask 询问放行），支持按仓库路径的永久白名单（~/.claude/hooks/push-default-branch-allowlist.txt）",
+      "version": "1.0.0",
+      "hooks": {
+        "PreToolUse": [
+          {
+            "matcher": "Bash",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "${CLAUDE_PLUGIN_ROOT}/git-push-guard/block-push-default-branch.sh",
+                "timeout": 10
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "harness",
+      "source": "./",
+      "strict": false,
+      "description": "Harness Engineering 最小实践：Inspector → Worker → Reviewer 三角色循环，通过 TODO.md 共享看板驱动仓库持续改进",
+      "version": "1.0.0",
+      "skills": ["./harness"]
+    },
+    {
+      "name": "md2view",
+      "source": "./",
+      "strict": false,
+      "description": "把 Markdown 重编码成可溯源的人类阅读视图（图/表/dashboard），输出左原文·右重组·滚动同步的单文件 HTML",
+      "version": "1.0.0",
+      "skills": ["./md2view"]
+    },
+    {
+      "name": "gpt-image2-prompt-director",
+      "source": "./",
+      "strict": false,
+      "description": "GPT image2 提示词导演：把弱点子升级成可生图、可评测的创意 brief",
+      "version": "1.0.0",
+      "skills": ["./gpt-image2-prompt-director"]
+    },
+    {
+      "name": "wechat-article-md-local",
+      "source": "./",
+      "strict": false,
+      "description": "微信公众号文章下载为本地 Markdown，图片自动本地化",
+      "version": "1.0.0",
+      "skills": ["./wechat-article-md-local"]
+    },
+    {
+      "name": "x-article-download",
+      "source": "./",
+      "strict": false,
+      "description": "X/Twitter 内容下载，支持单条推文和整账号批量",
+      "version": "1.0.0",
+      "skills": ["./x-article-download"]
+    },
+    {
+      "name": "xiaohongshu-downloader",
+      "source": "./",
+      "strict": false,
+      "description": "小红书视频下载 + Whisper 口播转录为 Markdown 逐字稿",
+      "version": "1.0.0",
+      "skills": ["./xiaohongshu-downloader"]
+    }
+  ]
+}
