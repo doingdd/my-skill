@@ -57,28 +57,60 @@ python3 $SK/scripts/parse_blocks.py <input.md> blocks.json
 
 ---
 
-## 环 3 · 分视图制图（模型，每视图 1 个 agent，并行）
+## 环 3 · 分视图编码（模型，每视图 1 个 agent，并行）
 
-每个视图派一个制图 agent（**并行**），输入该视图的 views 定义 + `blocks.json`，产出 `fragments/<vid>.html`。
+每个视图派一个 fragment agent（**并行**），输入该视图的 views 定义 + `blocks.json`，产出 `fragments/<vid>.html`。
 
-### 铁律
-1. **手工 SVG / CSS，禁 Mermaid / 外部库 / 外部资源 / 自带 JS。** 图形要真表达概念：分层就画拦截关系、管道就画数据流、漏斗就真收窄、决策就画判定分支。**禁止退化成"卡片罗列"。**
-2. **每个图形元素挂 `data-source-blocks="块id 空格分隔"`**（SVG 元素也支持此属性），可加 `data-label`。全局 JS 靠它做点击下钻 / 双栏同步——**一个都不许漏**。
-3. **制图前按 `sourceBlockIds` 回原文核对**数字 / 事实。发现建模层的错（引用了不存在的块、数字取错），**按原文纠正并在图上标注**——这是保真的关键拦截点。
-4. **反 AI slop**：禁紫渐变 / glass morphism / 千篇一律居中卡片。只用组装器提供的全局 CSS 变量：`--bg --surface --text --muted --accent --accent-soft --border --ink --good --warn --font --sans --mono`。类名加视图 id 前缀（`v1-…`）避免污染全局。
-5. **压缩纪律**：图上只放 `label`/`detail` 级短语，不搬原文段落。
-6. **文字不要用 SVG 绝对坐标硬摆到图形上**（会压斜边 / 重叠）——优先 HTML/CSS 布局让文字在块内，或 SVG 里给足留白。
+fragment v2 把职责切开：**agent 决定信息如何重编码，运行时决定它如何稳定地画出来。** agent 输出节点、边、顺序 / 泳道 / 分组等布局意图；组装器统一负责视觉语言、连线几何、响应式和交互反馈。这样既保留模型的构图能力，也避免每张图重复盲写坐标造成断线和风格漂移。
 
-### 片段格式
+### fragment v2 最小合同
+
+| 标记 | 责任 |
+| --- | --- |
+| `data-flow` | 声明一个独立的流程图作用域；节点 id 和边引用只在此容器内解析。 |
+| `data-layout` | 声明布局意图，例如 `horizontal`、`vertical` 或 `lanes`；运行时可按可用宽度降级重排。 |
+| `data-node-id` | 节点在当前 `data-flow` 内的稳定唯一 id，通常与 `views.json.elements[].id` 一致。 |
+| `data-source-blocks` | 空格分隔的源块 id。每个承载事实、判断或数字的内容节点都必须有，用于点击 / 键盘溯源和双栏同步。 |
+| `data-from` / `data-to` | 只声明一条边的起止节点 id；两端必须存在于同一个 `data-flow`。 |
+| `data-kind` / `data-label` | 可选的关系类型和短标签，对应 `relations[].kind` / `label`。 |
+
+推荐片段：
+
 ```html
 <section class="view" id="v1">
-  <style>/* 类名全部 v1- 前缀 */</style>
-  <h2><span class="n">01</span>标题</h2>
-  <p class="insight">insight 文案</p>
-  <!-- 手工图形，每个元素带 data-source-blocks -->
-  <p class="compressed-out">compressedOut 文案</p>
+  <h2><span class="n">01</span>登录路径</h2>
+  <p class="insight">两条路径在身份建立处汇合</p>
+
+  <div class="mv-flow" data-flow data-layout="horizontal" aria-label="登录路径流程">
+    <article class="mv-node" data-node-id="e1"
+             data-source-blocks="b006 b007" tabindex="0">
+      <span class="mv-node-title">身份输入</span>
+      <span class="mv-node-detail">用户提交已有凭据</span>
+    </article>
+    <article class="mv-node" data-node-id="e2"
+             data-source-blocks="b012" tabindex="0">
+      <span class="mv-node-title">建立会话</span>
+      <span class="mv-node-detail">校验通过后签发会话</span>
+    </article>
+
+    <span class="mv-edge" data-from="e1" data-to="e2"
+          data-kind="guards" data-label="校验" hidden></span>
+  </div>
+
+  <p class="compressed-out">异常细则见左栏原文</p>
 </section>
 ```
+
+`.mv-edge` 是机器可读的关系声明，不是可见线条；组装器会在同一流程容器上生成一层共享 SVG overlay，并依据节点的真实 DOM 边界绘制 `.mv-edge-path`。窗口缩放、分隔条拖动、字体加载或节点尺寸变化后，运行时重新测量并路由，因此 fragment 不保存像素坐标。
+
+### 铁律
+
+1. **图形必须表达概念，不退化成卡片罗列。** 分层要体现拦截关系，流程要体现方向和分支，泳道要体现责任边界；用 DOM 顺序、`data-layout`、分组和关系声明表达构图意图。
+2. **每个内容节点都要可溯源。** `data-source-blocks` 中的 id 必须真实存在于 `blocks.json`；同一事实来自多块时完整列出，不能只挂第一个。
+3. **流程边只写关系，不写坐标。** 禁止 fragment 在 `data-flow` 内使用 SVG `path` / `line` / `polyline`、伪元素或固定像素线段绘制流程连线；否则节点响应式变化后必然断裂。静态图标或不承担节点连接的迷你图形应放在 `data-flow` 外，避免和运行时几何层混用。
+4. **禁外部库、外部资源和自带 JS。** 片段保持离线可组装；交互和连线由运行时统一实现。允许少量视图专属 CSS 表达网格区域、顺序或强调层级，但不能重定义共享节点、连线、焦点和动效规则；类名加视图 id 前缀（`v1-…`）避免污染全局。
+5. **制图前回源核对。** 按 `sourceBlockIds` 核对数字 / 事实；发现不存在的块或错误数字，按原文纠正并标注，这是保真的关键拦截点。
+6. **继续压缩。** 图上只放 `label` / `detail` 级短语，不搬原文段落；被省略内容通过左栏和 `compressed-out` 保留访问路径。
 
 ---
 
@@ -90,39 +122,42 @@ python3 $SK/scripts/parse_blocks.py <input.md> blocks.json
 ```
 python3 $SK/scripts/assemble_split.py blocks.json fragments/ views.json reader.html
 ```
-左栏原文线性渲染（每块 `data-block-id`）＋右栏视图＋顶部三钮（原文 / 双栏 / 信息重组）＋滚动锚定同步＋高亮。
+左栏原文线性渲染（每块 `data-block-id`）＋右栏视图＋顶部三钮（原文 / 双栏 / 信息重组）＋可调宽分隔条＋滚动锚定同步＋动态连线＋点击 / 键盘溯源。
 **同步靠 block id 锚定，不是滚动百分比**——两栏长度不等（右栏压缩后短得多），百分比同步必然错位。这是本 skill 独有、依赖 source map 才做得出的能力。
 
-**单栏概念视图（带点击溯源抽屉）**
+双栏宽度由运行时按视口给出可用默认值，支持拖动、方向键微调、双击复位并记忆比例；窄视口不强行挤压两栏，而是切换成单栏模式。流程连线同样属于运行时：它解析 fragment 的边声明、测量真实节点位置，在一个共享 SVG 层中绘制，并在 `ResizeObserver`、视图切换和分隔条变化后重算。
+
+**单栏概念视图（兼容路径，不需要动态流程线时使用）**
 ```
 python3 $SK/scripts/assemble_view.py views.json fragments/ blocks.json view.html
 ```
 点任何带 `data-source-blocks` 的元素 → 右侧抽屉显示原文块。适合只要重组视图、不需要原文并置的场景。
 
-两种产物都是自包含单文件 HTML，离线可用、可分享。
+两种产物都是自包含单文件 HTML，离线可用、可分享；fragment v2 的动态连线与自适应双栏以 `assemble_split.py` 为准。
 
 ---
 
-## 环 5 · 视觉校验（模型，不可省）
+## 环 5 · 真实浏览器校验（不可省）
 
-SVG 没有布局引擎——制图 agent 在盲写坐标，算得出数值、**看不见渲染**。布局 bug（图文重叠、斜边割字、`path` 缺 `fill:none` 变黑三角、深字压深底、超出 viewBox 被裁）**只有渲染后可见**，无法靠"生成时更小心"消除。
+fragment v2 消除了流程连线的盲写坐标，但不能消除真实浏览器中的布局、字体、事件和响应式问题。最终交付物是 `reader.html`，验收也必须针对它，而不是只检查 fragment 文本或脚本退出码。
 
-**闭环：渲染 → 截图 → 看图验伤 → 定点修 → 回归截图。**
+**闭环：组装 → 多视口渲染 → 交互与几何检查 → 截图验伤 → 修生成器 / fragment → 完整回归。**
 
-截图（skill 自带工具，需 playwright）：
+skill 自带的 `shot.js` 默认在 1440 / 1280 / 1024 / 768 四个宽度截图并运行 smoke assertions（需 playwright）：
 ```
-node $SK/scripts/shot.js reader.html <out-dir> "#v1" "#v2" ...
+node $SK/scripts/shot.js reader.html <out-dir> --viewports=1440,1280,1024,768 "#v1" "#v2" ...
 ```
-逐 section 截图看细节。无 playwright 时可 `npx playwright` 或用 Chrome headless：
-`chrome --headless --screenshot=out.png --window-size=1280,2400 file://<abs-path>`。
 
-**常见 bug 速查**
-- SVG `<path>` 做引导线 / 折线但漏了 `fill:none` → 默认黑填充连成实心三角。
-- 文字用 SVG 绝对坐标压在图形 / 斜边上 → 改 HTML/CSS 布局，文字进块内。
-- 深色背景压深色字 → 对比度不足，改浅色或移出。
-- 元素坐标超出 `viewBox` → 被裁。
+必须覆盖以下验收面：
 
-修复只改出问题的那个 `fragments/<vid>.html`，重跑环 4 组装，重截确认。
+- **响应式**：四个视口都无页面横向溢出；宽屏双栏可用，窄屏单栏切换正确。
+- **双栏调宽**：拖动分隔条即时反馈；方向键可调；双击复位；刷新后恢复上次比例。
+- **模式与溯源**：原文 / 双栏 / 信息重组三种模式可切换；鼠标点击和键盘 Enter / Space 都能锁定映射、定位原文并显示明确选中态，Esc 可清除。
+- **连线连续性**：每个边声明都生成有效 `.mv-edge-path`；端点贴合对应节点，路径非空、无 `NaN`、不越界、不被节点遮成视觉断线；改变栏宽后仍成立。
+- **视觉与动效**：节点层级、对比度、焦点态清楚；动效不抢阅读焦点，并在 `prefers-reduced-motion` 下关闭非必要过渡。
+- **运行健康**：无浏览器 console error / page error；每个 fragment 的 source map 仍可用。
+
+`shot.js` 的 assertions 负责确定性 smoke 检查，截图仍需人工看层级、留白、标签碰撞和线路观感。若问题来自共享布局、连线或交互，应修组装器而不是逐个修生成产物；只有某个视图的语义顺序、分组或局部网格错误时才修对应 fragment。
 
 ---
 
@@ -143,9 +178,13 @@ mkdir work && cd work
 python3 $SK/scripts/parse_blocks.py ../doc.md blocks.json      # 环1
 # 环2：派建模 agent 读 doc.md + blocks.json → 写 views.json
 mkdir fragments
-# 环3：读 views.json，每个 view 派一个制图 agent 并行 → fragments/<vid>.html
+# 环3：读 views.json，每个 view 派一个 fragment agent 并行输出语义 fragment
 python3 $SK/scripts/assemble_split.py blocks.json fragments/ views.json reader.html   # 环4
-node $SK/scripts/shot.js reader.html shots "#v1" "#v2"          # 环5 截图
-# 看图验伤 → 定点修 fragments → 重跑环4 → 重截，直到干净
+node $SK/scripts/shot.js reader.html shots --viewports=1440,1280,1024,768 "#v1" "#v2"  # 环5
+# 看图验伤 + 交互/连线断言 → 修生成器或 fragment → 重跑环4/环5
 python3 $SK/scripts/coverage.py blocks.json reader.html          # 保真机检
 ```
+
+## fragment v2 兼容边界
+
+已经生成的旧 `reader.html` 是自包含快照，不依赖本 skill 的后续版本，仍可离线打开。旧 fragments 没有语义边声明，无法自动获得动态连线、自适应布局和新交互；要获得这些能力，按环 3 重新生成 fragment，再重跑环 4。不要在运行时长期维护“旧手写坐标 + v2 动态连线”双轨兼容层。

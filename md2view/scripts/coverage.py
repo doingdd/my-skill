@@ -9,7 +9,7 @@ import json
 import re
 import sys
 
-MD_SYNTAX = re.compile(r'[#>*`|_\-\[\]()!]|\d+[.)]\s')
+MD_SYNTAX = re.compile(r'\[[ xX]\]|[#>*`|_\-\[\]()!]|\d+[.)]\s')
 WS_PUNCT = re.compile(r'[\s，。：；、,.:;·—\-()（）「」“”"\'<>=/\\+*#`|_\[\]{}!?？！]')
 
 

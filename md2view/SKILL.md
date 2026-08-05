@@ -10,7 +10,7 @@ description: 把 Markdown 重编码成可溯源的人类阅读视图——不是
 ## 定位边界（先划清，别跑偏）
 
 - **不做**：忠实渲染 + 换主题。那是 markdown viewer，市面一堆（mdview、Typora…），不用本 skill。
-- **只做**：信息重编码 + 保真溯源。美学交给驱动模型，本 skill 守的是"真 / 可控"这一维——每个字能回原文、每个数被核对。
+- **只做**：信息重编码 + 保真溯源。模型负责信息结构与构图意图，组装器负责共享视觉、连线几何和交互；每个字能回原文、每个数被核对。
 - 同维度拼"第一眼好看"赢不过美化器；换维度（可信 + 可溯源 + 重编码）才独一份。
 
 ## 五环流水线
@@ -19,11 +19,13 @@ description: 把 Markdown 重编码成可溯源的人类阅读视图——不是
 
 1. **块切分**（确定性）`scripts/parse_blocks.py <md> blocks.json` — 切成带 id 的 source blocks。
 2. **语义建模**（模型）→ `views.json` — 抽概念结构，切过章节、压到一屏、每元素带 `sourceBlockIds`、数字逐字准。
-3. **分视图制图**（模型·并行）→ `fragments/<vid>.html` — 每视图一个 agent，手工 SVG/CSS，禁 Mermaid/外部库，每元素挂 `data-source-blocks`，制图前回源核对。
-4. **确定性组装** — `scripts/assemble_split.py`（双栏同步·推荐）或 `assemble_view.py`（单栏带溯源抽屉）→ 自包含单文件 HTML。
-5. **视觉校验**（模型·不可省）— 截图 → 验伤 → 定点修 → 回归。SVG 无布局引擎，布局 bug 只有渲染后可见。
+3. **分视图编码**（模型·并行）→ `fragments/<vid>.html` — 每视图一个 agent 输出语义节点、边和布局意图；每个内容节点挂 `data-source-blocks`，制图前回源核对。流程连线只声明 `data-from` / `data-to`，禁止手写绝对坐标 SVG 路径。
+4. **确定性组装** — `scripts/assemble_split.py` 注入共享视觉、响应式双栏、动态连线和溯源交互，产出推荐的自包含单文件 HTML；`assemble_view.py` 保留为不需要动态流程线的单栏溯源输出。
+5. **浏览器校验**（不可省）— 在 1440 / 1280 / 1024 / 768 多视口验证截图、双栏调宽、模式切换、点击溯源、键盘操作、横向溢出和连线连续性；失败后修 fragment 或生成器，再完整回归。
 
-**保真机制**：不是靠某一层不犯错，是靠环与环之间对账——建模的引用/数字错被制图层回源拦截，布局 bug 被校验层拦截。`scripts/coverage.py blocks.json out.html` 机检内容覆盖率 + 关键数字在场。
+**保真机制**：不是靠某一层不犯错，是靠环与环之间对账——建模的引用/数字错被 fragment 层回源拦截，布局与交互 bug 被浏览器校验拦截。`scripts/coverage.py blocks.json out.html` 机检内容覆盖率 + 关键数字在场。
+
+**fragment v2 边界**：旧的 `reader.html` 是自包含快照，可继续打开；旧 fragments 需要按 v2 语义合同重新生成，才能获得动态连线、自适应布局和新交互。不维护两套长期兼容逻辑。
 
 ## 判断要不要用它
 

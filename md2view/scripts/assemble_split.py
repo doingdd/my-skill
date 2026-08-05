@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sys
+from html.parser import HTMLParser
 
 
 def esc(s):
@@ -20,6 +21,52 @@ def inline(s):
     s = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', s)
     s = re.sub(r'`([^`]+)`', r'<code>\1</code>', s)
     return s
+
+
+def list_item(text):
+    task = re.match(r'^\[([ xX])\]\s+(.*)$', text)
+    if not task:
+        return inline(text)
+    checked = ' checked' if task.group(1).lower() == 'x' else ''
+    return '<input type="checkbox" disabled%s> %s' % (checked, inline(task.group(2)))
+
+
+def render_list(raw):
+    """Render the indentation hierarchy retained in a parsed Markdown list block."""
+    tokens = []
+    for line in raw.split('\n'):
+        match = re.match(r'^(\s*)([-*+]|\d+[.)])\s+(.*)$', line)
+        if match:
+            tokens.append({
+                'indent': len(match.group(1).expandtabs(4)),
+                'ordered': match.group(2)[0].isdigit(),
+                'text': match.group(3),
+            })
+        elif line.strip() and tokens:
+            tokens[-1]['text'] += ' ' + line.strip()
+
+    def level(index, indent):
+        ordered = tokens[index]['ordered']
+        tag = 'ol' if ordered else 'ul'
+        items = []
+        while index < len(tokens):
+            token = tokens[index]
+            if token['indent'] != indent or token['ordered'] != ordered:
+                break
+            index += 1
+            children = []
+            while index < len(tokens) and tokens[index]['indent'] > indent:
+                child, index = level(index, tokens[index]['indent'])
+                children.append(child)
+            items.append('<li>%s%s</li>' % (list_item(token['text']), ''.join(children)))
+        return '<%s>%s</%s>' % (tag, ''.join(items), tag), index
+
+    rendered = []
+    index = 0
+    while index < len(tokens):
+        part, index = level(index, tokens[index]['indent'])
+        rendered.append(part)
+    return ''.join(rendered)
 
 
 def render_block(b):
@@ -37,16 +84,7 @@ def render_block(b):
         body = re.sub(r'^```[^\n]*\n?|```$', '', raw).rstrip()
         inner = '<pre><code>%s</code></pre>' % esc(body)
     elif t == 'list':
-        ordered = bool(re.match(r'^\s*\d+[.)]', raw))
-        items = []
-        for line in raw.split('\n'):
-            m = re.match(r'^\s*(?:[-*+]|\d+[.)])\s+(.*)$', line)
-            if m:
-                items.append('<li>%s</li>' % inline(m.group(1)))
-            elif line.strip() and items:
-                items[-1] = items[-1][:-5] + ' ' + inline(line.strip()) + '</li>'
-        tag = 'ol' if ordered else 'ul'
-        inner = '<%s>%s</%s>' % (tag, ''.join(items), tag)
+        inner = render_list(raw)
     elif t == 'table':
         rows = []
         for line in raw.split('\n'):
@@ -67,125 +105,395 @@ def render_block(b):
     return '<div class="src-block" data-block-id="%s">%s</div>' % (bid, inner)
 
 
+class FragmentContract(HTMLParser):
+    """Collect fragment-v2 semantics and reject geometry owned by the runtime."""
+
+    def __init__(self, source_ids):
+        super().__init__()
+        self.source_ids = source_ids
+        self.stack = []
+        self.flow_stack = []
+        self.flows = []
+        self.has_flow = False
+        self.problems = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        classes = set(attrs.get('class', '').split())
+        starts_flow = 'data-flow' in attrs
+        if starts_flow:
+            self.has_flow = True
+            flow = {'nodes': {}, 'edges': [], 'layout': attrs.get('data-layout')}
+            self.flows.append(flow)
+            self.flow_stack.append(flow)
+            if not flow['layout']:
+                self.problems.append('data-flow 缺少 data-layout')
+        in_flow = bool(self.flow_stack)
+        flow = self.flow_stack[-1] if self.flow_stack else None
+        if tag not in {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'}:
+            self.stack.append((tag, starts_flow))
+        if tag == 'script':
+            self.problems.append('fragment 不得自带 script')
+        if in_flow and tag in {'path', 'line', 'polyline'}:
+            self.problems.append('data-flow 内不得手写 <%s> 连线' % tag)
+        if 'mv-node' in classes:
+            node_id = attrs.get('data-node-id')
+            source = attrs.get('data-source-blocks', '').split()
+            if not flow:
+                self.problems.append('mv-node 必须位于 data-flow 内')
+            if not node_id:
+                self.problems.append('mv-node 缺少 data-node-id')
+            elif flow and node_id in flow['nodes']:
+                self.problems.append('重复 data-node-id: %s' % node_id)
+            elif flow:
+                flow['nodes'][node_id] = source
+            if not source:
+                self.problems.append('%s 缺少 data-source-blocks' % (node_id or 'mv-node'))
+            unknown = [bid for bid in source if bid not in self.source_ids]
+            if unknown:
+                self.problems.append('%s 引用了不存在的源块: %s' % (node_id or 'mv-node', ', '.join(unknown)))
+        if 'mv-edge' in classes:
+            from_id, to_id = attrs.get('data-from'), attrs.get('data-to')
+            if not flow:
+                self.problems.append('mv-edge 必须位于 data-flow 内')
+            if not from_id or not to_id:
+                self.problems.append('mv-edge 缺少 data-from/data-to')
+            elif flow:
+                flow['edges'].append((from_id, to_id))
+            if 'hidden' not in attrs:
+                self.problems.append('mv-edge 必须 hidden，仅声明关系')
+
+    def handle_endtag(self, tag):
+        while self.stack:
+            open_tag, starts_flow = self.stack.pop()
+            if starts_flow:
+                if self.flow_stack:
+                    self.flow_stack.pop()
+            if open_tag == tag:
+                break
+
+
+def validate_fragment(fragment, view, source_ids):
+    parser = FragmentContract(source_ids)
+    parser.feed(fragment)
+    if not parser.has_flow:
+        if parser.problems:
+            raise ValueError('%s fragment 合同失败:\n- %s' % (view['id'], '\n- '.join(parser.problems)))
+        return
+    expected_nodes = {element['id'] for element in view.get('elements', [])}
+    actual_nodes = {node for flow in parser.flows for node in flow['nodes']}
+    missing_nodes = sorted(expected_nodes - actual_nodes)
+    extra_nodes = sorted(actual_nodes - expected_nodes)
+    if missing_nodes:
+        parser.problems.append('缺少 views.json 节点: %s' % ', '.join(missing_nodes))
+    if extra_nodes:
+        parser.problems.append('出现 views.json 外节点: %s' % ', '.join(extra_nodes))
+    expected_edges = {(edge['from'], edge['to']) for edge in view.get('relations', [])}
+    actual_edges = {edge for flow in parser.flows for edge in flow['edges']}
+    missing_edges = sorted(expected_edges - actual_edges)
+    extra_edges = sorted(actual_edges - expected_edges)
+    if missing_edges:
+        parser.problems.append('缺少 views.json 关系: %s' % ', '.join('%s→%s' % edge for edge in missing_edges))
+    if extra_edges:
+        parser.problems.append('出现 views.json 外关系: %s' % ', '.join('%s→%s' % edge for edge in extra_edges))
+    for index, flow in enumerate(parser.flows, 1):
+        dangling = sorted({node for edge in flow['edges'] for node in edge if node not in flow['nodes']})
+        if dangling:
+            parser.problems.append('第 %d 个 data-flow 的关系引用不存在节点: %s' % (index, ', '.join(dangling)))
+    if parser.problems:
+        raise ValueError('%s fragment v2 合同失败:\n- %s' % (view['id'], '\n- '.join(parser.problems)))
+
+
 CSS = """
-:root{--bg:#faf9f6;--surface:#fff;--text:#1d1a16;--muted:#6f6a61;--accent:#9a4a1f;
---accent-soft:#f3e5da;--border:#e5e0d6;--ink:#211d18;--good:#3d6b4f;--warn:#b45309;
---font:'Source Han Serif SC','Noto Serif CJK SC',Georgia,serif;
---sans:'PingFang SC','Noto Sans CJK SC',-apple-system,sans-serif;
---mono:'SF Mono',ui-monospace,Menlo,monospace}
+:root{--bg:#f3f0e8;--surface:#fffefa;--surface-2:#f8f5ed;--text:#191816;--muted:#716b61;
+--accent:#a2441e;--accent-strong:#773015;--accent-soft:#f2dfd3;--border:#dcd5c8;--ink:#1f2323;
+--good:#37634a;--good-soft:#e2eee6;--warn:#a96716;--warn-soft:#f5ead5;
+--font:'Songti SC','Source Han Serif SC','Noto Serif CJK SC',Georgia,serif;
+--sans:'Avenir Next','PingFang SC','Hiragino Sans GB','Noto Sans CJK SC',sans-serif;
+--mono:'SFMono-Regular','Cascadia Code','Roboto Mono',Menlo,monospace;
+--source-ratio:42%;--header-h:64px;--ease:cubic-bezier(.22,.8,.3,1)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.7}
-header.bar{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;
-border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10}
-header.bar .brand{font-family:var(--font);font-weight:700;font-size:16px}
-header.bar .brand small{font-weight:400;color:var(--muted);font-size:12px;margin-left:10px;font-family:var(--sans)}
-.modes{display:flex;gap:2px;background:var(--accent-soft);border-radius:10px;padding:3px}
-.modes button{border:none;background:none;padding:6px 15px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--muted);font-family:var(--sans)}
-.modes button.on{background:var(--surface);color:var(--accent);font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-#split{display:grid;grid-template-columns:1fr 1fr;height:calc(100vh - 52px)}
-#split.only-l{grid-template-columns:1fr 0}
-#split.only-r{grid-template-columns:0 1fr}
-.pane{overflow-y:auto;height:100%;position:relative;scroll-behavior:auto}
-#paneL{border-right:1px solid var(--border);background:var(--surface)}
+html,body{height:100%;overflow:hidden}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.68}
+button{font:inherit}
+header.bar{height:var(--header-h);display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 20px 0 24px;
+border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(16px);position:relative;z-index:20}
+header.bar .brand{font-family:var(--font);font-weight:700;font-size:17px;letter-spacing:-.015em;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header.bar .brand small{font-weight:500;color:var(--muted);font-size:11px;margin-left:12px;font-family:var(--mono);letter-spacing:.02em}
+.toolbar{display:flex;align-items:center;gap:10px;flex:none}
+.sync-status{min-width:118px;text-align:right;color:var(--muted);font:10.5px/1.3 var(--mono);letter-spacing:.02em;white-space:nowrap}
+.sync-status::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:7px;background:var(--good);box-shadow:0 0 0 3px var(--good-soft);vertical-align:1px}
+.modes{display:flex;gap:2px;background:#e9e4d9;border:1px solid #dfd8cb;border-radius:11px;padding:3px;box-shadow:inset 0 1px 2px rgba(31,25,19,.05)}
+.modes button{min-height:32px;border:0;background:transparent;padding:5px 13px;border-radius:8px;cursor:pointer;font-size:12px;color:var(--muted);transition:color 120ms,background 160ms,box-shadow 160ms,transform 80ms}
+.modes button:hover{color:var(--text)}.modes button:active{transform:translateY(1px)}
+.modes button.on,.modes button[aria-pressed=true]{background:var(--surface);color:var(--accent-strong);font-weight:650;box-shadow:0 1px 5px rgba(37,28,19,.12)}
+.modes button:focus-visible,.splitter:focus-visible,[data-source-blocks]:focus-visible,[data-block-id]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#split{display:grid;grid-template-columns:minmax(320px,var(--source-ratio)) 12px minmax(420px,1fr);height:calc(100vh - var(--header-h));min-width:0;background:var(--surface-2)}
+#split.only-l{grid-template-columns:minmax(0,1fr) 0 0}#split.only-r{grid-template-columns:0 0 minmax(0,1fr)}
+.pane{overflow-y:auto;overflow-x:hidden;height:100%;position:relative;scroll-behavior:auto;min-width:0;overscroll-behavior:contain;scrollbar-gutter:stable}
+#paneL{grid-column:1;background:var(--surface)}#paneR{grid-column:3;background-color:var(--surface-2);background-image:radial-gradient(circle at 1px 1px,rgba(61,51,40,.075) 1px,transparent 0);background-size:22px 22px}
 .only-l #paneR,.only-r #paneL{display:none}
-.pane-tag{position:sticky;top:0;background:linear-gradient(var(--surface),var(--surface) 70%,transparent);
-padding:12px 32px 8px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);z-index:2}
-#paneL .doc{padding:4px 34px 140px;max-width:640px}
-#paneL .doc h1{font-family:var(--font);font-size:26px;margin:18px 0 12px}
-#paneL .doc h2{font-family:var(--font);font-size:20px;margin:26px 0 10px;padding-top:10px;border-top:1px solid var(--border)}
-#paneL .doc h3{font-size:16px;margin:20px 0 8px}
-#paneL .doc p{margin:9px 0}
-#paneL .doc blockquote{border-left:3px solid var(--accent);margin:12px 0;padding:6px 14px;background:var(--accent-soft);color:var(--text);border-radius:0 8px 8px 0}
-#paneL .doc code{font-family:var(--mono);font-size:.85em;background:var(--accent-soft);padding:1px 5px;border-radius:4px}
-#paneL .doc pre{background:var(--ink);color:#e8e2d6;padding:12px 14px;border-radius:8px;overflow-x:auto;font-size:12px}
+.splitter{grid-column:2;position:relative;z-index:12;cursor:col-resize;touch-action:none;background:linear-gradient(90deg,transparent 5px,var(--border) 5px,var(--border) 6px,transparent 6px)}
+.splitter::before{content:'';position:absolute;top:50%;left:3px;width:6px;height:48px;transform:translateY(-50%);border-radius:9px;background:var(--surface);border:1px solid var(--border);box-shadow:0 2px 9px rgba(31,25,19,.13);transition:height 160ms var(--ease),border-color 120ms,background 120ms}
+.splitter::after{content:'⋮';position:absolute;top:50%;left:0;width:12px;transform:translateY(-53%);text-align:center;color:var(--muted);font:16px/1 var(--mono)}
+.splitter:hover::before,.splitter:focus-visible::before,.splitter.is-dragging::before{height:66px;border-color:var(--accent);background:var(--accent-soft)}
+.only-l .splitter,.only-r .splitter{display:none}
+.pane-tag{position:sticky;top:0;display:flex;align-items:center;gap:9px;background:linear-gradient(var(--surface),var(--surface) 72%,transparent);padding:13px 32px 10px;font:10px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);z-index:8}
+#paneR .pane-tag{background:linear-gradient(var(--surface-2),var(--surface-2) 72%,transparent)}
+.pane-tag::before{content:'';width:18px;height:1px;background:currentColor}
+#paneL .doc{padding:2px clamp(24px,4vw,48px) 140px;max-width:760px;margin:0 auto}
+#paneL .doc h1{font-family:var(--font);font-size:clamp(25px,2.4vw,32px);line-height:1.28;margin:20px 0 14px;letter-spacing:-.025em}
+#paneL .doc h2{font-family:var(--font);font-size:21px;line-height:1.35;margin:32px 0 11px;padding-top:13px;border-top:1px solid var(--border)}
+#paneL .doc h3{font-size:16px;margin:22px 0 8px}#paneL .doc p{margin:9px 0}
+#paneL .doc blockquote{border-left:3px solid var(--accent);margin:14px 0;padding:8px 15px;background:var(--accent-soft);color:var(--text);border-radius:0 8px 8px 0}
+#paneL .doc code{font-family:var(--mono);font-size:.84em;background:var(--accent-soft);padding:1px 5px;border-radius:4px}
+#paneL .doc pre{background:var(--ink);color:#eee9df;padding:14px 16px;border-radius:10px;overflow-x:auto;font-size:12px}
 #paneL .doc pre code{background:none;padding:0;color:inherit}
-#paneL .doc table{width:100%;border-collapse:collapse;font-size:12.5px;margin:12px 0;border:1px solid var(--border)}
-#paneL .doc th{background:var(--accent-soft);color:var(--muted);text-align:left;font-size:11px;text-transform:uppercase}
-#paneL .doc th,#paneL .doc td{padding:6px 9px;border-bottom:1px solid var(--border);vertical-align:top}
+#paneL .doc table{width:100%;border-collapse:collapse;font-size:12.5px;margin:14px 0;border:1px solid var(--border)}
+#paneL .doc th{background:var(--accent-soft);color:var(--muted);text-align:left;font-size:10.5px;text-transform:uppercase}
+#paneL .doc th,#paneL .doc td{padding:7px 9px;border-bottom:1px solid var(--border);vertical-align:top}
 #paneL .doc ul,#paneL .doc ol{padding-left:22px}#paneL .doc li{margin:4px 0}
-.src-block{scroll-margin-top:60px;border-radius:8px;transition:background .25s,box-shadow .25s;padding:2px 8px;margin:0 -8px}
-#paneR .doc{padding:8px 34px 140px}
-section.view{margin:0 0 60px;opacity:1;scroll-margin-top:60px}
-section.view>h2{font-family:var(--font);font-size:22px;margin:0 0 4px;display:flex;gap:10px;align-items:baseline}
-section.view>h2 .n{font-family:var(--mono);font-size:11px;color:var(--accent)}
-section.view .insight{color:var(--muted);font-size:13.5px;margin:0 0 18px}
-section.view .compressed-out{font-size:12px;color:var(--muted);margin-top:12px}
-[data-source-blocks]{scroll-margin-top:60px}
-.sync-hi{background:color-mix(in srgb,var(--accent) 12%,transparent)!important;box-shadow:0 0 0 2px var(--accent)!important;border-radius:8px}
-.hint{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:12px;
-padding:7px 16px;border-radius:999px;opacity:.9;z-index:20;pointer-events:none;transition:opacity .5s}
+.src-block{scroll-margin-top:68px;border-radius:8px;transition:background 180ms,box-shadow 180ms,opacity 180ms;padding:2px 8px;margin:0 -8px;cursor:pointer}
+#paneR .doc{padding:10px clamp(22px,3.2vw,48px) 150px;max-width:1180px;margin:0 auto}
+section.view{margin:0 0 76px;scroll-margin-top:66px;opacity:0;transform:translateY(14px);transition:opacity 420ms var(--ease),transform 420ms var(--ease)}
+section.view.in{opacity:1;transform:none}
+section.view>h2{font-family:var(--font);font-size:clamp(22px,2vw,28px);line-height:1.25;margin:0 0 7px;display:flex;gap:11px;align-items:baseline;letter-spacing:-.02em}
+section.view>h2 .n{font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:.12em}
+section.view .insight{color:var(--muted);font-size:13.5px;margin:0 0 19px;max-width:720px}
+section.view .compressed-out{font-size:11.5px;color:var(--muted);margin-top:14px;padding-left:13px;border-left:2px solid var(--border)}
+[data-source-blocks]{scroll-margin-top:68px}
+.mv-flow{position:relative;isolation:isolate;min-width:0;padding:clamp(18px,2.5vw,30px);border:1px solid var(--border);border-radius:18px;background:color-mix(in srgb,var(--surface) 96%,transparent);box-shadow:0 18px 45px rgba(46,37,26,.07);overflow:hidden;container-type:inline-size}
+.mv-flow::before{content:'';position:absolute;inset:0;z-index:-2;background:linear-gradient(115deg,rgba(162,68,30,.035),transparent 38%),linear-gradient(rgba(35,31,25,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(35,31,25,.035) 1px,transparent 1px);background-size:auto,28px 28px,28px 28px;mask-image:linear-gradient(to bottom,#000,transparent 92%)}
+.mv-flow[data-layout=vertical]{display:grid;gap:32px}.mv-flow[data-layout=horizontal]{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(168px,1fr);gap:34px}.mv-flow[data-layout=lanes]{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px}
+.mv-lane{position:relative;z-index:auto;min-width:0;padding:14px;border:1px solid color-mix(in srgb,var(--border) 82%,transparent);border-radius:13px;background:color-mix(in srgb,var(--surface) 84%,transparent)}
+.mv-lane-title{display:flex;align-items:center;gap:8px;margin:0 0 11px;color:var(--muted);font:650 10px/1.2 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.mv-lane-title::before{content:'';width:16px;height:2px;background:var(--accent)}
+.mv-node{appearance:none;position:relative;z-index:3;display:grid;gap:4px;width:100%;min-width:0;padding:13px 15px 13px 17px;border:1px solid #d9d1c3;border-radius:11px;background:var(--surface);color:var(--text);text-align:left;box-shadow:0 5px 14px rgba(44,34,24,.07);cursor:pointer;transition:box-shadow 160ms,border-color 120ms,background 120ms,opacity 220ms var(--ease)}
+.mv-node::before{content:'';position:absolute;left:-1px;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)}
+.mv-node::after{content:attr(data-node-index);position:absolute;right:11px;top:9px;color:#aca397;font:9px/1 var(--mono);letter-spacing:.04em}
+.mv-node:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--border));box-shadow:0 10px 24px rgba(44,34,24,.11)}
+.mv-node:active{box-shadow:0 3px 10px rgba(44,34,24,.09)}
+.mv-node[data-tone=good]::before{background:var(--good)}.mv-node[data-tone=warn]::before{background:var(--warn)}
+.mv-node-title{margin:0;padding-right:24px;font:700 14px/1.35 var(--sans);letter-spacing:-.01em}.mv-node-detail{margin:0;color:var(--muted);font-size:11.5px;line-height:1.5}
+.mv-edge{display:none!important}
+.mv-edge-layer{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;overflow:visible}
+.mv-edge-path{fill:none;stroke:#837a6e;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;opacity:.82;transition:stroke 160ms,stroke-width 160ms,opacity 160ms,stroke-dashoffset 460ms var(--ease)}
+.mv-edge-path[data-kind=guards]{stroke:var(--good)}.mv-edge-path[data-kind=escalates]{stroke:var(--warn)}.mv-edge-path[data-kind=produces]{stroke:var(--accent)}
+.mv-edge-path.is-active{stroke:var(--accent-strong);stroke-width:2.6;opacity:1}.mv-edge-path.is-muted{opacity:.2}
+.mv-edge-label{font:600 9.5px var(--mono);fill:var(--muted);stroke:var(--surface);stroke-width:5px;paint-order:stroke fill;stroke-linejoin:round;text-anchor:middle;dominant-baseline:central;letter-spacing:.02em}
+.mv-edge-label.is-active{fill:var(--accent-strong)}
+.mv-flow:not(.is-ready) .mv-node{opacity:0}
+.mv-flow.is-ready .mv-node{transition-delay:calc(var(--mv-index,0) * 24ms)}
+.sync-hi,.is-preview{background:color-mix(in srgb,var(--accent) 10%,var(--surface))!important;box-shadow:0 0 0 1.5px color-mix(in srgb,var(--accent) 75%,transparent)!important;border-radius:8px}
+.is-pinned{background:color-mix(in srgb,var(--accent) 14%,var(--surface))!important;box-shadow:0 0 0 2px var(--accent)!important;border-radius:8px}
+.mv-node.is-pinned{border-color:var(--accent);box-shadow:0 11px 28px rgba(119,48,21,.16)!important}
+.hint{position:fixed;bottom:16px;left:50%;transform:translate(-50%,8px);background:var(--ink);color:#fffefa;font:11px/1.35 var(--mono);padding:8px 14px;border-radius:999px;opacity:0;z-index:30;pointer-events:none;transition:opacity 220ms,transform 220ms var(--ease);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.hint.show{opacity:.92;transform:translate(-50%,0)}
+@media(max-width:899px){
+  :root{--header-h:58px}header.bar{padding:0 13px 0 16px}.brand small,.sync-status{display:none}.modes button{padding-inline:12px}.modes button[data-md2view-mode=both]{display:none}
+  #split,#split.only-l,#split.only-r{display:grid;grid-template-columns:minmax(0,1fr);height:calc(100vh - var(--header-h))}.splitter{display:none}
+  #split:not(.only-l):not(.only-r) #paneL{display:none}.only-l #paneL,.only-r #paneR{display:block}
+  #paneL,#paneR{grid-column:1;grid-row:1}.pane-tag{padding-inline:20px}#paneL .doc,#paneR .doc{padding-inline:20px}
+}
+@media(max-width:560px){header.bar .brand{max-width:44vw;font-size:14px}.modes button{font-size:11px;padding-inline:10px}.mv-flow{padding:15px;border-radius:14px}}
+@container(max-width:620px){.mv-flow[data-layout=horizontal],.mv-flow[data-layout=lanes]{grid-auto-flow:row;grid-template-columns:minmax(0,1fr);grid-auto-columns:auto}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition-duration:.001ms!important;transition-delay:0ms!important}section.view{opacity:1;transform:none}.mv-flow:not(.is-ready) .mv-node{opacity:1}}
 """
 
 JS = """
 (function(){
+  'use strict';
   var wrap=document.getElementById('split'),L=document.getElementById('paneL'),R=document.getElementById('paneR');
-  var driver=null,lock=false;
+  var separator=document.querySelector('[data-md2view-separator]');
+  var status=document.querySelector('[data-md2view-status]');
+  var hint=document.querySelector('.hint');
+  var compact=window.matchMedia('(max-width:899px)');
+  var reduced=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var driver=null,lock=false,pinned=null,pendingReveal=null,previewed=[],syncEls=[],drawQueued=false;
   var rIndex={},lIndex={};
-  R.querySelectorAll('[data-source-blocks]').forEach(function(el){
-    (el.getAttribute('data-source-blocks')||'').trim().split(/\\s+/).forEach(function(bid){ if(bid&&!rIndex[bid])rIndex[bid]=el; });
+  function idsOf(el){return (el.getAttribute('data-source-blocks')||'').trim().split(/\\s+/).filter(Boolean);}
+  R.querySelectorAll('[data-source-blocks]:not(.mv-edge)').forEach(function(el){
+    idsOf(el).forEach(function(bid){(rIndex[bid]||(rIndex[bid]=[])).push(el);});
+    if(!el.matches('button,a,input,select,textarea,[tabindex]'))el.tabIndex=0;
+    if(!el.hasAttribute('role')&&!el.matches('button,a,input,select,textarea'))el.setAttribute('role','button');
+    if(!el.hasAttribute('aria-label'))el.setAttribute('aria-label','定位原文：'+(el.getAttribute('data-label')||el.textContent.trim().slice(0,24)));
   });
-  L.querySelectorAll('[data-block-id]').forEach(function(el){ lIndex[el.getAttribute('data-block-id')]=el; });
+  L.querySelectorAll('[data-block-id]').forEach(function(el){
+    var bid=el.getAttribute('data-block-id');lIndex[bid]=el;el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label','定位信息重组：'+bid);
+  });
+  function setStatus(text){if(status)status.textContent=text;}
+  function flashHint(text){if(!hint)return;hint.textContent=text;hint.classList.add('show');clearTimeout(flashHint.timer);flashHint.timer=setTimeout(function(){hint.classList.remove('show');},2200);}
+  function storageGet(key){try{return localStorage.getItem(key);}catch(e){return null;}}
+  function storageSet(key,value){try{localStorage.setItem(key,value);}catch(e){}}
   function anchorOf(pane,attr){
-    var mid=pane.getBoundingClientRect().top+pane.clientHeight*0.30,best=null,bd=1e9;
-    pane.querySelectorAll('['+attr+']').forEach(function(el){
-      var r=el.getBoundingClientRect(),d=Math.abs(r.top-mid);
-      if(r.height>0&&d<bd){bd=d;best=el;}
-    });
+    var mid=pane.getBoundingClientRect().top+pane.clientHeight*.30,best=null,bd=1e9;
+    pane.querySelectorAll('['+attr+']').forEach(function(el){var rect=el.getBoundingClientRect(),d=Math.abs(rect.top-mid);if(rect.height>0&&d<bd){bd=d;best=el;}});
     return best;
   }
-  var hiEls=[];
-  function clearHi(){ while(hiEls.length)hiEls.pop().classList.remove('sync-hi'); }
-  function hi(el){ if(el){el.classList.add('sync-hi');hiEls.push(el);} }
-  function align(dst,target,anchor,src){
+  function clearClass(list,name){while(list.length)list.pop().classList.remove(name);}
+  function mark(list,el,name){if(el&&!el.classList.contains(name)){el.classList.add(name);list.push(el);}}
+  function align(dst,target,anchor,src,behavior){
     var aOff=anchor.getBoundingClientRect().top-src.getBoundingClientRect().top;
     var tOff=target.getBoundingClientRect().top-dst.getBoundingClientRect().top+dst.scrollTop;
-    dst.scrollTop=tOff-aOff;
+    dst.scrollTo({top:Math.max(0,tOff-aOff),behavior:behavior||'auto'});
   }
+  function revealTarget(pane,target){
+    if(!pane||!target||getComputedStyle(pane).display==='none')return false;
+    var paneRect=pane.getBoundingClientRect(),targetRect=target.getBoundingClientRect();
+    if(!paneRect.height||!targetRect.height)return false;
+    var top=targetRect.top-paneRect.top+pane.scrollTop-pane.clientHeight*.36;
+    pane.scrollTo({top:Math.max(0,top),behavior:reduced?'auto':'smooth'});return true;
+  }
+  function revealPending(){if(pendingReveal&&revealTarget(pendingReveal.pane,pendingReveal.target))pendingReveal=null;}
+  function queueReveal(pane,target){pendingReveal={pane:pane,target:target};requestAnimationFrame(function(){requestAnimationFrame(revealPending);});}
   function sync(from){
-    if(lock)return; lock=true; clearHi();
+    if(lock||pinned||compact.matches)return;lock=true;clearClass(syncEls,'sync-hi');
     if(from==='L'){
-      var a=anchorOf(L,'data-block-id');
-      if(a){var t=rIndex[a.getAttribute('data-block-id')]; if(t){align(R,t,a,L);hi(a);hi(t);}}
+      var a=anchorOf(L,'data-block-id'),targets=a&&rIndex[a.getAttribute('data-block-id')];
+      if(a&&targets&&targets[0]){align(R,targets[0],a,L);mark(syncEls,a,'sync-hi');mark(syncEls,targets[0],'sync-hi');}
     }else{
-      var a2=anchorOf(R,'data-source-blocks');
-      if(a2){var bid=(a2.getAttribute('data-source-blocks')||'').trim().split(/\\s+/)[0];var t2=lIndex[bid];
-        if(t2){align(L,t2,a2,R);hi(t2);hi(a2);}}
+      var a2=anchorOf(R,'data-source-blocks'),bid=a2&&idsOf(a2)[0],target=bid&&lIndex[bid];
+      if(a2&&target){align(L,target,a2,R);mark(syncEls,target,'sync-hi');mark(syncEls,a2,'sync-hi');}
     }
-    setTimeout(function(){lock=false;},70);
+    setTimeout(function(){lock=false;},80);
   }
-  L.addEventListener('pointerenter',function(){driver='L';});
-  R.addEventListener('pointerenter',function(){driver='R';});
-  L.addEventListener('scroll',function(){ if(driver==='L'&&!wrap.classList.contains('only-r'))sync('L'); });
-  R.addEventListener('scroll',function(){ if(driver==='R'&&!wrap.classList.contains('only-l'))sync('R'); });
-  var btns=document.querySelectorAll('.modes button');
-  window.setMode=function(m,ev){
-    wrap.classList.remove('only-l','only-r');
-    if(m==='l')wrap.classList.add('only-l'); else if(m==='r')wrap.classList.add('only-r');
-    btns.forEach(function(b){b.classList.remove('on');});
-    if(ev)ev.target.classList.add('on');
-  };
-  var hint=document.querySelector('.hint');
-  if(hint)setTimeout(function(){hint.style.opacity='0';},4200);
+  function setEdgeFocus(node){
+    var nodeId=node&&node.getAttribute('data-node-id'),flow=node&&node.closest('[data-flow]');
+    document.querySelectorAll('.mv-edge-path').forEach(function(path){
+      var sameFlow=flow&&path.closest('[data-flow]')===flow;
+      var active=nodeId&&sameFlow&&(path.dataset.from===nodeId||path.dataset.to===nodeId);
+      path.classList.toggle('is-active',!!active);path.classList.toggle('is-muted',!!nodeId&&!!sameFlow&&!active);
+      if(path._label)path._label.classList.toggle('is-active',!!active);
+    });
+  }
+  function clearPreview(){clearClass(previewed,'is-preview');if(!pinned)setEdgeFocus(null);}
+  function preview(el){
+    clearPreview();if(pinned)return;mark(previewed,el,'is-preview');idsOf(el).forEach(function(id){mark(previewed,lIndex[id],'is-preview');});setEdgeFocus(el.closest('.mv-node'));
+  }
+  function clearPinned(announce){
+    document.querySelectorAll('.is-pinned').forEach(function(el){el.classList.remove('is-pinned');});pinned=null;pendingReveal=null;setEdgeFocus(null);
+    if(announce){setStatus('双栏联动 · 未锁定');flashHint('已取消定位');}
+  }
+  function pinRight(el,move){
+    clearPinned(false);clearPreview();pinned=el;el.classList.add('is-pinned');
+    var ids=idsOf(el),sources=ids.map(function(id){return lIndex[id];}).filter(Boolean);sources.forEach(function(src){src.classList.add('is-pinned');});
+    if(move&&sources[0])queueReveal(L,sources[0]);
+    setEdgeFocus(el.closest('.mv-node'));var label=el.getAttribute('data-label')||el.textContent.trim().slice(0,20);
+    setStatus('已定位 · '+label+' · '+sources.length+' 处原文');flashHint(wrap.classList.contains('only-r')?'已锁定 · 切换到原文查看':'已锁定原文映射 · Esc 取消');
+  }
+  function pinLeft(el,move){
+    var bid=el.getAttribute('data-block-id'),targets=rIndex[bid]||[];clearPinned(false);clearPreview();pinned=el;el.classList.add('is-pinned');targets.forEach(function(target){target.classList.add('is-pinned');});
+    if(move&&targets[0])queueReveal(R,targets[0]);
+    setEdgeFocus(targets[0]&&targets[0].closest('.mv-node'));setStatus('已定位 · '+bid+' · '+targets.length+' 个视图元素');flashHint(wrap.classList.contains('only-l')?'已锁定 · 切换到信息重组查看':'已锁定重组映射 · Esc 取消');
+  }
+  R.addEventListener('pointerover',function(event){var el=event.target.closest('[data-source-blocks]:not(.mv-edge)');if(el&&R.contains(el))preview(el);});
+  R.addEventListener('pointerout',function(event){var el=event.target.closest('[data-source-blocks]:not(.mv-edge)');if(el&&!el.contains(event.relatedTarget))clearPreview();});
+  R.addEventListener('click',function(event){var el=event.target.closest('[data-source-blocks]:not(.mv-edge)');if(!el)return;event.preventDefault();if(pinned===el)clearPinned(true);else pinRight(el,true);});
+  L.addEventListener('click',function(event){var el=event.target.closest('[data-block-id]');if(!el)return;if(pinned===el)clearPinned(true);else pinLeft(el,true);});
+  document.addEventListener('keydown',function(event){
+    var el=event.target.closest&&event.target.closest('[data-source-blocks]:not(.mv-edge),[data-block-id]');
+    if(el&&(event.key==='Enter'||event.key===' ')){event.preventDefault();el.click();}
+    if(event.key==='Escape'&&pinned)clearPinned(true);
+  });
+  L.addEventListener('pointerenter',function(){driver='L';});R.addEventListener('pointerenter',function(){driver='R';});
+  L.addEventListener('scroll',function(){if(driver==='L'&&!wrap.classList.contains('only-r'))sync('L');},{passive:true});
+  R.addEventListener('scroll',function(){if(driver==='R'&&!wrap.classList.contains('only-l'))sync('R');},{passive:true});
+
+  var modeButtons=[].slice.call(document.querySelectorAll('[data-md2view-mode]'));
+  var preferredMode='both';
+  function setMode(mode,announce,persist){
+    if(['l','both','r'].indexOf(mode)<0)mode='both';if(persist!==false)preferredMode=mode;var actual=compact.matches&&mode==='both'?'r':mode;wrap.classList.remove('only-l','only-r');
+    if(actual==='l')wrap.classList.add('only-l');else if(actual==='r')wrap.classList.add('only-r');
+    wrap.dataset.layout=actual;modeButtons.forEach(function(button){var on=button.dataset.md2viewMode===actual;button.classList.toggle('on',on);button.setAttribute('aria-pressed',on?'true':'false');});
+    if(persist!==false)storageSet('md2view:mode',mode);scheduleDraw();queueMicrotask(function(){requestAnimationFrame(revealPending);});if(announce){var names={l:'原文',both:'双栏',r:'信息重组'};setStatus(names[actual]+'模式');flashHint('已切换到'+names[actual]);}
+  }
+  window.setMode=function(mode){setMode(mode,true);};modeButtons.forEach(function(button){button.addEventListener('click',function(){setMode(button.dataset.md2viewMode,true);});});
+
+  function splitBounds(){var width=wrap.getBoundingClientRect().width;if(compact.matches||width<740)return{min:28,max:68};return{min:Math.max(28,320/width*100),max:Math.min(68,(width-420)/width*100)};}
+  function setRatio(value,persist){var bounds=splitBounds(),ratio=Math.max(bounds.min,Math.min(bounds.max,value));wrap.style.setProperty('--source-ratio',ratio.toFixed(2)+'%');separator.setAttribute('aria-valuemin',Math.ceil(bounds.min));separator.setAttribute('aria-valuemax',Math.floor(bounds.max));separator.setAttribute('aria-valuenow',Math.round(ratio));if(persist)storageSet('md2view:splitRatio',ratio.toFixed(2));scheduleDraw();return ratio;}
+  function resetRatio(announce){setRatio(42,true);if(announce){setStatus('原文宽度 · 42%');flashHint('已恢复默认栏宽');}}
+  var dragging=false;
+  separator.addEventListener('pointerdown',function(event){if(compact.matches)return;dragging=true;separator.classList.add('is-dragging');separator.setPointerCapture(event.pointerId);event.preventDefault();});
+  separator.addEventListener('pointermove',function(event){if(!dragging)return;var rect=wrap.getBoundingClientRect(),ratio=setRatio((event.clientX-rect.left)/rect.width*100,false);setStatus('原文宽度 · '+Math.round(ratio)+'%');});
+  separator.addEventListener('pointerup',function(event){if(!dragging)return;dragging=false;separator.classList.remove('is-dragging');var ratio=parseFloat(separator.getAttribute('aria-valuenow'));setRatio(ratio,true);flashHint('栏宽已记住 · 双击可重置');separator.releasePointerCapture(event.pointerId);});
+  separator.addEventListener('pointercancel',function(){dragging=false;separator.classList.remove('is-dragging');});
+  separator.addEventListener('dblclick',function(){resetRatio(true);});
+  separator.addEventListener('keydown',function(event){var now=parseFloat(separator.getAttribute('aria-valuenow'))||42,next=now;if(event.key==='ArrowLeft')next-=2;else if(event.key==='ArrowRight')next+=2;else if(event.key==='Home')next=splitBounds().min;else if(event.key==='End')next=splitBounds().max;else if(event.key==='Enter')next=42;else return;event.preventDefault();next=setRatio(next,true);setStatus('原文宽度 · '+Math.round(next)+'%');});
+
+  var NS='http://www.w3.org/2000/svg';
+  function svgEl(name,attrs){var el=document.createElementNS(NS,name);Object.keys(attrs||{}).forEach(function(key){el.setAttribute(key,attrs[key]);});return el;}
+  function point(rect,side,root){var x=rect.left-root.left,y=rect.top-root.top,w=rect.width,h=rect.height;if(side==='top')return{x:x+w/2,y:y};if(side==='bottom')return{x:x+w/2,y:y+h};if(side==='left')return{x:x,y:y+h/2};return{x:x+w,y:y+h/2};}
+  function roundedPath(points){
+    var cleaned=points.filter(function(p,i){return !i||Math.abs(p.x-points[i-1].x)>.2||Math.abs(p.y-points[i-1].y)>.2;});if(cleaned.length===2)return'M '+cleaned[0].x+' '+cleaned[0].y+' L '+cleaned[1].x+' '+cleaned[1].y;
+    var d='M '+cleaned[0].x+' '+cleaned[0].y;for(var i=1;i<cleaned.length-1;i++){var prev=cleaned[i-1],cur=cleaned[i],next=cleaned[i+1],a=Math.min(10,Math.hypot(cur.x-prev.x,cur.y-prev.y)/2,Math.hypot(next.x-cur.x,next.y-cur.y)/2);var before={x:cur.x+(prev.x-cur.x)*(a/Math.max(1,Math.hypot(prev.x-cur.x,prev.y-cur.y))),y:cur.y+(prev.y-cur.y)*(a/Math.max(1,Math.hypot(prev.x-cur.x,prev.y-cur.y)))};var after={x:cur.x+(next.x-cur.x)*(a/Math.max(1,Math.hypot(next.x-cur.x,next.y-cur.y))),y:cur.y+(next.y-cur.y)*(a/Math.max(1,Math.hypot(next.x-cur.x,next.y-cur.y)))};d+=' L '+before.x+' '+before.y+' Q '+cur.x+' '+cur.y+' '+after.x+' '+after.y;}return d+' L '+cleaned[cleaned.length-1].x+' '+cleaned[cleaned.length-1].y;
+  }
+  function segmentHitsRect(a,b,rect){var pad=5,left=rect.left-pad,right=rect.right+pad,top=rect.top-pad,bottom=rect.bottom+pad;if(Math.abs(a.x-b.x)<.5)return a.x>left&&a.x<right&&Math.max(a.y,b.y)>top&&Math.min(a.y,b.y)<bottom;if(Math.abs(a.y-b.y)<.5)return a.y>top&&a.y<bottom&&Math.max(a.x,b.x)>left&&Math.min(a.x,b.x)<right;return false;}
+  function routePoints(start,end,axis,obstacles,bounds){
+    var candidates=[],distance=Math.abs(axis==='v'?end.y-start.y:end.x-start.x),step=Math.min(24,Math.max(10,distance/4)),escape=6;
+    if(axis==='v'){
+      var sign=end.y>=start.y?1:-1,ys=[(start.y+end.y)/2,start.y+sign*step,end.y-sign*step];obstacles.forEach(function(rect){ys.push(rect.top-10,rect.bottom+10);});
+      ys.filter(function(y){return y>Math.min(start.y,end.y)+4&&y<Math.max(start.y,end.y)-4;}).forEach(function(y){candidates.push([start,{x:start.x,y:y},{x:end.x,y:y},end]);});
+      var detourXs=[bounds.left,bounds.right];obstacles.forEach(function(rect){detourXs.push(rect.left-10,rect.right+10);});
+      detourXs.filter(function(x){return x>=bounds.left&&x<=bounds.right;}).forEach(function(x){var exit=start.y+sign*escape,entry=end.y-sign*escape;candidates.push([start,{x:start.x,y:exit},{x:x,y:exit},{x:x,y:entry},{x:end.x,y:entry},end]);});
+    }else{
+      var signX=end.x>=start.x?1:-1,xs=[(start.x+end.x)/2,start.x+signX*step,end.x-signX*step];obstacles.forEach(function(rect){xs.push(rect.left-10,rect.right+10);});
+      xs.filter(function(x){return x>Math.min(start.x,end.x)+4&&x<Math.max(start.x,end.x)-4;}).forEach(function(x){candidates.push([start,{x:x,y:start.y},{x:x,y:end.y},end]);});
+      var detourYs=[bounds.top,bounds.bottom];obstacles.forEach(function(rect){detourYs.push(rect.top-10,rect.bottom+10);});
+      detourYs.filter(function(y){return y>=bounds.top&&y<=bounds.bottom;}).forEach(function(y){var exitX=start.x+signX*escape,entryX=end.x-signX*escape;candidates.push([start,{x:exitX,y:start.y},{x:exitX,y:y},{x:entryX,y:y},{x:entryX,y:end.y},end]);});
+    }
+    if(!candidates.length)candidates.push([start,end]);
+    function score(points){var hits=0,length=0;for(var i=1;i<points.length;i++){var a=points[i-1],b=points[i];length+=Math.hypot(b.x-a.x,b.y-a.y);obstacles.forEach(function(rect){if(segmentHitsRect(a,b,rect))hits++;});}var hugsOuterEdge=points.some(function(p){return p.x-bounds.left<16||bounds.right-p.x<16||p.y-bounds.top<16||bounds.bottom-p.y<16;});return hits*100000+length+points.length*2+(hugsOuterEdge?64:0);}
+    candidates.sort(function(a,b){return score(a)-score(b);});return candidates[0];
+  }
+  function routePath(start,end,axis,obstacles,bounds){return roundedPath(routePoints(start,end,axis,obstacles,bounds));}
+  function setupFlow(flow,index){
+    flow.querySelectorAll('.mv-node').forEach(function(node,nodeIndex){
+      node.style.setProperty('--mv-index',nodeIndex);
+      node.setAttribute('data-node-index',String(nodeIndex+1).padStart(2,'0'));
+    });
+    var svg=svgEl('svg',{'class':'mv-edge-layer','aria-hidden':'true'}),defs=svgEl('defs'),markerId='mv-arrow-'+index,marker=svgEl('marker',{id:markerId,viewBox:'0 0 10 10',refX:'8.5',refY:'5',markerWidth:'6',markerHeight:'6',orient:'auto-start-reverse'}),arrow=svgEl('path',{d:'M 1 1 L 9 5 L 1 9 z',fill:'context-stroke'});marker.appendChild(arrow);defs.appendChild(marker);svg.appendChild(defs);flow.insertBefore(svg,flow.firstChild);
+    flow._edges=[];flow.querySelectorAll('.mv-edge[data-from][data-to]').forEach(function(meta){var path=svgEl('path',{'class':'mv-edge-path','data-kind':meta.dataset.kind||'depends','marker-end':'url(#'+markerId+')','pathLength':'1'}),label=svgEl('text',{'class':'mv-edge-label'});label.textContent=meta.dataset.label||'';path.dataset.from=meta.dataset.from;path.dataset.to=meta.dataset.to;path._label=label;svg.appendChild(path);svg.appendChild(label);flow._edges.push({meta:meta,path:path,label:label});});flow._svg=svg;
+    if('ResizeObserver'in window){var observer=new ResizeObserver(scheduleDraw);observer.observe(flow);flow.querySelectorAll('.mv-node').forEach(function(node){observer.observe(node);});flow._observer=observer;}
+  }
+  function drawFlow(flow){
+    if(!flow.offsetParent||!flow._svg)return;var root=flow.getBoundingClientRect(),width=flow.clientWidth,height=flow.clientHeight;flow._svg.setAttribute('viewBox','0 0 '+width+' '+height);flow._svg.setAttribute('width',width);flow._svg.setAttribute('height',height);
+    flow._edges.forEach(function(edge){var from=flow.querySelector('.mv-node[data-node-id="'+CSS.escape(edge.meta.dataset.from)+'"]'),to=flow.querySelector('.mv-node[data-node-id="'+CSS.escape(edge.meta.dataset.to)+'"]');if(!from||!to){edge.path.setAttribute('d','');edge.label.textContent='';return;}var a=from.getBoundingClientRect(),b=to.getBoundingClientRect(),dx=b.left+b.width/2-(a.left+a.width/2),dy=b.top+b.height/2-(a.top+a.height/2),axis=edge.meta.dataset.route||((Math.abs(dy)>=Math.abs(dx)*.72)?'v':'h');var fromSide=edge.meta.dataset.fromSide||(axis==='v'?(dy>=0?'bottom':'top'):(dx>=0?'right':'left')),toSide=edge.meta.dataset.toSide||(axis==='v'?(dy>=0?'top':'bottom'):(dx>=0?'left':'right')),start=point(a,fromSide,root),end=point(b,toSide,root),obstacles=[].slice.call(flow.querySelectorAll('.mv-node')).filter(function(node){return node!==from&&node!==to;}).map(function(node){var rect=node.getBoundingClientRect();return{left:rect.left-root.left,right:rect.right-root.left,top:rect.top-root.top,bottom:rect.bottom-root.top};}),bounds={left:10,right:width-10,top:10,bottom:height-10},d=routePath(start,end,axis,obstacles,bounds);edge.path.setAttribute('d',d);edge.label.textContent=edge.meta.dataset.label||'';if(edge.label.textContent){try{var pos=edge.path.getPointAtLength(edge.path.getTotalLength()*.5);edge.label.setAttribute('x',pos.x);edge.label.setAttribute('y',pos.y);}catch(e){edge.label.textContent='';}}});
+  }
+  function drawAll(){drawQueued=false;document.querySelectorAll('[data-flow]').forEach(drawFlow);}
+  function scheduleDraw(){if(drawQueued)return;drawQueued=true;requestAnimationFrame(function(){requestAnimationFrame(drawAll);});}
+  document.querySelectorAll('[data-flow]').forEach(setupFlow);
+  window.addEventListener('resize',scheduleDraw,{passive:true});
+  var reveal=new IntersectionObserver(function(entries){entries.forEach(function(entry){if(entry.isIntersecting){entry.target.classList.add('in');var flow=entry.target.querySelector('[data-flow]');if(flow)setTimeout(function(){flow.classList.add('is-ready');},80);reveal.unobserve(entry.target);}});},{root:R,threshold:.05});
+  document.querySelectorAll('section.view').forEach(function(view){reveal.observe(view);});
+  function compactChanged(){setMode(preferredMode,false,false);scheduleDraw();}
+  if(compact.addEventListener)compact.addEventListener('change',compactChanged);else compact.addListener(compactChanged);
+  var savedRatio=parseFloat(storageGet('md2view:splitRatio'));setRatio(Number.isFinite(savedRatio)?savedRatio:42,false);
+  preferredMode=storageGet('md2view:mode')||'both';setMode(preferredMode,false,false);compactChanged();scheduleDraw();
+  setTimeout(function(){document.querySelectorAll('.mv-flow').forEach(function(flow){flow.classList.add('is-ready');});scheduleDraw();},240);
+  setStatus(compact.matches?'信息重组模式':'双栏联动 · 拖动中线调宽');setTimeout(function(){flashHint(compact.matches?'点击节点可定位原文':'拖动中线调宽 · 点击内容锁定映射');},420);
 })();
 """
 
 
 def main(blocks_path, frag_dir, views_path, out_path):
-    with open(blocks_path) as f:
+    with open(blocks_path, encoding='utf-8') as f:
         blocks = json.load(f)
-    with open(views_path) as f:
+    with open(views_path, encoding='utf-8') as f:
         plan = json.load(f)
 
     left = ''.join(render_block(b) for b in blocks)
+    source_ids = {block['id'] for block in blocks}
 
     right_parts = []
     for v in plan['views']:
         p = os.path.join(frag_dir, v['id'] + '.html')
-        if os.path.exists(p):
-            with open(p) as f:
-                frag = f.read().strip()
-            frag = re.sub(r'^```(html)?|```$', '', frag, flags=re.M).strip()
-            right_parts.append(frag)
+        if not os.path.exists(p):
+            raise FileNotFoundError('missing fragment: %s' % p)
+        with open(p, encoding='utf-8') as f:
+            frag = f.read().strip()
+        frag = re.sub(r'^```(html)?|```$', '', frag, flags=re.M).strip()
+        validate_fragment(frag, v, source_ids)
+        right_parts.append(frag)
     right = '\n'.join(right_parts)
 
     title = plan.get('title', '双栏同步阅读器')
@@ -193,20 +501,22 @@ def main(blocks_path, frag_dir, views_path, out_path):
            '<meta name="viewport" content="width=device-width,initial-scale=1">'
            '<title>' + esc(title) + ' · 双栏</title><style>' + CSS + '</style></head><body>'
            '<header class="bar"><div class="brand">' + esc(title) +
-           '<small>左：原文 · 右：信息重组 · 滚动同步</small></div>'
-           '<div class="modes">'
-           '<button onclick="setMode(\'l\',event)">原文</button>'
-           '<button class="on" onclick="setMode(\'both\',event)">双栏</button>'
-           '<button onclick="setMode(\'r\',event)">信息重组</button>'
-           '</div></header>'
-           '<div id="split">'
-           '<div class="pane" id="paneL"><div class="pane-tag">Markdown 原文 · 权威源</div><div class="doc">' + left + '</div></div>'
-           '<div class="pane" id="paneR"><div class="pane-tag">信息重组 · 人类视图</div><div class="doc">' + right + '</div></div>'
+           '<small>source ↔ view</small></div><div class="toolbar">'
+           '<div class="sync-status" data-md2view-status role="status" aria-live="polite">双栏联动</div>'
+           '<div class="modes" role="group" aria-label="阅读模式">'
+           '<button data-md2view-mode="l" aria-pressed="false">原文</button>'
+           '<button class="on" data-md2view-mode="both" aria-pressed="true">双栏</button>'
+           '<button data-md2view-mode="r" aria-pressed="false">信息重组</button>'
+           '</div></div></header>'
+           '<div id="split" data-md2view-split data-layout="both">'
+           '<div class="pane" id="paneL" aria-label="Markdown 原文"><div class="pane-tag">Markdown 原文 · 权威源</div><div class="doc">' + left + '</div></div>'
+           '<div class="splitter" data-md2view-separator role="separator" tabindex="0" aria-label="调整原文栏宽度" aria-orientation="vertical" aria-valuemin="28" aria-valuemax="68" aria-valuenow="42" title="拖动调宽 · 双击重置"></div>'
+           '<div class="pane" id="paneR" aria-label="信息重组"><div class="pane-tag">信息重组 · 人类视图</div><div class="doc">' + right + '</div></div>'
            '</div>'
-           '<div class="hint">滚动任一栏，另一栏自动锚定到对应内容并高亮</div>'
+           '<div class="hint" aria-hidden="true">拖动中线调宽 · 点击内容锁定映射</div>'
            '<script>' + JS + '</script></body></html>')
 
-    with open(out_path, 'w') as f:
+    with open(out_path, 'w', encoding='utf-8') as f:
         f.write(doc)
     print('reader -> %s (%d bytes, %d blocks left / %d views right)' % (out_path, len(doc), len(blocks), len(right_parts)))
 
