@@ -140,16 +140,54 @@ grep -r "/Users/" <skill-name>/ || echo "无用户路径 ✓"
 
 #### 7.2 更新 README.md
 
-在 `## Available Skills` 表格中添加一行：
+在 `## 当前 Skills` 表格中添加一行：
 
 ```markdown
 | [<skill-name>](./<skill-name>/) | <描述> | /<skill-name> |
 ```
 
+#### 7.3 更新 .claude-plugin/marketplace.json（Claude Code Plugin 市场）
+
+一个 plugin 只含一个 skill。在 `plugins` 数组中添加 entry：
+
+```json
+{
+  "name": "<skill-name>",
+  "source": "./",
+  "strict": false,
+  "description": "<描述>",
+  "version": "1.0.0",
+  "skills": ["./<skill-name>"]
+}
+```
+
+带 hook 的 skill，把 hooks 配置**内联为对象**写进 entry（实测路径字符串引用外部 hooks.json 不生效），脚本路径用 `${CLAUDE_PLUGIN_ROOT}` 前缀：
+
+```json
+"hooks": {
+  "SessionStart": [
+    {
+      "matcher": "*",
+      "hooks": [
+        { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/<skill-name>/scripts/xxx.sh", "timeout": 10 }
+      ]
+    }
+  ]
+}
+```
+
+改完跑 `claude plugin validate .` 校验，再用本地 marketplace 实装验证组件清单：
+
+```bash
+claude plugin marketplace add <仓库本地路径>
+claude plugin install <skill-name>@my-skill
+claude plugin details <skill-name>@my-skill   # 确认 Skills/Hooks 数量正确
+```
+
 ### 8. 提交变更
 
 ```bash
-git add <skill-name>/ MARKETPLACE.md README.md
+git add <skill-name>/ MARKETPLACE.md README.md .claude-plugin/marketplace.json
 git commit -m "feat: 添加 <skill-name> skill"
 git push
 ```
