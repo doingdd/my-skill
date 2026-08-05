@@ -3,7 +3,7 @@
 
 用法:
   repo_map.py scan            强制全量重扫（重新分析所有仓库）
-  repo_map.py resolve <词>    解析名称/关键词 → 路径与读写角色（自动增量同步）
+  repo_map.py resolve <词>    解析名称/关键词 → 路径、读写角色与实时检出状态（自动增量同步）
   repo_map.py list            列出全部仓库（自动增量同步）
   repo_map.py sync            静默增量同步 + 重析未成型仓库（供定时任务调用）
   repo_map.py schedule on [间隔秒]   注册 macOS launchd 定时增量同步（默认 3600s）
@@ -185,6 +185,39 @@ def fmt(r):
             f'（{r["role"]}，最近活跃 {r["last_active"] or "?"}）{summary}')
 
 
+def live_status(path):
+    """resolve 命中仓库的实时检出状态：分支、相对 origin/master 位置、工作区。
+
+    只读不 fetch（基于上次 fetch 的远端引用）；仓库损坏/超时返回空串，不阻断解析。
+    意义：跨仓库读取时，工作区可能停在旧任务分支——非 master 检出必须显式警告，
+    否则读取方会把分支残留当作该仓库的现状。
+    """
+    branch = git(path, 'rev-parse', '--abbrev-ref', 'HEAD')
+    if not branch:
+        return ''
+    master = next((m for m in ('master', 'main')
+                   if git(path, 'rev-parse', '--verify', '-q',
+                          f'refs/remotes/origin/{m}')), '')
+    parts = [f'分支 {branch}']
+    if master:
+        counts = git(path, 'rev-list', '--left-right', '--count',
+                     f'origin/{master}...HEAD')
+        if counts:
+            behind, ahead = (counts.split() + ['?', '?'])[:2]
+            parts.append(f'vs origin/{master}: ahead {ahead} / behind {behind}'
+                         '（基于上次 fetch）')
+    dirty = git(path, '--no-optional-locks', 'status', '--porcelain',
+                '--untracked-files=no')
+    if dirty:
+        parts.append(f'未提交改动 {len(dirty.splitlines())} 处')
+    line = '  状态: ' + ' | '.join(parts)
+    if master and branch != master:
+        line += (f'\n  ⚠️ 非 {master} 检出，工作区可能是任务分支残留——跨仓库读取请用 '
+                 f'`git -C {path} show origin/{master}:<相对路径>`，'
+                 '或先在该仓库归位（repo-tidy）')
+    return line
+
+
 def cmd_resolve(cfg, keyword):
     repos, _, _ = sync(cfg)
     kw = keyword.lower()
@@ -200,6 +233,9 @@ def cmd_resolve(cfg, keyword):
         sys.exit(2)
     for r in hits[:10]:
         print(fmt(r))
+        status = live_status(r['path'])
+        if status:
+            print(status)
 
 
 def cmd_sync(cfg):

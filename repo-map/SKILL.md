@@ -117,6 +117,7 @@ python3 <skill目录>/scripts/repo_map.py schedule status   # exit 3 = 未开启
 
 - 自动：直接在输入里提仓库名，hook 注入解析结果，无需任何命令。
 - 手动：`resolve <关键词>` / `list` / `scan`（仅在怀疑缓存脏时才需要 scan）。
+- **检出状态标注（防跨仓库读到任务分支残留）**：目标仓库非 master/main 检出时，hook 在命中行打【⚠️ 检出在 \<分支\>】标（纯文件读 `.git/HEAD`，零 subprocess，不破毫秒级契约），resolve 额外给 ahead/behind 与脏净全量状态；两处都附读取建议——用 `git -C <路径> show origin/master:<相对路径>` 读主分支内容，或先在该仓库归位（repo-tidy）。
 - 定时任务：`schedule status` 查状态与最近一次同步；`schedule off` 关闭；`schedule on [间隔秒]` 改间隔（幂等重装）。
 - 换机器/新根目录：编辑 config 的 `scan_roots` 后跑一次 `scan`。
 

@@ -27,6 +27,35 @@ def log(record):
                            ensure_ascii=False) + '\n')
 
 
+def checkout_branch(path):
+    """纯文件读当前分支：零 subprocess，守住 hook 毫秒级契约。
+
+    normal 仓库读 .git/HEAD；worktree/子模块（.git 为文件）循 gitdir 转跳。
+    detached HEAD / 异常一律返回 ''（拿不准就不标注，宁缺毋滥）。
+    """
+    git_entry = Path(path) / '.git'
+    try:
+        head = (git_entry / 'HEAD').read_text()
+    except OSError:
+        try:
+            gitdir = Path(git_entry.read_text().partition('gitdir:')[2].strip())
+            if not gitdir.is_absolute():
+                gitdir = Path(path) / gitdir
+            head = (gitdir / 'HEAD').read_text()
+        except OSError:
+            return ''
+    _, sep, ref = head.partition('refs/heads/')
+    return ref.strip() if sep else ''
+
+
+def stale_mark(r):
+    """非 master/main 检出的仓库打 ⚠ 标——读取方不能把任务分支残留当现状。"""
+    branch = checkout_branch(r['path'])
+    if branch and branch not in ('master', 'main'):
+        return f'【⚠️ 检出在 {branch}，非 master】'
+    return ''
+
+
 def match_repos(prompt, cwd, repos):
     low = prompt.lower()
     hits = []
@@ -51,11 +80,14 @@ def main():
     if not hits:
         return
     lines = '\n'.join(
-        f'- {r["name"]} → {r["path"]}（{r["role"]}）'
+        f'- {r["name"]} → {r["path"]}（{r["role"]}）' + stale_mark(r)
         + (f' —— {r["summary"]}' if r['summary'] else '') for r in hits)
     context = (
         '本地仓库地图命中（repo-map 自动注入）:\n' + lines +
         '\n约定: 引用时优先读该仓库 README/知识入口而非全库遍历；'
+        '标注 ⚠️ 的仓库工作区停在任务分支，读取其内容用 '
+        '`git -C <路径> show origin/master:<相对路径>`（主分支为 main 时替换），'
+        '或先在该仓库归位（repo-tidy），不要把分支残留当作现状；'
         '"第三方·只读"仓库禁止写入；为当前项目任务修改其他仓库时，'
         '改动在对方仓库独立成 commit、独立授权，不与当前仓库改动混杂；'
         '关联沉淀遵循"宁可漏掉，不能沉淀错"：仅当本次真实读取/修改了该仓库、且关系会复发（依赖/对接/上下游）时，才向用户一句话确认后追加到当前项目 CLAUDE.md 的"## 关联仓库"节；仅提及、误提及、一次性查询、cwd 为全局配置目录（如 ~/.claude）一律不沉淀。')
