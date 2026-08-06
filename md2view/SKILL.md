@@ -34,12 +34,12 @@ description: 把 Markdown 重编码成可溯源的人类阅读视图，而不是
 
 | family | 何时选择 | 硬条件 | 反例 |
 | --- | --- | --- | --- |
-| `architecture` | 组成、边界、分层、依赖、共享面 | 有结构/依赖关系或有语义 owner 的 region；动态关系只能辅助 | 把八层架构画成八步箭头流程 |
-| `flow` | 触发、状态推进、条件、回路 | 主关系是动态 relation；entity 用 `stateKind` 标明 `terminal/persistent`，或声明闭合循环 | 无方向的分类/层级被强加起点终点 |
-| `matrix` | 多个 option 沿共同维度比较 | 至少两个 `type=option`；每个比较 fact 的 `values[]` 完整覆盖所有 option；禁止动态关系 | 两张方案卡片加一堆全局散文 |
-| `argument` | 证据支持、反驳或缓解某结论 | claim + evidence/counterevidence + 论证 relation；claim 是焦点 | 把证据链画成执行 pipeline |
+| `architecture` | 组成、边界、分层、依赖、共享面 | 有结构/依赖关系或有语义 owner 的 region；不得混入论证 relation，动态关系只能辅助 | 把八层架构画成八步箭头流程 |
+| `flow` | 触发、状态推进、条件、回路 | 所有 relation 都属于动态族；entity 用 `stateKind` 标明 `terminal/persistent`，或声明闭合循环 | 无方向的分类/层级被强加起点终点 |
+| `matrix` | 多个 option 沿共同维度比较 | 所有 entity 都是 `type=option` 且至少两个；relations 必须为空；每个比较 fact 的 `values[]` 完整覆盖所有 option | 两张方案卡片加一堆全局散文 |
+| `argument` | 证据支持、反驳或缓解某结论 | claim + evidence/counterevidence；所有 relation 都属于论证族；claim 是焦点 | 把证据链画成执行 pipeline |
 
-`hierarchy / topology / timeline / dashboard` 只在词汇表中保留，v3.1 renderer 尚未实现；必须 `unsupported_diagram_kind` 失败，禁止退化成 flow。
+`hierarchy / topology / timeline / dashboard` 只是后续设计候选，不是 v3.1 schema 的合法值；合同阶段必须 `unsupported_diagram_kind` 失败，禁止等到 renderer 才失败，更禁止退化成 flow。
 
 `stateKind` 可取 `start / intermediate / terminal / persistent`。它描述状态本体，不是颜色；普通架构实体无需硬填。flow 若不是闭合循环，至少要显式出现 `terminal` 或 `persistent`。
 
@@ -81,7 +81,8 @@ python3 $SK/scripts/build_reader.py v3 \
 
 - 右栏脱离原文能否回答：是什么、为什么、约束/取舍、如何行动或判断？
 - 这是最匹配主问题的 family，还是因为习惯画流程才选 flow？
-- primary relation 是否与 family 兼容？结构关系是否主要由空间表达？
+- 每条 relation 是否都与 family 兼容？结构关系是否主要由空间表达？
+- flow 的主路径、分支终态和回路是否全部显式可见，且每个分支实体都能从起点到达？
 - 每个 entity 是否恰好归属一个 region？region tree 是否唯一根、可达、无环？
 - facts 是否贴近正确 entity/relation/region，而不是为了排版被抬成 view fact？
 - 每个强制表格行/check-item 是否由独立 `sourceUnitId` 保留完整可见内容？数字是否逐字一致？

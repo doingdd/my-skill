@@ -30,7 +30,7 @@ AI 生成的文档越来越多，也越来越又长又臭。而人在任务之�
 
 ## 设计状态
 
-当前生效版本是 **v3.1**，实际执行合同见 [SKILL.md](SKILL.md) 和 [PIPELINE.md](PIPELINE.md)，设计依据见 [DESIGN.md](DESIGN.md)。v3.1 已实现 `architecture / flow / matrix / argument` 四种 family renderer；`hierarchy / topology / timeline / dashboard` 只保留为 schema 词汇，选择后会 fail fast，不会偷偷退化成 flow。v2 仅保留旧自包含 reader 的静态快照兼容，不再用于生成新页面。
+当前生效版本是 **v3.1**，实际执行合同见 [SKILL.md](SKILL.md) 和 [PIPELINE.md](PIPELINE.md)，设计依据见 [DESIGN.md](DESIGN.md)。v3.1 schema 与 renderer 都只支持 `architecture / flow / matrix / argument` 四种 family；`hierarchy / topology / timeline / dashboard` 是后续候选，选择后会在合同阶段 fail fast，不会偷偷退化成 flow。v2 仅保留旧自包含 reader 的静态快照兼容，不再用于生成新页面。
 
 ## 效果
 

@@ -119,7 +119,7 @@ fact 表达会改变判断的证据、约束、风险、例外、指标、检查
 
 - `kind: evidence | constraint | risk | exception | metric | checkpoint | decision`
 - `scope.kind: entity | relation | region | view`
-- `scope.targetIds`：引用对应对象；view scope 目标是当前 view id
+- `scope.targetIds`：必须恰有一个目标；view scope 目标是当前 view id。跨多个对象的共享事实挂到共同 region 或 view，不复制同一 fact
 - `label`、`sourceBlockIds`，必要时 `sourceUnitId`
 - `value` 或 `values` 二选一
 
@@ -152,12 +152,12 @@ fact 表达会改变判断的证据、约束、风险、例外、指标、检查
 
 | family | 选择信号 | 合同门 | 不得这样画 |
 | --- | --- | --- | --- |
-| `architecture` | 组成、边界、分层、依赖、共享/横切面 | 至少一个结构/依赖 relation，或有语义 owner 的 region；primary relation 只能是结构、依赖、连接、观测 | 把层或容器画成连续步骤；`contains` 只画箭头 |
-| `flow` | 触发、调用、状态推进、分支、回路 | 至少一条动态 relation；全部 primary relations 必须动态；显式 terminal/persistent 或闭合循环 | 对无方向关系强加起点终点 |
-| `matrix` | options × 共同 criteria | 至少两个 `type=option`；至少一个比较 fact；每个 `values[]` 精确覆盖全部 options；不得有动态 relation | A/B 大卡片 + 全局散文，或多条路径冒充共同维度 |
-| `argument` | claim、evidence、counterevidence、decision | 至少 claim + evidence/counterevidence + 论证 relation；claim 在 `focalIds`；primary relation 必须是论证族 | 把支持/反驳画成执行 pipeline |
+| `architecture` | 组成、边界、分层、依赖、共享/横切面 | 至少一个结构/依赖 relation，或有语义 owner 的 region；不得混入论证 relation；primary relation 只能是结构、依赖、连接、观测 | 把层或容器画成连续步骤；`contains` 只画箭头 |
+| `flow` | 触发、调用、状态推进、分支、回路 | 至少一条动态 relation；所有 relations 都必须属于动态族；显式 terminal/persistent 或闭合循环 | 对无方向关系强加起点终点 |
+| `matrix` | options × 共同 criteria | 所有 entities 都是 `type=option` 且至少两个；relations 必须为空；至少一个比较 fact；每个 `values[]` 精确覆盖全部 options | A/B 大卡片 + 全局散文，或多条路径冒充共同维度 |
+| `argument` | claim、evidence、counterevidence、decision | 至少 claim + evidence/counterevidence；所有 relations 都必须属于论证族；claim 在 `focalIds` | 把支持/反驳画成执行 pipeline |
 
-`hierarchy / topology / timeline / dashboard` 已进入 schema 词汇表但没有 v3.1 renderer。选择它们会以 `unsupported_diagram_kind` 失败；不得静默 fallback 到 flow。如果真实问题必须使用这些 family，当前任务应明确阻塞，而不是歪曲语义。
+`hierarchy / topology / timeline / dashboard` 是后续设计候选，没有进入 v3.1 schema。选择它们必须在合同阶段以 `unsupported_diagram_kind` 失败；不得静默 fallback 到 flow。如果真实问题必须使用这些 family，当前任务应明确阻塞，而不是歪曲语义。
 
 ### 拆图门
 
@@ -220,12 +220,12 @@ fact 表达会改变判断的证据、约束、风险、例外、指标、检查
 
 1. 唯一根、全部 region 可达、parent/children 双向一致、无环。
 2. 每个 entity 恰好一次：作为某 region 的 `ownerEntityId`，或出现在一个 `entityIds` 中，不能两者兼有。
-3. `contains` 的 subject region 必须是 object region 的空间祖先。
+3. 结构关系必须由空间嵌套证明：`contains` 的 subject region 是 object region 的祖先；`partOf / layerOf / instanceOf` 方向相反，object region 是 subject region 的祖先。
 4. `crosscut` 必须声明真实 `targetRegionIds`；`stack` 只能放 many；`inset` 必须有 parent。
 5. 非 flow 的 `sequence` 只允许作为有真实动态 relation 的 inset。
 6. `focalIds` 只引用已有 entity/fact；先靠位置、容器和尺寸建立主次，再由共享视觉增强。
 
-flow 的 `readingPath.sequence` 按视觉主路径排序，相邻实体之间必须有对应动态 relation；argument 的 claim 应是中心焦点；matrix 可使用 `scan`，不要伪造起点终点。
+flow 的 `readingPath.sequence` 按视觉主路径排序，相邻实体之间必须有对应动态 relation；不在主路径上的分支实体必须能从主路径起点沿动态 relation 到达，并由 renderer 画成显式分支行，不能只藏在关系文字里。每条非主路径动态 relation（包括回边和闭环边）也必须渲染为可见、有方向的 connector。argument 的 claim 应是中心焦点；matrix 可使用 `scan`，不要伪造起点终点。
 
 ---
 
@@ -252,6 +252,8 @@ node $SK/scripts/shot.js \
 python3 $SK/scripts/coverage.py blocks.json reader.candidate.html
 ```
 
+需要逐视图盲读证据时，在命令末尾追加 `'#view-id'` selector；显式 selector 不存在会直接失败，不能用全页截图冒充目标视图截图。`viewport-*.png` 记录真实首屏，`full-*.png` 展开双栏全部内容，二者用途不同。
+
 标准面只覆盖 768 及以上桌面/平板宽度，不做手机适配。768 仍是正式门禁，不允许靠隐藏关系、删 facts 或退化成纯列表通过。
 
 浏览器门检查：
@@ -259,6 +261,7 @@ python3 $SK/scripts/coverage.py blocks.json reader.candidate.html
 - 页面横向溢出、遮挡、裁剪、console/page error
 - 三模式切换、双栏拖动/键盘/复位、source map 点击与键盘定位
 - family 语义 DOM、阅读路径、主关系、fact 作用域
+- spec 声明的全部 entity / relation / fact 与 DOM 逐项一致且应可见；结构 relation 可由可见嵌套证明
 - architecture containment、flow 方向与状态、matrix 行列轴、argument claim/evidence
 - 视觉密度、长文本、焦点态、reduced motion
 
@@ -368,7 +371,7 @@ PYTHONDONTWRITEBYTECODE=1 \
   python3 -m unittest discover -s $SK/scripts -p 'test_*.py'
 ```
 
-至少拒绝：architecture 连续箭头化、`contains` 不嵌套、flow 无动态 relation 或无终态、matrix 漏 option/混入动态 relation、argument 无 claim/evidence 或使用主 sequence、source id 伪造、表格/checklist 被总结吞并、错误 verdict、摘要不匹配、reviewer 与 producer 同一身份，以及浏览器失败仍覆盖旧 reader。
+至少拒绝：architecture 连续箭头化、`contains` 不嵌套、flow 混入非动态 relation 或无终态、flow 回边没有有向 connector、matrix 漏 option 或声明 relation、argument 无 claim/evidence、混入非论证 relation 或使用主 sequence、声明语义 ID 与实际 DOM 不一致、source id 伪造、表格/checklist 被总结吞并、错误 verdict、摘要不匹配、reviewer 与 producer 同一身份，以及浏览器失败仍覆盖旧 reader。
 
 ## Legacy v2 边界
 

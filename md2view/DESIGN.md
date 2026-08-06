@@ -300,6 +300,8 @@ v3 的模型产物是结构化 `view-spec.json`，不是 agent 手写 HTML。字
 
 作用域先决定放置区域，样式随后决定视觉重量。不得为了排版方便把局部事实升级为 view fact。
 
+每条 fact 只有一个作用域目标。若一个约束确实同时作用于多个实体，应挂到它们共同的 region；若是整张视图的判断，再挂到 view。禁止把同一个 fact ID 复制到多个实体旁边，这会把一条证据视觉上伪装成多条。
+
 fact 有两种互斥形态：
 
 - 标量 fact 使用 `value`，说明一个对象、关系、region 或整张视图。
@@ -320,6 +322,8 @@ fact 有两种互斥形态：
 | `argument` | 什么证据支持或反驳什么结论？ | claim、evidence、counterevidence、decision | claim-centered、evidence columns | 把论证画成执行 pipeline |
 | `dashboard` | 哪些指标处于什么状态，是否越界？ | value、threshold、trend、distribution | metric grid、trend、distribution | 用大号数字卡替代比较上下文 |
 
+上表同时包含长期分类候选与当前实现。v3.1 schema 只接受 `architecture / flow / matrix / argument`；其他 family 必须在合同阶段失败，不能先通过 schema、再把不可渲染问题推迟给 renderer。
+
 ### Diagram selection gate
 
 1. 先写 `question` 和 `centralClaim`，再选择 `diagramKind`。
@@ -331,7 +335,7 @@ fact 有两种互斥形态：
 
 ### v3.1 family minimums
 
-- `architecture`: 至少包含一个结构/依赖关系或有语义 owner 的 region；`contains/partOf/layerOf` 优先由 nesting/band 表达。动态关系只能是局部辅助。
+- `architecture`: 至少包含一个结构/依赖关系或有语义 owner 的 region；所有结构关系都必须由 nesting/band 证明（`contains` 为 parent → child，其余为 child → parent）。动态关系只能是局部辅助。
 - `flow`: 主体由 event/state/decision 与动态关系组成；guard、retry、checkpoint 和 terminal/持续状态必须显式建模。
 - `matrix`: 至少两个 option entity、一个共同维度，以及每个强制决策维度对应的比较 fact；每条 `values[]` 必须覆盖所有 option。不得用 A/B 两张大卡加全局散文代替矩阵。
 - `argument`: 至少一个 claim entity、一个 evidence/counterevidence entity，以及 `supportsClaim/contradicts/mitigates` 关系；中心 claim 是 primary 焦点，论证关系不得编码为执行顺序。
@@ -556,17 +560,18 @@ fact 有两种互斥形态：
 ### 1. Semantic-fit gate
 
 - 每张视图有且只有一个主问题和中心命题。
-- diagramKind 与 primary relations 兼容。
-- `contains/layerOf/instanceOf` 默认由空间结构表达；不得只画方向箭头。
-- flow 至少有一个动态关系，并有入口/闭合回路及终止或持续状态。
-- matrix 有至少两个 option、共享维度和逐维比较 facts；每个 `values[]` 完整覆盖 options，且没有流程 edge。
-- argument 至少有一个 claim、一个 evidence/counterevidence 和一条论证关系；中心 claim 是主焦点，论证关系不得编码为执行顺序。
+- diagramKind 与每条 relation 都兼容；`primary` 只表示视觉主导关系，不是逃过 family 合同的豁免口。
+- `contains / partOf / layerOf / instanceOf` 必须由空间结构表达；不得只画方向箭头。
+- flow 至少有一个动态关系且所有 relations 都属于动态族，并有入口/闭合回路及终止或持续状态；全部分支实体从主路径起点可达并显式呈现，每条回边也有可见有向 connector。
+- matrix 的所有 entities 都是 option 且至少两个，并有共享维度和逐维比较 facts；每个 `values[]` 完整覆盖 options，且 relations 为空。
+- argument 至少有一个 claim、一个 evidence/counterevidence 和一条论证关系；所有 relations 都属于论证族，中心 claim 是主焦点，论证关系不得编码为执行顺序。
 - visible label/detail/value/values 必须来自模型，compiler 不可自创或漂移。
 
 ### 2. Evidence-fidelity gate
 
 - 所有强制原子项逐项投影，数字逐字一致。
 - 每个 claim、entity、relation 和 fact 的 source map 精确存在。
+- renderer 声明的 entity / relation / fact id 集合与实际 DOM 精确相等；不得以可见文字替代缺失的语义对象。
 - `compressedOut` 不得包含会改变结论、约束、风险或验收的信息。
 - fact scope 不得因布局便利而改变。
 
@@ -674,8 +679,8 @@ architecture renderer 的当前基准同时包含“八层栈”和部署容器�
   - shared runtime 拥有 tokens、source sync、可访问性、状态和必要几何路由。
 - v3.1 renderer scope:
   - 必须实现：architecture、flow、matrix、argument。
-  - 仅识别但不实现：hierarchy、topology、timeline、dashboard。
-  - 未实现 kind 返回 `unsupported_diagram_kind` 并停止，禁止 fallback 到 flow。
+  - 暂未实现且不进入 schema：hierarchy、topology、timeline、dashboard。
+  - 未实现 kind 在合同阶段返回 `unsupported_diagram_kind` 并停止，禁止 fallback 到 flow。
 - Design-token constraints: spec 不得引入任意色值、字号、阴影或 z-index。
 - Performance constraints: 单文件离线；首次布局无明显闪烁；调整分栏只重算受影响视图。
 - Compatibility constraints:
@@ -693,7 +698,7 @@ v3.1 已完成可交付基线：
 
 1. 严格 JSON Schema、关系本体、`stateKind`、region tree、family gate、source-fidelity 和 visual-verdict 合同。
 2. 两份不同空间骨架的 architecture 真实 fixture，贯通 spec → compiler → renderer → 浏览器/验读门。
-3. architecture、flow、matrix、argument 四个确定性 renderer；模型不再输出通用 `data-flow` fragment。
+3. architecture、flow、matrix、argument 四个确定性 renderer；模型不再输出通用 `data-flow` fragment；renderer 会逐 view 对账声明与实际 DOM 的 entity/relation/fact ID 集合，任何静默丢失都 fail fast。
 4. entity/relation/region/view 四级 fact scope，以及 page narrative、source map 和原子 source-unit 对账。
 5. 候选 SHA256、reviewer/producer 身份独立、逐 view/主关系/fact 对账与原子晋升。
 

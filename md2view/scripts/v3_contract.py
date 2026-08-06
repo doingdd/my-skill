@@ -10,10 +10,6 @@ ALLOWED_DIAGRAM_KINDS = {
     'flow',
     'matrix',
     'argument',
-    'hierarchy',
-    'topology',
-    'timeline',
-    'dashboard',
 }
 DYNAMIC_RELATIONS = {'calls', 'triggers', 'produces', 'transitionsTo', 'returns'}
 STRUCTURAL_RELATIONS = {'contains', 'partOf', 'layerOf', 'instanceOf'}
@@ -93,8 +89,16 @@ def _require_list(problem, value, label):
 
 
 def _require_block_refs(problem, refs, label):
-    if not isinstance(refs, list) or not refs or any(not str(ref).strip() for ref in refs):
+    if (
+        not isinstance(refs, list)
+        or not refs
+        or any(not isinstance(ref, str) or not ref.strip() for ref in refs)
+    ):
         problem.append(f'{label} 必须是非空 sourceBlockIds 数组')
+        return
+    duplicates = sorted({ref for ref in refs if refs.count(ref) > 1})
+    if duplicates:
+        problem.append(f'{label} 不得重复: ' + ', '.join(duplicates))
 
 
 def _validate_page(spec, view_ids, problems):
@@ -242,6 +246,35 @@ def _validate_region_tree(view, problems):
         for relation in view.get('relations', [])
         if isinstance(relation, dict)
     )
+    region_lists = {}
+    for region_id, region in region_index.items():
+        for field in ('entityIds', 'childRegionIds', 'targetRegionIds'):
+            raw_items = region.get(field)
+            if not isinstance(raw_items, list):
+                problems.append(
+                    f'{view["id"]}.composition.regions[{region_id}].{field} 必须是数组'
+                )
+                items = []
+            else:
+                items = [
+                    item for item in raw_items
+                    if isinstance(item, str) and item.strip()
+                ]
+                if len(items) != len(raw_items):
+                    problems.append(
+                        f'{view["id"]}.composition.regions[{region_id}].{field} '
+                        '只能包含非空 id'
+                    )
+                duplicates = sorted({
+                    item for item in items if items.count(item) > 1
+                })
+                if duplicates:
+                    problems.append(
+                        f'{view["id"]}.composition.regions[{region_id}].{field} '
+                        '不得重复: ' + ', '.join(duplicates)
+                    )
+            region_lists[(region_id, field)] = items
+
     for region_id, region in region_index.items():
         primitive = region.get('primitive')
         if primitive not in allowed_primitives:
@@ -259,14 +292,14 @@ def _validate_region_tree(view, problems):
         parent_id = region.get('parentId')
         if parent_id and parent_id not in region_index:
             problems.append(f'{view["id"]}.composition.regions[{region_id}].parentId 不存在: {parent_id}')
-        for child_id in region.get('childRegionIds', []):
+        for child_id in region_lists[(region_id, 'childRegionIds')]:
             if child_id not in region_index:
                 problems.append(f'{view["id"]}.composition.regions[{region_id}].childRegionIds 不存在: {child_id}')
             elif region_index[child_id].get('parentId') != region_id:
                 problems.append(f'{view["id"]}.composition.regions[{region_id}] 与 childRegionIds[{child_id}] 不一致')
         if (
             parent_id in region_index
-            and region_id not in region_index[parent_id].get('childRegionIds', [])
+            and region_id not in region_lists.get((parent_id, 'childRegionIds'), [])
         ):
             problems.append(
                 f'{view["id"]}.composition.regions[{region_id}] parentId '
@@ -274,7 +307,10 @@ def _validate_region_tree(view, problems):
             )
         direct_entity_ids = [
             entity_id
-            for entity_id in [region.get('ownerEntityId'), *region.get('entityIds', [])]
+            for entity_id in [
+                region.get('ownerEntityId'),
+                *region_lists[(region_id, 'entityIds')],
+            ]
             if entity_id
         ]
         if primitive == 'stack':
@@ -289,7 +325,7 @@ def _validate_region_tree(view, problems):
                     '只能承载 multiplicity=many 的实体'
                 )
         if primitive == 'crosscut':
-            targets = region.get('targetRegionIds', [])
+            targets = region_lists[(region_id, 'targetRegionIds')]
             if not targets:
                 problems.append(
                     f'{view["id"]}.composition.regions[{region_id}] crosscut '
@@ -330,7 +366,7 @@ def _validate_region_tree(view, problems):
         owner = region.get('ownerEntityId')
         if owner:
             entity_regions[owner].append(region_id)
-        for entity_id in region.get('entityIds', []):
+        for entity_id in region_lists[(region_id, 'entityIds')]:
             entity_regions[entity_id].append(region_id)
 
     reading_path = composition.get('readingPath')
@@ -352,7 +388,25 @@ def _validate_region_tree(view, problems):
         if not isinstance(sequence, list):
             problems.append(f'{view["id"]}.composition.readingPath.sequence 必须是数组')
         else:
-            unknown_sequence = sorted(set(sequence) - set(entity_regions))
+            valid_sequence = [
+                item for item in sequence
+                if isinstance(item, str) and item.strip()
+            ]
+            if len(valid_sequence) != len(sequence):
+                problems.append(
+                    f'{view["id"]}.composition.readingPath.sequence '
+                    '只能包含非空 entity id'
+                )
+            duplicate_sequence = sorted({
+                item for item in valid_sequence
+                if valid_sequence.count(item) > 1
+            })
+            if duplicate_sequence:
+                problems.append(
+                    f'{view["id"]}.composition.readingPath.sequence '
+                    '不得重复实体: ' + ', '.join(duplicate_sequence)
+                )
+            unknown_sequence = sorted(set(valid_sequence) - set(entity_regions))
             if unknown_sequence:
                 problems.append(
                     f'{view["id"]}.composition.readingPath.sequence 引用不存在实体: '
@@ -363,11 +417,28 @@ def _validate_region_tree(view, problems):
     if not isinstance(focal_ids, list) or not focal_ids:
         problems.append(f'{view["id"]}.composition.focalIds 必须是非空数组')
     else:
+        valid_focal_ids = [
+            item for item in focal_ids
+            if isinstance(item, str) and item.strip()
+        ]
+        if len(valid_focal_ids) != len(focal_ids):
+            problems.append(
+                f'{view["id"]}.composition.focalIds 只能包含非空 id'
+            )
+        duplicate_focal_ids = sorted({
+            item for item in valid_focal_ids
+            if valid_focal_ids.count(item) > 1
+        })
+        if duplicate_focal_ids:
+            problems.append(
+                f'{view["id"]}.composition.focalIds 不得重复: '
+                + ', '.join(duplicate_focal_ids)
+            )
         known_focal_ids = {
             *entity_regions.keys(),
             *(fact.get('id') for fact in view.get('facts', []) if fact.get('id')),
         }
-        missing_focal_ids = sorted(set(focal_ids) - known_focal_ids)
+        missing_focal_ids = sorted(set(valid_focal_ids) - known_focal_ids)
         if missing_focal_ids:
             problems.append(
                 f'{view["id"]}.composition.focalIds 引用不存在对象: '
@@ -524,6 +595,11 @@ def _validate_facts(view, entities, problems):
                     f'{view["id"]}.facts[{fact_id}].scope.targetIds 必须是非空数组'
                 )
                 targets = []
+            elif len(targets) != 1:
+                problems.append(
+                    f'{view["id"]}.facts[{fact_id}].scope.targetIds '
+                    '必须恰有一个目标；共享事实应挂到共同 region 或 view'
+                )
             valid_targets = {
                 'entity': entity_ids,
                 'relation': relation_ids,
@@ -584,6 +660,8 @@ def _validate_flow(view, problems):
     )
     reading_path = (view.get('composition') or {}).get('readingPath') or {}
     sequence = reading_path.get('sequence') or []
+    if not sequence:
+        problems.append(f'{view_id}.flow readingPath.sequence 必须声明非空主路径')
     dynamic_pairs = {
         (relation.get('subjectId'), relation.get('objectId'))
         for relation in dynamic_relations
@@ -592,6 +670,30 @@ def _validate_flow(view, problems):
         if (subject, obj) not in dynamic_pairs:
             problems.append(
                 f'{view_id}.flow readingPath {subject} -> {obj} 缺少动态关系'
+            )
+
+    if sequence:
+        adjacency = defaultdict(set)
+        for relation in dynamic_relations:
+            adjacency[relation.get('subjectId')].add(relation.get('objectId'))
+        reachable = set()
+        pending = [sequence[0]]
+        while pending:
+            current = pending.pop()
+            if current in reachable:
+                continue
+            reachable.add(current)
+            pending.extend(adjacency.get(current, set()) - reachable)
+        entity_ids = {
+            entity.get('id')
+            for entity in view.get('entities', [])
+            if entity.get('id')
+        }
+        unreachable = sorted(entity_ids - reachable)
+        if unreachable:
+            problems.append(
+                f'{view_id}.flow 存在从 readingPath 起点不可达的实体: '
+                + ', '.join(unreachable)
             )
     has_closed_cycle = (
         reading_path.get('kind') == 'cyclic'
@@ -608,6 +710,16 @@ def _validate_flow(view, problems):
 
 def _validate_matrix(view, problems):
     view_id = view['id']
+    non_option_ids = sorted({
+        entity.get('id')
+        for entity in view.get('entities', [])
+        if entity.get('id') and entity.get('type') != 'option'
+    })
+    if non_option_ids:
+        problems.append(
+            f'{view_id}.matrix 只接受 option entity: '
+            + ', '.join(non_option_ids)
+        )
     option_ids = {
         entity.get('id')
         for entity in view.get('entities', [])
@@ -732,13 +844,13 @@ def _validate_view(view, problems):
     if kind not in ALLOWED_DIAGRAM_KINDS:
         problems.append(f'{view_id}.diagramKind unsupported_diagram_kind: {kind}')
 
-    entities = view.get('entities', [])
-    if not isinstance(entities, list):
+    raw_entities = view.get('entities', [])
+    if not isinstance(raw_entities, list):
         problems.append(f'{view_id}.entities 必须是数组')
-        entities = []
+        raw_entities = []
     else:
         seen_entities = set()
-        for index, entity in enumerate(entities, 1):
+        for index, entity in enumerate(raw_entities, 1):
             if not isinstance(entity, dict):
                 problems.append(f'{view_id}.entities[{index}] 必须是对象')
                 continue
@@ -781,6 +893,38 @@ def _validate_view(view, problems):
                     f'{entity.get("stateKind")}'
                 )
 
+    raw_relations = view.get('relations', [])
+    if not isinstance(raw_relations, list):
+        problems.append(f'{view_id}.relations 必须是数组')
+        raw_relations = []
+    else:
+        for index, relation in enumerate(raw_relations, 1):
+            if not isinstance(relation, dict):
+                problems.append(f'{view_id}.relations[{index}] 必须是对象')
+
+    raw_facts = view.get('facts', [])
+    if not isinstance(raw_facts, list):
+        problems.append(f'{view_id}.facts 必须是数组')
+        raw_facts = []
+    else:
+        for index, fact in enumerate(raw_facts, 1):
+            if not isinstance(fact, dict):
+                problems.append(f'{view_id}.facts[{index}] 必须是对象')
+
+    composition = view.get('composition')
+    if not isinstance(composition, dict):
+        problems.append(f'{view_id}.composition 必须是对象')
+        composition = {}
+
+    # All downstream validators operate on a non-mutating, type-safe view.
+    # Shape errors above remain contract errors instead of leaking AttributeError.
+    safe_view = dict(view)
+    safe_view['entities'] = [item for item in raw_entities if isinstance(item, dict)]
+    safe_view['relations'] = [item for item in raw_relations if isinstance(item, dict)]
+    safe_view['facts'] = [item for item in raw_facts if isinstance(item, dict)]
+    safe_view['composition'] = composition
+    entities = safe_view['entities']
+
     primary_entities = [
         entity.get('id')
         for entity in entities
@@ -792,21 +936,21 @@ def _validate_view(view, problems):
             f'实际 {len(primary_entities)}'
         )
 
-    region_index, entity_regions, ancestors = _validate_region_tree(view, problems)
-    _validate_relations(view, entity_regions, ancestors, problems)
-    _validate_facts(view, entities, problems)
+    region_index, entity_regions, ancestors = _validate_region_tree(safe_view, problems)
+    _validate_relations(safe_view, entity_regions, ancestors, problems)
+    _validate_facts(safe_view, entities, problems)
 
     if kind == 'architecture':
         if not region_index:
             problems.append(f'{view_id}.composition 必须提供 region tree')
         has_architecture_relation = any(
             rel.get('kind') in STRUCTURAL_RELATIONS | DEPENDENCY_RELATIONS
-            for rel in view.get('relations', [])
+            for rel in safe_view.get('relations', [])
             if isinstance(rel, dict)
         )
         has_semantic_region_owner = any(
             region.get('ownerEntityId')
-            for region in (view.get('composition') or {}).get('regions', [])
+            for region in (safe_view.get('composition') or {}).get('regions', [])
             if isinstance(region, dict)
         )
         if not has_architecture_relation and not has_semantic_region_owner:
@@ -815,7 +959,7 @@ def _validate_view(view, problems):
             )
         incompatible_primary = [
             relation.get('kind')
-            for relation in view.get('relations', [])
+            for relation in safe_view.get('relations', [])
             if isinstance(relation, dict)
             and relation.get('emphasis') == 'primary'
             and relation.get('kind') not in (
@@ -830,45 +974,48 @@ def _validate_view(view, problems):
                 f'{view_id}.architecture primary relation 不兼容: '
                 + ', '.join(str(item) for item in incompatible_primary)
             )
-    elif kind == 'flow':
-        _validate_flow(view, problems)
-        incompatible_primary = [
+        incompatible_relations = [
             relation.get('kind')
-            for relation in view.get('relations', [])
+            for relation in safe_view.get('relations', [])
             if isinstance(relation, dict)
-            and relation.get('emphasis') == 'primary'
+            and relation.get('kind') in ARGUMENT_RELATIONS
+        ]
+        if incompatible_relations:
+            problems.append(
+                f'{view_id}.architecture relation 不兼容: '
+                + ', '.join(str(item) for item in incompatible_relations)
+            )
+    elif kind == 'flow':
+        _validate_flow(safe_view, problems)
+        incompatible_relations = [
+            relation.get('kind')
+            for relation in safe_view.get('relations', [])
+            if isinstance(relation, dict)
             and relation.get('kind') not in DYNAMIC_RELATIONS
         ]
-        if incompatible_primary:
+        if incompatible_relations:
             problems.append(
-                f'{view_id}.flow primary relation 不兼容: '
-                + ', '.join(str(item) for item in incompatible_primary)
+                f'{view_id}.flow relation 不兼容: '
+                + ', '.join(str(item) for item in incompatible_relations)
             )
     elif kind == 'matrix':
-        _validate_matrix(view, problems)
-        dynamic_kinds = [
-            relation.get('kind')
-            for relation in view.get('relations', [])
-            if isinstance(relation, dict) and relation.get('kind') in DYNAMIC_RELATIONS
-        ]
-        if dynamic_kinds:
+        _validate_matrix(safe_view, problems)
+        if safe_view.get('relations'):
             problems.append(
-                f'{view_id}.matrix 不得包含动态流程 relation: '
-                + ', '.join(str(item) for item in dynamic_kinds)
+                f'{view_id}.matrix 不接受 relation；共同维度必须编码为 fact.values'
             )
     elif kind == 'argument':
-        _validate_argument(view, problems)
-        incompatible_primary = [
+        _validate_argument(safe_view, problems)
+        incompatible_relations = [
             relation.get('kind')
-            for relation in view.get('relations', [])
+            for relation in safe_view.get('relations', [])
             if isinstance(relation, dict)
-            and relation.get('emphasis') == 'primary'
             and relation.get('kind') not in ARGUMENT_RELATIONS
         ]
-        if incompatible_primary:
+        if incompatible_relations:
             problems.append(
-                f'{view_id}.argument primary relation 不兼容: '
-                + ', '.join(str(item) for item in incompatible_primary)
+                f'{view_id}.argument relation 不兼容: '
+                + ', '.join(str(item) for item in incompatible_relations)
             )
 
 
@@ -881,12 +1028,19 @@ def validate_v3_spec(blocks, spec):
     if spec.get('schemaVersion') != 3:
         problems.append('schemaVersion 必须为 3')
 
-    _validate_page(spec, {view.get('id') for view in spec.get('views', []) if isinstance(view, dict)}, problems)
-
-    views = spec.get('views')
-    if not isinstance(views, list) or not views:
+    raw_views = spec.get('views')
+    if not isinstance(raw_views, list) or not raw_views:
         problems.append('views 必须是非空数组')
         views = []
+    else:
+        views = raw_views
+
+    view_ids = {
+        view.get('id')
+        for view in views
+        if isinstance(view, dict) and view.get('id')
+    }
+    _validate_page(spec, view_ids, problems)
 
     seen_ids = set()
     for view in views:
@@ -902,7 +1056,10 @@ def validate_v3_spec(blocks, spec):
         seen_ids.add(view_id)
         _validate_view(view, problems)
 
-    _validate_sources(blocks, spec, problems)
+    safe_spec = dict(spec)
+    safe_spec['views'] = views
+    safe_spec['page'] = spec.get('page') if isinstance(spec.get('page'), dict) else {}
+    _validate_sources(blocks, safe_spec, problems)
 
     if problems:
         raise ValueError('view-spec.json v3 合同失败:\n- ' + '\n- '.join(problems))

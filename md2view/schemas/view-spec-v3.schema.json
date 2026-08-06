@@ -71,10 +71,7 @@
         "centralClaim": {"$ref": "#/$defs/claim"},
         "narrativeRole": {"$ref": "#/$defs/nonEmptyString"},
         "diagramKind": {
-          "enum": [
-            "architecture", "flow", "matrix", "argument",
-            "hierarchy", "topology", "timeline", "dashboard"
-          ]
+          "enum": ["architecture", "flow", "matrix", "argument"]
         },
         "diagramRationale": {"$ref": "#/$defs/nonEmptyString"},
         "entities": {
@@ -184,6 +181,7 @@
         "targetIds": {
           "type": "array",
           "minItems": 1,
+          "maxItems": 1,
           "uniqueItems": true,
           "items": {"$ref": "#/$defs/nonEmptyString"}
         }

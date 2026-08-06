@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import copy
 import unittest
+from unittest.mock import patch
 
 from v3_contract import validate_v3_spec
 from v3_renderer import render_v3_view
@@ -351,6 +352,22 @@ class ViewSpecV3ContractTests(unittest.TestCase):
                 spec,
             )
 
+    def test_rejects_duplicate_child_region_before_renderer_duplicates_dom(self):
+        spec = architecture_spec()
+        spec['views'][0]['composition']['regions'][0]['childRegionIds'] = [
+            'orchestration-band',
+            'orchestration-band',
+        ]
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r'regions\[main\]\.childRegionIds 不得重复: orchestration-band',
+        ):
+            validate_v3_spec(
+                [{'id': 'b001', 'type': 'paragraph', 'raw': '执行内核分层承载职责。'}],
+                spec,
+            )
+
     def test_architecture_accepts_dependency_without_inventing_contains(self):
         spec = copy.deepcopy(architecture_spec())
         spec['views'][0]['relations'] = [{
@@ -407,6 +424,32 @@ class ViewSpecV3ContractTests(unittest.TestCase):
         ):
             validate_v3_spec(
                 [{'id': 'b001', 'type': 'paragraph', 'raw': '发布流程。'}],
+                spec,
+            )
+
+    def test_flow_rejects_duplicate_entity_in_reading_path(self):
+        spec = flow_spec()
+        view = spec['views'][0]
+        view['composition']['readingPath'] = {
+            'kind': 'cyclic',
+            'sequence': ['requested', 'published', 'requested'],
+        }
+        view['relations'].append({
+            'id': 'retry-loop',
+            'subjectId': 'published',
+            'objectId': 'requested',
+            'kind': 'transitionsTo',
+            'emphasis': 'secondary',
+            'label': '重试',
+            'sourceBlockIds': ['b001'],
+        })
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r'readingPath\.sequence 不得重复实体: requested',
+        ):
+            validate_v3_spec(
+                [{'id': 'b001', 'type': 'paragraph', 'raw': '发布失败后重试。'}],
                 spec,
             )
 
@@ -475,6 +518,131 @@ class ViewSpecV3ContractTests(unittest.TestCase):
         self.assertIn('data-directed="true"', html)
         self.assertNotIn('data-kind="contains"', html)
 
+    def test_flow_renders_cycle_relation_as_directed_connector_with_its_fact(self):
+        spec = flow_spec()
+        view = spec['views'][0]
+        view['composition']['readingPath']['kind'] = 'cyclic'
+        view['relations'].append({
+            'id': 'retry-loop',
+            'subjectId': 'published',
+            'objectId': 'requested',
+            'kind': 'transitionsTo',
+            'emphasis': 'secondary',
+            'label': '重新发布',
+            'sourceBlockIds': ['b001'],
+        })
+        view['facts'].append({
+            'id': 'retry-condition',
+            'kind': 'exception',
+            'scope': {'kind': 'relation', 'targetIds': ['retry-loop']},
+            'label': '重试条件',
+            'value': '发布结果不满足验收条件',
+            'sourceBlockIds': ['b001'],
+        })
+        validate_v3_spec(
+            [{'id': 'b001', 'type': 'paragraph', 'raw': '发布失败后重新进入待发布状态。'}],
+            spec,
+        )
+
+        html = render_v3_view(view)
+
+        self.assertIn('class="mv-flow-secondary-relations"', html)
+        self.assertIn('data-flow-relation-role="cycle"', html)
+        self.assertIn(
+            'class="mv-connector mv-connector--auxiliary" data-relation-id="retry-loop"',
+            html,
+        )
+        self.assertIn('data-visual-direction="reverse"', html)
+        self.assertIn('data-directed="true"', html)
+        loop_start = html.index('data-relation-id="retry-loop"')
+        loop_end = html.find('</li>', loop_start)
+        self.assertIn('data-fact-id="retry-condition"', html[loop_start:loop_end])
+
+    def test_flow_rejects_non_dynamic_relation_instead_of_hiding_it(self):
+        spec = flow_spec()
+        spec['views'][0]['relations'].append({
+            'id': 'runtime-dependency',
+            'subjectId': 'published',
+            'objectId': 'requested',
+            'kind': 'dependsOn',
+            'emphasis': 'secondary',
+            'label': '依赖发布配置',
+            'sourceBlockIds': ['b001'],
+        })
+
+        with self.assertRaisesRegex(ValueError, 'flow relation 不兼容.*dependsOn'):
+            validate_v3_spec(
+                [{'id': 'b001', 'type': 'paragraph', 'raw': '发布流程依赖发布配置。'}],
+                spec,
+            )
+
+    def test_flow_renders_branch_entities_and_their_directed_relation(self):
+        spec = flow_spec()
+        view = spec['views'][0]
+        view['entities'].append({
+            'id': 'failed',
+            'type': 'state',
+            'stateKind': 'terminal',
+            'emphasis': 'secondary',
+            'label': '发布失败',
+            'detail': '检查失败后的终态',
+            'multiplicity': 'one',
+            'sourceBlockIds': ['b001'],
+        })
+        view['relations'].append({
+            'id': 'publish-failed',
+            'subjectId': 'requested',
+            'objectId': 'failed',
+            'kind': 'transitionsTo',
+            'emphasis': 'primary',
+            'label': '检查失败',
+            'sourceBlockIds': ['b001'],
+        })
+        view['facts'].append({
+            'id': 'failure-reason',
+            'kind': 'exception',
+            'scope': {'kind': 'entity', 'targetIds': ['failed']},
+            'label': '失败原因',
+            'value': '发布检查未通过',
+            'sourceBlockIds': ['b001'],
+        })
+        view['composition']['regions'][0]['entityIds'].append('failed')
+        validate_v3_spec(
+            [{'id': 'b001', 'type': 'paragraph', 'raw': '发布检查失败会进入失败终态。'}],
+            spec,
+        )
+
+        html = render_v3_view(view)
+
+        self.assertIn('class="mv-flow-branches"', html)
+        self.assertIn('data-entity-id="failed"', html)
+        self.assertIn('data-relation-id="publish-failed"', html)
+        self.assertIn('data-fact-id="failure-reason"', html)
+        self.assertIn('data-declared-entity-ids="requested published failed"', html)
+        self.assertIn('data-declared-relation-ids="publish publish-failed"', html)
+        self.assertIn('data-declared-fact-ids="failure-reason"', html)
+
+    def test_flow_rejects_entities_unreachable_from_the_reading_start(self):
+        spec = flow_spec()
+        view = spec['views'][0]
+        view['entities'].append({
+            'id': 'orphan',
+            'type': 'state',
+            'stateKind': 'terminal',
+            'emphasis': 'secondary',
+            'label': '孤立状态',
+            'detail': '没有动态关系可以到达',
+            'multiplicity': 'one',
+            'sourceBlockIds': ['b001'],
+        })
+        view['composition']['regions'][0]['entityIds'].append('orphan')
+
+        with self.assertRaisesRegex(ValueError, 'flow 存在从 readingPath 起点不可达的实体: orphan'):
+            validate_v3_spec(
+                [{'id': 'b001', 'type': 'paragraph', 'raw': '发布流程。'}],
+                spec,
+            )
+
     def test_matrix_requires_every_comparison_fact_to_cover_all_options(self):
         spec = matrix_spec()
         spec['views'][0]['facts'][0]['values'].pop()
@@ -516,6 +684,55 @@ class ViewSpecV3ContractTests(unittest.TestCase):
         with self.assertRaisesRegex(
             ValueError,
             r'matrix 比较 fact dependency 必须 scope 到当前 view',
+        ):
+            validate_v3_spec(
+                [{
+                    'id': 'b001',
+                    'type': 'table',
+                    'raw': '| 维度 | A | B |\n| --- | --- | --- |\n| 页面依赖 | 主页 | 登录入口 |',
+                }],
+                spec,
+            )
+
+    def test_matrix_rejects_relations_instead_of_dropping_them(self):
+        spec = matrix_spec()
+        spec['views'][0]['relations'].append({
+            'id': 'option-dependency',
+            'subjectId': 'route-a',
+            'objectId': 'route-b',
+            'kind': 'dependsOn',
+            'emphasis': 'secondary',
+            'label': '依赖',
+            'sourceBlockIds': ['b001'],
+        })
+
+        with self.assertRaisesRegex(ValueError, 'matrix 不接受 relation'):
+            validate_v3_spec(
+                [{
+                    'id': 'b001',
+                    'type': 'table',
+                    'raw': '| 维度 | A | B |\n| --- | --- | --- |\n| 页面依赖 | 主页 | 登录入口 |',
+                }],
+                spec,
+            )
+
+    def test_matrix_rejects_non_option_entity_instead_of_dropping_it(self):
+        spec = matrix_spec()
+        view = spec['views'][0]
+        view['entities'].append({
+            'id': 'comparison-context',
+            'type': 'context',
+            'emphasis': 'secondary',
+            'label': '比较背景',
+            'detail': '不属于任何被比较方案',
+            'multiplicity': 'one',
+            'sourceBlockIds': ['b001'],
+        })
+        view['composition']['regions'][0]['entityIds'].append('comparison-context')
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r'matrix 只接受 option entity: comparison-context',
         ):
             validate_v3_spec(
                 [{
@@ -597,6 +814,7 @@ class ViewSpecV3ContractTests(unittest.TestCase):
         self.assertIn('data-argument-role="claim"', html)
         self.assertIn('data-argument-role="evidence"', html)
         self.assertIn('class="mv-argument-relation"', html)
+        self.assertIn('class="mv-argument-connector" data-direction="to-claim"', html)
         self.assertIn('data-kind="supportsClaim"', html)
         self.assertIn('data-source-blocks="b001"', html)
         self.assertIn('data-fact-id="evidence-detail"', html)
@@ -611,17 +829,118 @@ class ViewSpecV3ContractTests(unittest.TestCase):
             html.index('class="mv-argument-link"'),
             html.index('data-relation-id="supports"'),
         )
+        self.assertLess(
+            html.index('class="mv-argument-link"'),
+            html.index('class="mv-argument-evidence-main"'),
+        )
         self.assertGreater(
             html.index('data-fact-id="support-strength"'),
             html.index('data-relation-id="supports"'),
         )
         self.assertNotIn('mv-connector', html)
 
+    def test_argument_preserves_multiple_relations_from_one_evidence(self):
+        spec = argument_spec()
+        view = spec['views'][0]
+        view['relations'].append({
+            'id': 'mitigates-risk',
+            'subjectId': 'evidence',
+            'objectId': 'claim',
+            'kind': 'mitigates',
+            'emphasis': 'secondary',
+            'label': '缓解风险',
+            'sourceBlockIds': ['b001'],
+        })
+        view['facts'].append({
+            'id': 'mitigation-detail',
+            'kind': 'evidence',
+            'scope': {'kind': 'relation', 'targetIds': ['mitigates-risk']},
+            'label': '缓解方式',
+            'value': '缩小变动面',
+            'sourceBlockIds': ['b001'],
+        })
+        validate_v3_spec(
+            [{'id': 'b001', 'type': 'paragraph', 'raw': '直达路由依赖更少。'}],
+            spec,
+        )
+
+        html = render_v3_view(view)
+
+        self.assertIn('data-relation-id="supports"', html)
+        self.assertIn('data-relation-id="mitigates-risk"', html)
+        self.assertIn('data-fact-id="mitigation-detail"', html)
+
+    def test_argument_rejects_non_argument_relation_instead_of_dropping_it(self):
+        spec = argument_spec()
+        spec['views'][0]['relations'].append({
+            'id': 'runtime-dependency',
+            'subjectId': 'evidence',
+            'objectId': 'claim',
+            'kind': 'dependsOn',
+            'emphasis': 'secondary',
+            'label': '依赖',
+            'sourceBlockIds': ['b001'],
+        })
+
+        with self.assertRaisesRegex(ValueError, 'argument relation 不兼容.*dependsOn'):
+            validate_v3_spec(
+                [{'id': 'b001', 'type': 'paragraph', 'raw': '直达路由依赖更少。'}],
+                spec,
+            )
+
+    def test_malformed_collections_fail_as_contract_errors(self):
+        blocks = [{'id': 'b001', 'type': 'paragraph', 'raw': '发布流程。'}]
+        for field in ('entities', 'relations', 'facts'):
+            spec = flow_spec()
+            spec['views'][0][field] = 'not-an-array'
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    rf'v1\.{field} 必须是数组',
+                ):
+                    validate_v3_spec(blocks, spec)
+
+    def test_null_views_fail_as_a_contract_error(self):
+        spec = architecture_spec()
+        spec['views'] = None
+
+        with self.assertRaisesRegex(ValueError, 'views 必须是非空数组'):
+            validate_v3_spec(
+                [{'id': 'b001', 'type': 'paragraph', 'raw': '执行内核。'}],
+                spec,
+            )
+
     def test_rejects_source_block_reference_that_is_not_in_authoritative_blocks(self):
         spec = architecture_spec()
         spec['views'][0]['entities'][1]['sourceBlockIds'] = ['b999']
 
         with self.assertRaisesRegex(ValueError, 'sourceBlockId 不存在: b999'):
+            validate_v3_spec(
+                [{'id': 'b001', 'type': 'paragraph', 'raw': '执行内核分层承载职责。'}],
+                spec,
+            )
+
+    def test_rejects_duplicate_source_block_reference_like_schema(self):
+        spec = architecture_spec()
+        spec['page']['centralClaim']['sourceBlockIds'] = ['b001', 'b001']
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r'page\.centralClaim\.sourceBlockIds 不得重复: b001',
+        ):
+            validate_v3_spec(
+                [{'id': 'b001', 'type': 'paragraph', 'raw': '执行内核分层承载职责。'}],
+                spec,
+            )
+
+    def test_rejects_duplicate_focal_id_like_schema(self):
+        spec = architecture_spec()
+        spec['views'][0]['composition']['focalIds'] = ['kernel', 'kernel']
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r'composition\.focalIds 不得重复: kernel',
+        ):
             validate_v3_spec(
                 [{'id': 'b001', 'type': 'paragraph', 'raw': '执行内核分层承载职责。'}],
                 spec,
@@ -766,6 +1085,29 @@ class ViewSpecV3ContractTests(unittest.TestCase):
                 spec,
             )
 
+    def test_rejects_multi_target_fact_scope_instead_of_duplicating_fact_dom(self):
+        spec = architecture_spec()
+        spec['views'][0]['facts'] = [{
+            'id': 'shared-boundary',
+            'kind': 'constraint',
+            'scope': {
+                'kind': 'entity',
+                'targetIds': ['kernel', 'orchestration'],
+            },
+            'label': '共同边界',
+            'value': '两个实体共同受此约束',
+            'sourceBlockIds': ['b001'],
+        }]
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r'facts\[shared-boundary\]\.scope\.targetIds 必须恰有一个目标',
+        ):
+            validate_v3_spec(
+                [{'id': 'b001', 'type': 'paragraph', 'raw': '执行内核分层承载职责。'}],
+                spec,
+            )
+
     def test_architecture_places_entity_fact_inside_its_semantic_region(self):
         spec = architecture_spec()
         spec['views'][0]['facts'] = [{
@@ -801,16 +1143,34 @@ class ViewSpecV3ContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'b001:r001.*表格单元格: 主页'):
             validate_v3_spec(blocks, spec)
 
-    def test_recognized_but_unimplemented_family_fails_without_flow_fallback(self):
+    def test_unimplemented_family_fails_at_contract_boundary(self):
         spec = architecture_spec()
         spec['views'][0]['diagramKind'] = 'topology'
+
+        with self.assertRaisesRegex(ValueError, 'unsupported_diagram_kind: topology'):
+            validate_v3_spec(
+                [{'id': 'b001', 'type': 'paragraph', 'raw': '执行内核分层承载职责。'}],
+                spec,
+            )
+
+    def test_renderer_rejects_any_declared_semantic_id_missing_from_dom(self):
+        spec = matrix_spec()
+        view = spec['views'][0]
         validate_v3_spec(
-            [{'id': 'b001', 'type': 'paragraph', 'raw': '执行内核分层承载职责。'}],
+            [{
+                'id': 'b001',
+                'type': 'table',
+                'raw': '| 维度 | A | B |\n| --- | --- | --- |\n| 页面依赖 | 主页 | 登录入口 |',
+            }],
             spec,
         )
 
-        with self.assertRaisesRegex(ValueError, 'unsupported_diagram_kind: topology'):
-            render_v3_view(spec['views'][0])
+        with patch('v3_renderer._render_matrix', return_value='<table></table>'):
+            with self.assertRaisesRegex(
+                ValueError,
+                'rendered_semantic_set_mismatch.*entity.*route-a',
+            ):
+                render_v3_view(view)
 
     def test_architecture_encodes_dependency_as_adjacency_not_execution_arrow(self):
         spec = architecture_spec()

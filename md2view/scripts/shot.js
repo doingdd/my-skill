@@ -385,6 +385,35 @@ async function collectV3FamilyProblems(page) {
         }
       });
 
+      const declaredGroups = [
+        ['entity', 'declaredEntityIds', '[data-entity-id]', 'entityId', true],
+        ['relation', 'declaredRelationIds', '[data-relation-id]', 'relationId', false],
+        ['fact', 'declaredFactIds', '[data-fact-id]', 'factId', true],
+      ];
+      declaredGroups.forEach(([group, declaredKey, selector, actualKey, requireVisible]) => {
+        const expected = (view.dataset[declaredKey] || '').trim().split(/\s+/).filter(Boolean);
+        const elements = [...view.querySelectorAll(selector)];
+        const actual = elements.map(element => element.dataset[actualKey]).filter(Boolean);
+        const missing = expected.filter(id => !actual.includes(id));
+        const extra = actual.filter(id => !expected.includes(id));
+        const duplicates = [...new Set(actual.filter((id, index) => actual.indexOf(id) !== index))];
+        if (missing.length || extra.length || duplicates.length) {
+          problems.push({
+            reason: 'declared-item-mismatch', view: viewId, group,
+            missing, extra, duplicates,
+          });
+        }
+        elements.forEach(element => {
+          const containmentMarker = group === 'relation' && element.dataset.visual === 'containment';
+          if ((requireVisible || !containmentMarker) && !visible(element)) {
+            problems.push({
+              reason: 'declared-item-not-visible', view: viewId, group,
+              id: element.dataset[actualKey] || '',
+            });
+          }
+        });
+      });
+
       [...view.querySelectorAll('[data-source-blocks]')].forEach(mapped => {
         if (!(mapped.getAttribute('data-source-blocks') || '').trim()) {
           problems.push({ reason: 'empty-source-map', view: viewId, tag: mapped.tagName });
@@ -456,6 +485,25 @@ async function collectV3FamilyProblems(page) {
       if (kind === 'flow') {
         const connectors = [...view.querySelectorAll('.mv-connector[data-relation-id]')];
         if (!connectors.length) problems.push({ reason: 'flow-without-connector', view: viewId });
+        const declaredRelationIds = (view.dataset.declaredRelationIds || '')
+          .trim().split(/\s+/).filter(Boolean);
+        const connectorRelationIds = connectors
+          .map(connector => connector.dataset.relationId).filter(Boolean);
+        const missingDirected = declaredRelationIds.filter(
+          relationId => !connectorRelationIds.includes(relationId),
+        );
+        const extraDirected = connectorRelationIds.filter(
+          relationId => !declaredRelationIds.includes(relationId),
+        );
+        const duplicateDirected = [...new Set(connectorRelationIds.filter(
+          (relationId, index) => connectorRelationIds.indexOf(relationId) !== index,
+        ))];
+        if (missingDirected.length || extraDirected.length || duplicateDirected.length) {
+          problems.push({
+            reason: 'flow-directed-relation-mismatch', view: viewId,
+            missing: missingDirected, extra: extraDirected, duplicates: duplicateDirected,
+          });
+        }
         connectors.forEach(connector => {
           if (connector.dataset.directed !== 'true' || !visible(connector)) {
             problems.push({ reason: 'flow-connector-invalid', view: viewId, relation: connector.dataset.relationId });
@@ -813,7 +861,9 @@ async function runAssertions(page, width) {
     className: el.className,
     client: el.clientWidth,
     scroll: el.scrollWidth,
-  })).filter(item => item.client > 0 && item.scroll > item.client + 1));
+  // Glyph overhang and fractional CSS pixels can report up to ~4px of scrollWidth
+  // even when the painted text is fully inside its box (notably CJK parentheses).
+  })).filter(item => item.client > 0 && item.scroll > item.client + 4));
   if (semanticOverflow.length) throw new Error(`[shot] ${width}px 语义文本溢出: ${JSON.stringify(semanticOverflow.slice(0, 4))}`);
 
   const layoutProblems = await collectLayoutProblems(page);
@@ -916,8 +966,14 @@ async function preparePage(page, html) {
   await page.waitForTimeout(200);
 }
 
-async function prepareStableScreenshotState(page, semanticOnly = false) {
-  await page.evaluate((semanticOnly) => {
+async function prepareStableScreenshotState(page, mode = 'viewport') {
+  await page.evaluate((mode) => {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+    window.scrollTo(0, 0);
+    document.documentElement.style.overflowAnchor = 'none';
+    document.body.style.overflowAnchor = 'none';
     document.querySelectorAll('.is-pinned,.is-preview,.is-edge-focus').forEach(el => {
       el.classList.remove('is-pinned', 'is-preview', 'is-edge-focus');
     });
@@ -928,8 +984,14 @@ async function prepareStableScreenshotState(page, semanticOnly = false) {
     }
     const left = document.querySelector('#paneL');
     const right = document.querySelector('#paneR');
-    if (left) left.scrollTop = 0;
-    if (right) right.scrollTop = 0;
+    if (left) {
+      left.style.overflowAnchor = 'none';
+      left.scrollTop = 0;
+    }
+    if (right) {
+      right.style.overflowAnchor = 'none';
+      right.scrollTop = 0;
+    }
 
     let stableStyle = document.querySelector('#md2view-stable-shot-style');
     if (!stableStyle) {
@@ -937,16 +999,39 @@ async function prepareStableScreenshotState(page, semanticOnly = false) {
       stableStyle.id = 'md2view-stable-shot-style';
       document.head.appendChild(stableStyle);
     }
-    stableStyle.textContent = semanticOnly ? `
+    if (mode === 'full-content') {
+      stableStyle.textContent = `
+        html,body{height:auto!important;overflow:visible!important}
+        #split,#split.only-l,#split.only-r{height:auto!important;min-height:calc(100vh - var(--header-h))!important;align-items:start!important}
+        .pane{height:auto!important;overflow:visible!important}
+        .pane-tag{position:relative!important}
+        .hint{display:none!important}
+      `;
+    } else if (mode === 'semantic-only') {
+      stableStyle.textContent = `
       html,body{overflow:visible!important;background:var(--surface-2)!important}
       header.bar,#paneL,.splitter,.hint{display:none!important}
       #split,#split.only-l,#split.only-r{display:block!important;height:auto!important;min-height:0!important}
       #paneR{display:block!important;height:auto!important;overflow:visible!important}
       #paneR .pane-tag{position:relative!important}
       #paneR .doc{max-width:1280px!important;margin:0 auto!important;padding-top:10px!important}
-    ` : '';
-  }, semanticOnly);
+      `;
+    } else {
+      stableStyle.textContent = '';
+    }
+  }, mode);
   await page.waitForTimeout(120);
+  await page.evaluate(() => {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+    window.scrollTo(0, 0);
+    const left = document.querySelector('#paneL');
+    const right = document.querySelector('#paneR');
+    if (left) left.scrollTop = 0;
+    if (right) right.scrollTop = 0;
+  });
+  await page.waitForTimeout(80);
 }
 
 (async () => {
@@ -991,15 +1076,17 @@ async function prepareStableScreenshotState(page, semanticOnly = false) {
           });
         }
 
-        await prepareStableScreenshotState(page, false);
+        await prepareStableScreenshotState(page, 'viewport');
+        await page.screenshot({ path: path.join(cfg.outDir, `viewport-${width}.png`) });
+        await prepareStableScreenshotState(page, 'full-content');
         await page.screenshot({ path: path.join(cfg.outDir, `full-${width}.png`), fullPage: true });
-        if (cfg.selectors.length) await prepareStableScreenshotState(page, true);
+        if (cfg.selectors.length) await prepareStableScreenshotState(page, 'semantic-only');
         for (const sel of cfg.selectors) {
           const el = await page.$(sel);
           if (el) {
             await el.screenshot({ path: path.join(cfg.outDir, `${safeName(sel)}-${width}.png`) });
           } else {
-            warnings.push(`[shot] ${width}px 未找到 ${sel}`);
+            failures.push(`${width}px: 显式截图 selector 不存在: ${sel}`);
           }
         }
       } catch (err) {
