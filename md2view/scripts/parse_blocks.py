@@ -6,6 +6,8 @@ import json
 import re
 import sys
 
+from semantic_contract import source_units_for_block
+
 
 def parse_blocks(text):
     lines = text.split('\n')
@@ -72,7 +74,12 @@ def parse_blocks(text):
         buf.append(line)
     flush()
 
-    return [{'id': f'b{i:03d}', **b} for i, b in enumerate(blocks)]
+    identified = [{'id': f'b{i:03d}', **b} for i, b in enumerate(blocks)]
+    for block in identified:
+        source_units = source_units_for_block(block)
+        if source_units:
+            block['sourceUnits'] = source_units
+    return identified
 
 
 if __name__ == '__main__':

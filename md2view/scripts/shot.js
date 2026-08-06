@@ -9,17 +9,48 @@
 //   MD2VIEW_ASSERT=0      仅截图，不跑 smoke assertions
 const path = require('path');
 const fs = require('fs');
+const { execFileSync } = require('child_process');
+const { createRequire } = require('module');
 
-let chromium;
-try { ({ chromium } = require('@playwright/test')); }
-catch (e) {
-  try { ({ chromium } = require('playwright')); }
-  catch (e2) {
-    console.error('[shot] 需要 playwright：npm i -g playwright && npx playwright install chromium');
-    console.error('       或 cd 到任意已装 @playwright/test 的项目再跑本脚本。');
-    process.exit(1);
+function loadPlaywright() {
+  const moduleNames = ['@playwright/test', 'playwright'];
+  const loaders = [require];
+  const projectRoots = [process.cwd(), process.env.INIT_CWD, process.env.MD2VIEW_PLAYWRIGHT_ROOT]
+    .filter(Boolean);
+  for (const root of [...new Set(projectRoots)]) {
+    loaders.push(createRequire(path.join(path.resolve(root), 'package.json')));
   }
+
+  for (const loader of loaders) {
+    for (const moduleName of moduleNames) {
+      try {
+        const loaded = loader(moduleName);
+        if (loaded && loaded.chromium) return loaded.chromium;
+      } catch (_) {}
+    }
+  }
+
+  try {
+    const globalRoot = execFileSync('npm', ['root', '-g'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    for (const moduleName of moduleNames) {
+      try {
+        const loaded = require(path.join(globalRoot, moduleName));
+        if (loaded && loaded.chromium) return loaded.chromium;
+      } catch (_) {}
+    }
+  } catch (_) {}
+
+  console.error('[shot] 需要 playwright 与 Chromium。任选一种安装位置：');
+  console.error('       当前目录：npm i -D playwright && npx playwright install chromium');
+  console.error('       全局目录：npm i -g playwright && playwright install chromium');
+  console.error('       其他项目：MD2VIEW_PLAYWRIGHT_ROOT=/abs/project python3 scripts/build_reader.py ...');
+  process.exit(1);
 }
+
+const chromium = loadPlaywright();
 
 function usage() {
   console.error('用法: node shot.js <html> <out-dir> [--viewports=1440,1280,1024,768] [--height=900] [--no-assert] [#v1 #v2 ...]');
@@ -73,9 +104,31 @@ async function assertLocator(page, selector, label) {
 }
 
 async function collectEdgeHealth(page) {
-  return page.$$eval('.mv-edge-path', paths => paths.map((pathEl, index) => {
+  return page.$$eval('.mv-edge-path', paths => {
+    const cssVisible = el => {
+      if (typeof el.checkVisibility === 'function') {
+        try {
+          if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false;
+        } catch (_) {}
+      }
+      for (let current = el; current; current = current.parentElement) {
+        const style = getComputedStyle(current);
+        if (style.display === 'none' || style.visibility !== 'visible' || Number(style.opacity) <= 0.05) return false;
+      }
+      return true;
+    };
+    const hasPaint = value => {
+      const paint = String(value || '').trim().toLowerCase();
+      return Boolean(paint) && paint !== 'none' && paint !== 'transparent' &&
+        !/rgba\([^)]*,\s*0(?:\.0+)?\s*\)/.test(paint) &&
+        !/\/\s*0(?:\.0+)?%?\s*\)/.test(paint);
+    };
+    return paths.map((pathEl, index) => {
     const d = pathEl.getAttribute('d') || '';
     const numbers = d.match(/-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi) || [];
+    const computed = getComputedStyle(pathEl);
+    const visuallyVisible = cssVisible(pathEl) && hasPaint(computed.stroke) &&
+      Number(computed.strokeOpacity || 1) > 0.05 && parseFloat(computed.strokeWidth || 0) > 0;
     let totalLength = null;
     let lengthError = null;
     try {
@@ -90,6 +143,7 @@ async function collectEdgeHealth(page) {
     let endGap = null;
     let withinLayer = false;
     let crossesNode = false;
+    let crossesFact = false;
     const borderDistance = (point, rect) => {
       const x = point.x;
       const y = point.y;
@@ -114,11 +168,17 @@ async function collectEdgeHealth(page) {
       const box = pathEl.getBBox();
       withinLayer = box.x >= -1 && box.y >= -1 && box.x + box.width <= flow.clientWidth + 1 && box.y + box.height <= flow.clientHeight + 1;
       const otherNodes = [...flow.querySelectorAll('.mv-node')].filter(node => node !== from && node !== to);
-      for (let step = 1; step < 32 && !crossesNode; step += 1) {
+      const facts = [...flow.querySelectorAll('.mv-fact')];
+      for (let step = 1; step < 32 && (!crossesNode || !crossesFact); step += 1) {
         const sample = pathEl.getPointAtLength(totalLength * step / 32);
         const viewportPoint = new DOMPoint(sample.x, sample.y).matrixTransform(matrix);
-        crossesNode = otherNodes.some(node => {
+        if (!crossesNode) crossesNode = otherNodes.some(node => {
           const rect = node.getBoundingClientRect();
+          return viewportPoint.x > rect.left + 2 && viewportPoint.x < rect.right - 2 &&
+            viewportPoint.y > rect.top + 2 && viewportPoint.y < rect.bottom - 2;
+        });
+        if (!crossesFact) crossesFact = facts.some(fact => {
+          const rect = fact.getBoundingClientRect();
           return viewportPoint.x > rect.left + 2 && viewportPoint.x < rect.right - 2 &&
             viewportPoint.y > rect.top + 2 && viewportPoint.y < rect.bottom - 2;
         });
@@ -135,13 +195,36 @@ async function collectEdgeHealth(page) {
       endGap,
       withinLayer,
       crossesNode,
+      crossesFact,
+      visuallyVisible,
     };
-  }));
+    });
+  });
 }
 
 async function collectEdgeLabelCollisions(page) {
   return page.$$eval('.mv-edge-label', labels => {
-    const visible = labels.filter(label => (label.textContent || '').trim() && label.getBoundingClientRect().width > 0);
+    const cssVisible = el => {
+      if (typeof el.checkVisibility === 'function') {
+        try {
+          if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false;
+        } catch (_) {}
+      }
+      for (let current = el; current; current = current.parentElement) {
+        const style = getComputedStyle(current);
+        if (style.display === 'none' || style.visibility !== 'visible' || Number(style.opacity) <= 0.05) return false;
+      }
+      return true;
+    };
+    const visible = labels.filter(label => {
+      const style = getComputedStyle(label);
+      const fill = String(style.fill || '').trim().toLowerCase();
+      const painted = fill && fill !== 'none' && fill !== 'transparent' &&
+        !/rgba\([^)]*,\s*0(?:\.0+)?\s*\)/.test(fill) &&
+        !/\/\s*0(?:\.0+)?%?\s*\)/.test(fill) && Number(style.fillOpacity || 1) > 0.05;
+      return (label.textContent || '').trim() && cssVisible(label) && painted &&
+        label.getBoundingClientRect().width > 0;
+    });
     const overlaps = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2 &&
       Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2;
     const collisions = [];
@@ -157,16 +240,113 @@ async function collectEdgeLabelCollisions(page) {
         }
       }
       const flow = label.closest('[data-flow]');
-      const node = flow && [...flow.querySelectorAll('.mv-node')].find(candidate => overlaps(rect, candidate.getBoundingClientRect()));
-      if (node) {
+      const content = flow && [...flow.querySelectorAll('.mv-node,.mv-fact')]
+        .find(candidate => overlaps(rect, candidate.getBoundingClientRect()));
+      if (content) {
         collisions.push({
-          reason: 'label-node',
+          reason: content.classList.contains('mv-fact') ? 'label-fact' : 'label-node',
           label: (label.textContent || '').trim(),
-          node: node.getAttribute('data-node-id') || '',
+          content: content.getAttribute('data-node-id') || content.getAttribute('data-fact-id') || '',
         });
       }
     });
     return collisions;
+  });
+}
+
+async function collectLayoutProblems(page) {
+  return page.$$eval('[data-flow]', flows => {
+    const problems = [];
+    const cssVisible = el => {
+      if (typeof el.checkVisibility === 'function') {
+        try {
+          if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false;
+        } catch (_) {}
+      }
+      for (let current = el; current; current = current.parentElement) {
+        const style = getComputedStyle(current);
+        if (style.display === 'none' || style.visibility !== 'visible' || Number(style.opacity) <= 0.05) return false;
+      }
+      const rect = el.getBoundingClientRect();
+      return rect.width > 1 && rect.height > 1;
+    };
+    flows.forEach((flow, flowIndex) => {
+      const flowName = flow.closest('section.view')?.id || `flow-${flowIndex + 1}`;
+      const facts = [...flow.querySelectorAll('.mv-fact')].filter(el => el.offsetParent);
+      const directFactGrids = [...flow.children].filter(el => el.classList.contains('mv-fact-grid') && el.offsetParent);
+      if (facts.length && directFactGrids.length !== 1) {
+        problems.push({ reason: 'fact-grid-scope', flow: flowName, facts: facts.length, directFactGrids: directFactGrids.length });
+      }
+      const style = getComputedStyle(flow);
+      const usableWidth = flow.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      directFactGrids.forEach(grid => {
+        const gridStyle = getComputedStyle(grid);
+        if (gridStyle.position === 'absolute' || gridStyle.position === 'fixed') {
+          problems.push({ reason: 'fact-grid-out-of-flow', flow: flowName, position: gridStyle.position });
+        }
+        const ratio = usableWidth > 0 ? grid.getBoundingClientRect().width / usableWidth : 0;
+        if (ratio < 0.85) problems.push({ reason: 'fact-grid-not-full-row', flow: flowName, ratio: Number(ratio.toFixed(2)) });
+      });
+
+      const allContent = [...flow.querySelectorAll('.mv-node,.mv-fact')];
+      allContent.filter(el => !cssVisible(el)).forEach(el => {
+        problems.push({
+          reason: 'content-not-visible',
+          flow: flowName,
+          content: el.getAttribute('data-node-id') || el.getAttribute('data-fact-id') || '',
+        });
+      });
+      const content = allContent.filter(cssVisible);
+      const overlaps = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 3 &&
+        Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 3;
+      for (let index = 0; index < content.length; index += 1) {
+        const first = content[index];
+        const firstRect = first.getBoundingClientRect();
+        for (let otherIndex = index + 1; otherIndex < content.length; otherIndex += 1) {
+          const second = content[otherIndex];
+          if (first.contains(second) || second.contains(first)) continue;
+          if (!overlaps(firstRect, second.getBoundingClientRect())) continue;
+          problems.push({
+            reason: 'content-overlap',
+            flow: flowName,
+            first: first.getAttribute('data-node-id') || first.getAttribute('data-fact-id') || '',
+            second: second.getAttribute('data-node-id') || second.getAttribute('data-fact-id') || '',
+          });
+        }
+      }
+
+      [...flow.querySelectorAll('.mv-node')].filter(el => el.offsetParent).forEach(node => {
+        const current = node.getBoundingClientRect();
+        const oldAlignSelf = node.style.alignSelf;
+        const oldHeight = node.style.height;
+        node.style.alignSelf = 'start';
+        node.style.height = 'max-content';
+        const naturalHeight = node.getBoundingClientRect().height;
+        node.style.alignSelf = oldAlignSelf;
+        node.style.height = oldHeight;
+        const inflation = naturalHeight > 0 ? current.height / naturalHeight : 1;
+        if (current.height - naturalHeight > 48 && inflation > 1.5) {
+          problems.push({
+            reason: 'stretched-node',
+            flow: flowName,
+            node: node.getAttribute('data-node-id') || '',
+            height: Math.round(current.height),
+            naturalHeight: Math.round(naturalHeight),
+            inflation: Number(inflation.toFixed(2)),
+          });
+        }
+        if (current.height > 160 && current.width > 0 && current.height / current.width > 0.85) {
+          problems.push({
+            reason: 'node-aspect',
+            flow: flowName,
+            node: node.getAttribute('data-node-id') || '',
+            width: Math.round(current.width),
+            height: Math.round(current.height),
+          });
+        }
+      });
+    });
+    return problems;
   });
 }
 
@@ -473,6 +653,9 @@ async function runAssertions(page, width) {
   })).filter(item => item.client > 0 && item.scroll > item.client + 1));
   if (semanticOverflow.length) throw new Error(`[shot] ${width}px 语义文本溢出: ${JSON.stringify(semanticOverflow.slice(0, 4))}`);
 
+  const layoutProblems = await collectLayoutProblems(page);
+  if (layoutProblems.length) throw new Error(`[shot] ${width}px 视觉密度布局失败: ${JSON.stringify(layoutProblems.slice(0, 4))}`);
+
   const factHealth = await page.$$eval('.mv-fact', facts => {
     const flows = [...document.querySelectorAll('[data-flow]')];
     const seen = new Set();
@@ -509,7 +692,9 @@ async function runAssertions(page, width) {
         !Number.isFinite(edge.startGap) || edge.startGap > 3 ||
         !Number.isFinite(edge.endGap) || edge.endGap > 3 ||
         !edge.withinLayer ||
-        edge.crossesNode;
+        edge.crossesNode ||
+        edge.crossesFact ||
+        !edge.visuallyVisible;
     });
     if (broken.length) {
       throw new Error(`[shot] ${broken.length}/${edgeCount} 条连线路径无效: ${JSON.stringify(broken.slice(0, 3))}`);
@@ -517,6 +702,40 @@ async function runAssertions(page, width) {
     const labelCollisions = await collectEdgeLabelCollisions(page);
     if (labelCollisions.length) {
       throw new Error(`[shot] ${labelCollisions.length} 处连线标签碰撞: ${JSON.stringify(labelCollisions.slice(0, 4))}`);
+    }
+    const labelHealth = await page.evaluate(() => {
+      const cssVisible = el => {
+        if (typeof el.checkVisibility === 'function') {
+          try {
+            if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false;
+          } catch (_) {}
+        }
+        for (let current = el; current; current = current.parentElement) {
+          const style = getComputedStyle(current);
+          if (style.display === 'none' || style.visibility !== 'visible' || Number(style.opacity) <= 0.05) return false;
+        }
+        return true;
+      };
+      const expected = [...document.querySelectorAll('.mv-edge[data-label]')]
+        .filter(edge => (edge.getAttribute('data-label') || '').trim()).length;
+      const labels = [...document.querySelectorAll('.mv-edge-label')]
+        .filter(label => {
+          const style = getComputedStyle(label);
+          const fill = String(style.fill || '').trim().toLowerCase();
+          const painted = fill && fill !== 'none' && fill !== 'transparent' &&
+            !/rgba\([^)]*,\s*0(?:\.0+)?\s*\)/.test(fill) &&
+            !/\/\s*0(?:\.0+)?%?\s*\)/.test(fill) && Number(style.fillOpacity || 1) > 0.05;
+          return (label.textContent || '').trim() && cssVisible(label) && painted &&
+            label.getBoundingClientRect().width > 0;
+        });
+      const badPlacement = labels.filter(label => Number(label.dataset.placementScore || 0) !== 0).map(label => ({
+        text: (label.textContent || '').trim(),
+        score: label.dataset.placementScore || 'missing',
+      }));
+      return { expected, visible: labels.length, badPlacement };
+    });
+    if (labelHealth.visible !== labelHealth.expected || labelHealth.badPlacement.length) {
+      throw new Error(`[shot] 连线标签未完整安全落位: ${JSON.stringify(labelHealth)}`);
     }
   }
 }
@@ -564,6 +783,9 @@ async function preparePage(page, html) {
             }
             if (metric.units >= 4 && metric.contentAreaRatio < 0.28) {
               warnings.push(`[shot] ${width}px ${metric.id} 主体内容面积偏低: ${(metric.contentAreaRatio * 100).toFixed(0)}%`);
+            }
+            if (metric.units >= 4 && metric.contentAreaRatio < 0.22) {
+              throw new Error(`[shot] ${width}px ${metric.id} 主体内容面积过低: ${(metric.contentAreaRatio * 100).toFixed(0)}%`);
             }
           });
         }

@@ -17,13 +17,19 @@ description: 把 Markdown 重编码成可溯源的人类阅读视图——不是
 
 一份 md 经五环产出单文件双栏 HTML（左原文、右重组、滚动同步）。详规见 [PIPELINE.md](PIPELINE.md)。
 
-1. **块切分**（确定性）`scripts/parse_blocks.py <md> blocks.json` — 切成带 id 的 source blocks。
-2. **语义建模**（模型）→ `views.json` — 先建立决策完备的信息模型：`elements` 放结构骨架，`relations` 放关系，`facts` 放会改变判断的条件、证据、约束与取舍；全部可溯源，数字逐字准。
-3. **分视图编码**（模型·并行）→ `fragments/<vid>.html` — 每视图一个 agent 把既定模型编码成紧凑布局，不得在 fragment 临时发明或删减事实。节点、事实条都挂 `data-source-blocks`；流程连线只声明 `data-from` / `data-to`，禁止手写绝对坐标 SVG 路径。
-4. **确定性组装** — `scripts/assemble_split.py` 注入共享视觉、响应式双栏、动态连线和溯源交互，产出推荐的自包含单文件 HTML；`assemble_view.py` 保留为不需要动态流程线的单栏溯源输出。
-5. **浏览器校验**（不可省）— 在 1440 / 1280 / 1024 / 768 多视口验证截图、双栏调宽、模式切换、点击溯源、键盘操作、横向溢出和连线连续性；失败后修 fragment 或生成器，再完整回归。
+1. **块切分**（确定性）`scripts/parse_blocks.py <md> blocks.json` — 切成带 id 的 source blocks；表格行和 checkbox 项另带稳定 `sourceUnits`，不改变父 block id。
+2. **语义建模**（模型）→ `views.json` — 先建立决策完备的信息模型：`elements` 放结构骨架，`relations` 放关系，`facts` 放会改变判断的条件、证据、约束与取舍；结构化原子单位逐项用 `sourceUnitId` 映射，全部可溯源，数字逐字准。
+3. **分视图编码**（模型·并行）→ `fragments/<vid>.html` — 每视图一个 agent 把既定模型编码成紧凑布局，不得在 fragment 临时发明或删减事实。节点、事实条都挂 `data-source-blocks`，有原子锚点时同步挂 `data-source-unit`；流程连线只声明 `data-from` / `data-to`，禁止手写绝对坐标 SVG 路径。fragment 不写 inline style、不覆盖 `.mv-*`；局部 CSS 只用视图前缀 selector 和安全 grid / flex 属性。
+4. **候选组装**（确定性）— `scripts/assemble_split.py` 先执行语义合同，再注入共享视觉、双栏、动态连线和溯源交互；此阶段只产生待验候选，不代表可交付。
+5. **浏览器验收后原子晋升**（不可省）— `scripts/build_reader.py` 在 1440 / 1280 / 1024 / 768 验证截图、双栏调宽、模式切换、点击溯源、键盘操作、视觉密度和连线连续性；仅全部通过才原子替换最终 `reader.html`，失败保留上一个已知可用版本。标准门禁最低到 768，不扩展手机适配。
 
-**保真机制**：不是靠某一层不犯错，是靠环与环之间对账——建模的引用/数字错被 fragment 层回源拦截，布局与交互 bug 被浏览器校验拦截。`scripts/coverage.py blocks.json out.html` 同时报告全文覆盖、右栏 source-map 投影率和 nodes/facts 计数；全文覆盖不能替代重组完整性。
+最终交付命令固定为：
+```
+python3 $SK/scripts/build_reader.py blocks.json fragments/ views.json reader.html --shots-dir shots/
+```
+不要把 `assemble_split.py` 的直接输出当成最终产物；它只允许写入 `*.candidate.html` 调试候选，最终文件必须经过浏览器门禁。
+
+**保真机制**：不是靠某一层不犯错，是靠环与环之间对账——建模的引用/数字错被 fragment 层回源拦截，布局与交互 bug 被浏览器校验拦截。决策表每行、checkbox 每项必须各有独立节点或 fact，不能由一条总结吞并。`scripts/coverage.py blocks.json out.html` 同时报告全文覆盖、右栏 block 投影、原子语义投影和 nodes/facts 计数；全文覆盖不能替代重组完整性。
 
 fragment 的节点与 facts 必须保持模型中的 DOM 阅读顺序；视觉分支和泳道只能通过 CSS 布局表达，不能牺牲键盘顺序、屏幕阅读器顺序或运行时编号。
 
@@ -32,6 +38,7 @@ fragment 的节点与 facts 必须保持模型中的 DOM 阅读顺序；视觉�
 右栏不是短摘要，也不是把段落换成卡片。它独立阅读时必须回答四件事：**发生了什么、为什么重要、受什么条件/取舍约束、接下来如何判断或行动**。左栏用于核证和下钻，不能替右栏补缺失的决策维度。
 
 - **语义密度**：骨架用节点与关系表达；会改变理解或决策的信息进入可溯源 `facts`。矩阵不能只剩 A/B 两条路径，流程不能删掉 guard、invariant、checkpoint。
+- **原子完整性**：对比表的每个决策行、无序或有序 checkbox 的每个验收项都要由一个独立 `sourceUnitId` 承载；表格事实必须可见地保留该行首列 key 与其余每个单元格，checkbox 事实必须可见地保留完整条目（允许拆在 label / value）；可追加总结，不得用总结替代逐项表示。
 - **视觉密度**：优先用信息行、紧凑事实网格和真实分组，不用装饰性大留白、错层窄卡片或重复标签制造篇幅。
 - **压缩边界**：只有查阅型细节可进入 `compressedOut`；若省略后会改变方案选择、执行条件、风险判断或验收结论，就必须留在右栏。
 

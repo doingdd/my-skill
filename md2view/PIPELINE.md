@@ -13,8 +13,8 @@
 python3 $SK/scripts/parse_blocks.py <input.md> blocks.json
 ```
 
-产出 `blocks.json`：每块 `{id, type, raw, depth?}`，`type ∈ heading/paragraph/list/table/code/quote`。
-这是溯源和覆盖率的基础——每块一个稳定 id（`b000`…），后续所有溯源都指向它。
+产出 `blocks.json`：每块 `{id, type, raw, depth?, sourceUnits?}`，`type ∈ heading/paragraph/list/table/code/quote`。
+这是溯源和覆盖率的基础——每块一个稳定 id（`b000`…），后续所有溯源都指向它。结构化内容另外生成原子锚点，但不拆散父块：表格数据行是 `b030:r001`，无序或有序 checkbox 项是 `b038:i001`；每个 unit 都包含 `id / kind / key / raw`。
 
 ---
 
@@ -28,12 +28,16 @@ python3 $SK/scripts/parse_blocks.py <input.md> blocks.json
 3. **分层压缩，不是删成空壳。** 每视图通常 4–12 个结构节点；`label` ≤ 10 字，`detail` ≤ 40 字。会改变理解或决策的条件、证据、约束、风险、比较维度进入 `facts`，不能塞进 `compressedOut`。
 4. **控制事实粒度。** 一个视图通常 0–9 条 `view.facts`；`label` ≤ 8 字，`value` ≤ 42 字。facts 承载跨节点比较、约束、证据和不变项；只属于单个节点的短信息留在该节点 `detail / tags / data`。事实不得复述节点 `detail`，也不得为了提高计数拆碎同一句话。
 5. **所有语义单元都可溯源。** `elements` 与 `facts` 必须带 `sourceBlockIds`；fragment 的映射必须与模型精确一致，不只是引用一个“差不多”的原文块。
-6. **决策 / 对比场景逐维保留。** 方案矩阵、证据矩阵、取舍判断不能只剩 A/B 标签或两条短流程；路径、依赖、风险、故障边界、改动面、测试、成本等所有会改变选择的维度都要进入 `facts`。等价维度可合并，但必须能解释合并依据。
-7. **流程场景保住运行条件。** 主路径放 `elements / relations`；guard、invariant、checkpoint、失败边界放紧凑 `facts`，不要为每个条件再造一张大卡片。
-8. **数字场景（dashboard）每元素带 `data`**（数值 / 单位 / 占比），从原文**逐字抄录，禁心算改写**，建模后逐个对照原文自检。
-9. `concept` 从词汇表选或自创：`layers / pipeline / flow / matrix / timeline / graph / tree / quadrant / funnel / trend / distribution / evidence-chain / kpi-strip`。
-10. `relations` 表达元素关系 `{from,to,label,kind}`，`kind ∈ depends/triggers/guards/produces/escalates/contains`。
-11. `coverage_note` / `compressedOut` 只列查阅型细节（运行命令、维护细则、完整代码等）；必须明确省略了什么以及去哪里下钻。
+6. **决策 / 对比场景逐维保留。** 方案矩阵、证据矩阵、取舍判断不能只剩 A/B 标签或两条短流程；路径、依赖、风险、故障边界、改动面、测试、成本等所有会改变选择的维度都要进入 `facts`。散文中重复的同义信息可合并，但结构化表格行不得合并。
+   - 强制逐行门禁范围内的每个 `table-row` 必须由一个独立 element 或 fact 的 `sourceUnitId` 承载；一条总结不能同时顶替多行。
+   - 表头首列含“维度 / 指标 / 标准 / 对比项 / 比较项”（及对应英文），或被 `concept=matrix` 引用的表格，自动进入强制逐行门禁，模型不能通过改写 concept 绕过。
+   - 仅填写 `sourceUnitId` 不算通过：该 element / fact 的可见 `label + detail + value` 必须包含行首 key 和该行其余每个非空单元格。
+7. **checkbox 逐项保留。** `- [ ]`、`* [x]`、`1. [ ]`、`2) [x]` 等无序 / 有序 checkbox 的每个 `check-item` 都必须由一个独立 element 或 fact 的 `sourceUnitId` 承载；其可见 `label + detail + value` 必须包含完整条目（可跨字段拼接）。环境验收、重试验收之类聚合结论可以追加，但不能替代原始验收项。
+8. **流程场景保住运行条件。** 主路径放 `elements / relations`；guard、invariant、checkpoint、失败边界放紧凑 `facts`，不要为每个条件再造一张大卡片。
+9. **数字场景（dashboard）每元素带 `data`**（数值 / 单位 / 占比），从原文**逐字抄录，禁心算改写**，建模后逐个对照原文自检。
+10. `concept` 从词汇表选或自创：`layers / pipeline / flow / matrix / timeline / graph / tree / quadrant / funnel / trend / distribution / evidence-chain / kpi-strip`。
+11. `relations` 表达元素关系 `{from,to,label,kind}`，`kind ∈ depends/triggers/guards/produces/escalates/contains`。`matrix` 用分组与 facts 对比，不声明流程关系。
+12. `coverage_note` / `compressedOut` 只列查阅型细节（运行命令、维护细则、完整代码等）；必须明确省略了什么以及去哪里下钻。
 
 ### views.json schema
 ```json
@@ -48,7 +52,8 @@ python3 $SK/scripts/parse_blocks.py <input.md> blocks.json
          "data":{"value":94,"unit":"次","pct":"0.058%"}}
       ],
       "facts": [
-        {"id":"f-global","label":"比较维度","value":"跨节点的条件或取舍","sourceBlockIds":["b010","b012"]}
+        {"id":"f-global","label":"页面依赖","value":"A 依赖主页；B 只依赖登录页",
+         "sourceBlockIds":["b030"],"sourceUnitId":"b030:r003"}
       ],
       "relations": [{"from":"e1","to":"e2","label":"…","kind":"guards"}],
       "compressedOut": "这个视图省略了什么、去哪看"
@@ -62,6 +67,7 @@ python3 $SK/scripts/parse_blocks.py <input.md> blocks.json
 - 视图是否真切过章节（不是目录搬家）？
 - 右栏单独看，能否回答“什么 / 为什么 / 条件取舍 / 下一步”？
 - 原文中的每个决策维度是否进入节点或 facts？`compressedOut` 中是否误放了会改变判断的信息？
+- `table-row / check-item` 是否逐个由独立的 `sourceUnitId` 覆盖，而不是把多个 id 挂到一条总结上？
 - 所有 `sourceBlockIds` 在 `blocks.json` 里真实存在？
 - facts 是否提供新增信息而非复述 detail、拆句凑数？
 - dashboard 的每个 `data` 与原文逐字一致？
@@ -85,6 +91,7 @@ fragment v2 把职责切开：**agent 决定信息如何重编码，运行时决
 | `data-node-id` | 节点在当前 `data-flow` 内的稳定唯一 id，通常与 `views.json.elements[].id` 一致。 |
 | `data-fact-id` | 事实条在当前视图内的稳定唯一 id，与 `view.facts` 对应；用于 `.mv-fact` 承载比较维度、条件或证据。 |
 | `data-source-blocks` | 空格分隔的源块 id。每个承载事实、判断或数字的内容节点都必须有，用于点击 / 键盘溯源和双栏同步。 |
+| `data-source-unit` | 当模型元素带 `sourceUnitId` 时必填，值必须精确一致；一个节点 / fact 最多一个，用于逐行、逐项完整性对账。 |
 | `data-from` / `data-to` | 只声明一条边的起止节点 id；两端必须存在于同一个 `data-flow`。 |
 | `data-kind` / `data-label` | 可选的关系类型和短标签，对应 `relations[].kind` / `label`。 |
 
@@ -109,9 +116,9 @@ fragment v2 把职责切开：**agent 决定信息如何重编码，运行时决
 
     <div class="mv-fact-grid" aria-label="关键条件">
       <article class="mv-fact" data-fact-id="f-global"
-               data-source-blocks="b010 b012" tabindex="0">
-        <span class="mv-fact-label">失败边界</span>
-        <span class="mv-fact-value">入口异常与鉴权异常分开定位</span>
+               data-source-blocks="b030" data-source-unit="b030:r003" tabindex="0">
+        <span class="mv-fact-label">页面依赖</span>
+        <span class="mv-fact-value">A 依赖主页；B 只依赖登录页</span>
       </article>
     </div>
 
@@ -132,24 +139,25 @@ fragment v2 把职责切开：**agent 决定信息如何重编码，运行时决
 1. **图形必须表达概念，不退化成卡片罗列。** 分层要体现拦截关系，流程要体现方向和分支，泳道要体现责任边界；用 DOM 顺序、`data-layout`、分组和关系声明表达构图意图。
 2. **每个内容节点都要可溯源。** `data-source-blocks` 中的 id 必须真实存在于 `blocks.json`；同一事实来自多块时完整列出，不能只挂第一个。
 3. **流程边只写关系，不写坐标。** 禁止 fragment 在 `data-flow` 内使用 SVG `path` / `line` / `polyline`、伪元素或固定像素线段绘制流程连线；否则节点响应式变化后必然断裂。静态图标或不承担节点连接的迷你图形应放在 `data-flow` 外，避免和运行时几何层混用。
-4. **禁外部库、外部资源和自带 JS。** 片段保持离线可组装；交互和连线由运行时统一实现。允许少量视图专属 CSS 表达网格区域、顺序或强调层级，但不能重定义共享节点、连线、焦点和动效规则；类名加视图 id 前缀（`v1-…`）避免污染全局。
+4. **fragment 只声明局部布局，不接管共享视觉。** 禁外部库、`link`、自带 JS 和 inline style。若确需 `<style>`，逗号分隔后的每个 selector 都必须以当前视图的 `#v1` 或 `.v1-…` 开头，不得引用 `.mv-*`；只允许 grid / flex 的布局属性，不允许颜色、字体、尺寸、定位、隐藏、裁剪、`@` 规则、共享变量或 `!important`。交互、响应式、节点 / facts 外观和连线统一由运行时负责。
 5. **制图前回源核对。** 按 `sourceBlockIds` 核对数字 / 事实；发现不存在的块或错误数字，按原文纠正并标注，这是保真的关键拦截点。
 6. **模型是唯一语义来源。** `.mv-node`、`.mv-fact` 的 id 与 `data-source-blocks` 必须和 `views.json` 精确一致。`.mv-node-meta` 只能渲染模型已有 `tags`，不得在 fragment 临时发明事实或用标签替代 facts。
 7. **继续压缩。** 节点只放 `label` / `detail`，事实条只放 `label` / `value`，不搬原文段落；但省略后会改变方案选择、执行条件、风险判断或验收结论的信息必须留在右栏。
 8. **提高语义密度。** 矩阵 / 取舍视图用 `.mv-fact-grid` / `.mv-fact[data-fact-id][data-source-blocks]` 保留决策维度；流程视图把 guard、invariant、checkpoint 做成紧凑事实条，而不是再堆一层大节点。
 9. **控制视觉密度。** 在 1440×900 的信息单栏模式下，普通视图（≤8 节点、≤6 facts）的“标题 + insight + 主体”目标不超过内容视口的 85%。留白只服务分组、层级和连线避让；若相邻节点之间出现超过一个节点高度的空洞且无路由需要，判为失败。先扩大有效内容宽度、压缩 padding / gap，再考虑滚动，禁止通过删除决策事实换取一屏。
+10. **矩阵不用流程伪装。** `concept=matrix` 必须使用 `data-layout="matrix"`，且不得声明 `.mv-edge`；方案组放在前，逐维 facts 放一个直属 `.mv-fact-grid` 并横跨整行。若步骤关系才是主信息，应改用 `flow / pipeline` concept。
 
 ---
 
-## 环 4 · 确定性组装
+## 环 4 · 确定性候选组装
 
 两种输出形态，按需选：
 
-**双栏同步阅读器（推荐 · 最终交付形态）**
+**双栏同步阅读器（推荐 · 调试候选）**
 ```
-python3 $SK/scripts/assemble_split.py blocks.json fragments/ views.json reader.html
+python3 $SK/scripts/assemble_split.py blocks.json fragments/ views.json reader.candidate.html
 ```
-左栏原文线性渲染（每块 `data-block-id`）＋右栏视图＋顶部三钮（原文 / 双栏 / 信息重组）＋可调宽分隔条＋滚动锚定同步＋动态连线＋点击 / 键盘溯源。
+组装器先执行原子语义合同与 fragment 合同，再生成左栏原文（每块 `data-block-id`）＋右栏视图＋顶部三钮（原文 / 双栏 / 信息重组）＋可调宽分隔条＋滚动锚定同步＋动态连线＋点击 / 键盘溯源。这个 CLI 只接受以 `.candidate.html` 结尾的输出路径；未经环 5 的候选不能命名或覆盖最终 `reader.html`。
 **同步靠 block id 锚定，不是滚动百分比**——两栏长度不等（右栏压缩后短得多），百分比同步必然错位。这是本 skill 独有、依赖 source map 才做得出的能力。
 
 双栏宽度由运行时按视口给出可用默认值，支持拖动、方向键微调、双击复位并记忆比例；窄视口不强行挤压两栏，而是切换成单栏模式。流程连线同样属于运行时：它解析 fragment 的边声明、测量真实节点位置，在一个共享 SVG 层中绘制，并在 `ResizeObserver`、视图切换和分隔条变化后重算。
@@ -160,25 +168,30 @@ python3 $SK/scripts/assemble_view.py views.json fragments/ blocks.json view.html
 ```
 点任何带 `data-source-blocks` 的元素 → 右侧抽屉显示原文块。适合只要重组视图、不需要原文并置的场景。
 
-两种产物都是自包含单文件 HTML，离线可用、可分享；fragment v2 的动态连线与自适应双栏以 `assemble_split.py` 为准。
+两种产物都是自包含单文件 HTML；推荐交付仍是经过环 5 晋升的双栏 `reader.html`。fragment v2 的动态连线与双栏以 `assemble_split.py` 为准。
 
 ---
 
-## 环 5 · 真实浏览器校验（不可省）
+## 环 5 · 真实浏览器校验与原子晋升（不可省）
 
 fragment v2 消除了流程连线的盲写坐标，但不能消除真实浏览器中的布局、字体、事件和响应式问题。最终交付物是 `reader.html`，验收也必须针对它，而不是只检查 fragment 文本或脚本退出码。
 
-**闭环：组装 → 多视口渲染 → 交互与几何检查 → 截图验伤 → 修生成器 / fragment → 完整回归。**
+**闭环：候选组装 → 多视口渲染 → 交互与几何检查 → 截图验伤 → 全部通过后原子替换最终文件。** 任何校验失败时，候选会被清理，已有 `reader.html` 保持不变。
 
-skill 自带的 `shot.js` 默认在 1440 / 1280 / 1024 / 768 四个宽度截图并运行 smoke assertions（需 playwright）：
+最终交付只运行这一条：
+```
+python3 $SK/scripts/build_reader.py blocks.json fragments/ views.json reader.html --shots-dir shots/
+```
+
+`build_reader.py` 内部调用 `shot.js`，固定在 1440 / 1280 / 1024 / 768 四个宽度截图并运行 smoke assertions（需 playwright）。脚本会依次从自身依赖、当前项目、`MD2VIEW_PLAYWRIGHT_ROOT` 指向的项目和 npm 全局目录解析依赖；依赖装在其他项目时显式设置该环境变量。本 skill 的标准交付面最低到 768；不要求 390 / 430 等手机视口。排查时可单独运行：
 ```
 node $SK/scripts/shot.js reader.html <out-dir> --viewports=1440,1280,1024,768 "#v1" "#v2" ...
 ```
-命令还会逐视图报告 `nodes + facts`、视图 / 内容视口比、主体内容面积比和每视口信息单元；阈值只用于暴露异常留白，不替代“事实是否会改变判断”的语义审查。
+命令还会逐视图报告 `nodes + facts`、视图 / 内容视口比、主体内容面积比和每视口信息单元。直属 facts 网格脱离文档流或未横跨整行、节点 / facts 相互遮挡或被 CSS 隐藏、节点被 grid 异常拉高、连线穿过 facts 或不可见、主体内容面积低于硬阈值、关系标签缺失 / 不可见 / 压住节点或 facts 都会返回非零；几何阈值仍不替代“事实是否会改变判断”的语义审查。
 
 必须覆盖以下验收面：
 
-- **响应式**：四个视口都无页面横向溢出；宽屏双栏可用，窄屏单栏切换正确。
+- **桌面 / 平板宽度**：四个标准视口都无页面横向溢出；宽屏双栏可用，768 窄宽单栏切换正确；不把手机适配混入本门禁。
 - **双栏调宽**：拖动分隔条即时反馈；方向键可调；双击复位；刷新后恢复上次比例。
 - **模式与溯源**：原文 / 双栏 / 信息重组三种模式可切换；鼠标点击和键盘 Enter / Space 都能锁定映射、定位原文并显示明确选中态，Esc 可清除。
 - **连线连续性**：每个边声明都生成有效 `.mv-edge-path`；端点贴合对应节点，路径非空、无 `NaN`、不越界、不被节点遮成视觉断线；关系标签不互相重叠、也不压住节点；改变栏宽后仍成立。
@@ -196,13 +209,13 @@ node $SK/scripts/shot.js reader.html <out-dir> --viewports=1440,1280,1024,768 "#
 ```
 python3 $SK/scripts/coverage.py blocks.json <out.html>
 ```
-机检同时输出两组指标：全文文本覆盖率，以及右栏 `data-source-blocks` 的 **source-map 投影率 + nodes/facts 计数**。前者会因为左栏保留全文而天然较高，不能拿来证明重组完整；后者才用于发现“右栏看似完整、实际没有投影关键源块”。投影率不机械要求 100%——查阅型细节可以不投影，但所有未映射块都必须能由 `coverage_note` / `compressedOut` 解释。
+机检同时输出全文文本覆盖率、右栏 `data-source-blocks` 的 block 投影率、`data-source-unit` 原子投影率与 nodes/facts 计数。原子投影再分两层：决策表、matrix 所引用表格和 checkbox 构成“强制原子语义投影”，必须 100%；普通资料表的其他行只进入“全部原子锚点投影（观察）”，不制造保真失败。全文会因为左栏保留而天然较高，block 投影也可能被“一条总结引用整块”蒙混；强制原子投影才证明结构化决策维度逐项落在右栏。
 
-组装器合同的最小对抗回归：
+组装器合同、原子语义合同和晋升原子性的最小对抗回归：
 ```
-python3 $SK/scripts/test_md2view_contracts.py
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s $SK/scripts -p 'test_*.py'
 ```
-它验证 facts 缺失、错误 source map、不可溯源事实条，以及“左栏全文掩盖右栏漏投影”等失败模式。
+它验证 facts 缺失、错误 source map、矩阵布局伪装、表格 / checklist 被总结吞并、浏览器失败仍覆盖旧 reader，以及“左栏全文掩盖右栏漏投影”等失败模式。
 
 ---
 
@@ -214,9 +227,9 @@ python3 $SK/scripts/parse_blocks.py ../doc.md blocks.json      # 环1
 # 环2：派建模 agent 读 doc.md + blocks.json → 写 views.json
 mkdir fragments
 # 环3：读 views.json，每个 view 派一个 fragment agent 并行输出语义 fragment
-python3 $SK/scripts/assemble_split.py blocks.json fragments/ views.json reader.html   # 环4
-node $SK/scripts/shot.js reader.html shots --viewports=1440,1280,1024,768 "#v1" "#v2"  # 环5
-# 看图验伤 + 交互/连线断言 → 修生成器或 fragment → 重跑环4/环5
+python3 $SK/scripts/assemble_split.py blocks.json fragments/ views.json reader.candidate.html  # 环4，可选调试
+python3 $SK/scripts/build_reader.py blocks.json fragments/ views.json reader.html --shots-dir shots  # 环5，唯一最终出口
+# 浏览器门禁失败 → reader.html 不变；修生成器或 fragment 后重跑环5
 python3 $SK/scripts/coverage.py blocks.json reader.html          # 保真机检
 ```
 

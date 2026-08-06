@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """双栏同步阅读器：左栏原文线性渲染 + 右栏信息重组，滚动锚定同步 + 高亮 + 单栏切换。
-blocks.json（左栏源）+ fragments 目录（右栏视图，带 data-source-blocks）-> reader.html
+blocks.json（左栏源）+ fragments 目录（右栏视图，带 data-source-blocks）-> *.candidate.html
 两栏通过 block id 建立映射：左栏每块 data-block-id，右栏每元素 data-source-blocks。
 """
 import html as htmllib
@@ -9,6 +9,8 @@ import os
 import re
 import sys
 from html.parser import HTMLParser
+
+from semantic_contract import validate_semantic_model
 
 
 def esc(s):
@@ -97,7 +99,7 @@ def render_block(b):
         if rows:
             head = ''.join('<th>%s</th>' % inline(c) for c in rows[0])
             body = ''.join('<tr>%s</tr>' % ''.join('<td>%s</td>' % inline(c) for c in r) for r in rows[1:])
-            inner = '<table><thead><tr>%s</tr></thead><tbody>%s</tbody></table>' % (head, body)
+            inner = '<div class="tbl-scroll"><table><thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>' % (head, body)
         else:
             inner = ''
     else:
@@ -120,10 +122,22 @@ class FragmentContract(HTMLParser):
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
         classes = set(attrs.get('class', '').split())
+        if 'style' in attrs:
+            self.problems.append('fragment 不得使用 inline style；请改用视图前缀类')
+        if tag == 'link':
+            self.problems.append('fragment 不得加载外部 link 资源')
         starts_flow = 'data-flow' in attrs
         if starts_flow:
             self.has_flow = True
-            flow = {'nodes': {}, 'facts': {}, 'edges': [], 'layout': attrs.get('data-layout')}
+            flow = {
+                'nodes': {},
+                'facts': {},
+                'node_units': {},
+                'fact_units': {},
+                'edges': [],
+                'edge_details': [],
+                'layout': attrs.get('data-layout'),
+            }
             self.flows.append(flow)
             self.flow_stack.append(flow)
             if not flow['layout']:
@@ -152,6 +166,7 @@ class FragmentContract(HTMLParser):
                 self.problems.append('重复 data-node-id: %s' % node_id)
             elif flow:
                 flow['nodes'][node_id] = source
+                flow['node_units'][node_id] = attrs.get('data-source-unit')
             if not source:
                 self.problems.append('%s 缺少 data-source-blocks' % (node_id or 'mv-node'))
         if 'mv-fact' in classes:
@@ -164,6 +179,7 @@ class FragmentContract(HTMLParser):
                 self.problems.append('重复 data-fact-id: %s' % fact_id)
             elif flow:
                 flow['facts'][fact_id] = source
+                flow['fact_units'][fact_id] = attrs.get('data-source-unit')
             if not source:
                 self.problems.append('%s 缺少 data-source-blocks' % (fact_id or 'mv-fact'))
         if 'mv-edge' in classes:
@@ -174,6 +190,12 @@ class FragmentContract(HTMLParser):
                 self.problems.append('mv-edge 缺少 data-from/data-to')
             elif flow:
                 flow['edges'].append((from_id, to_id))
+                flow['edge_details'].append({
+                    'from': from_id,
+                    'to': to_id,
+                    'kind': attrs.get('data-kind') or 'depends',
+                    'label': attrs.get('data-label') or '',
+                })
             if 'hidden' not in attrs:
                 self.problems.append('mv-edge 必须 hidden，仅声明关系')
 
@@ -187,13 +209,90 @@ class FragmentContract(HTMLParser):
                 break
 
 
+def validate_fragment_css(fragment, view_id):
+    """Keep view-local layout CSS from mutating or hiding shared runtime primitives."""
+    problems = []
+    styles = re.findall(r'<style\b[^>]*>(.*?)</style\s*>', fragment, flags=re.I | re.S)
+    safe_layout_properties = {
+        'display',
+        'grid-template-columns', 'grid-template-rows', 'grid-template-areas',
+        'grid-auto-flow', 'grid-auto-columns', 'grid-auto-rows',
+        'grid-column', 'grid-column-start', 'grid-column-end',
+        'grid-row', 'grid-row-start', 'grid-row-end', 'grid-area',
+        'gap', 'row-gap', 'column-gap',
+        'align-items', 'align-content', 'align-self',
+        'justify-items', 'justify-content', 'justify-self',
+        'place-items', 'place-content', 'place-self',
+        'flex-direction', 'flex-wrap',
+    }
+    dangerous = re.compile(
+        r'\b(?:clip(?:-path)?|mask(?:-image)?|content-visibility|filter|transform|'
+        r'scale|translate|z-index|text-indent)\s*:'
+        r'|\bposition\s*:\s*(?:absolute|fixed)\b'
+        r'|\boverflow(?:-[xy])?\s*:\s*(?:hidden|clip)\b'
+        r'|\b(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse)|opacity\s*:)',
+        flags=re.I,
+    )
+    scoped_selector = re.compile(
+        rf'^(?:#{re.escape(view_id)}\b|\.{re.escape(view_id)}-[\w-]+\b)'
+    )
+    for css in styles:
+        css = re.sub(r'/\*.*?\*/', '', css, flags=re.S)
+        if re.search(r'\.mv-[\w-]+', css):
+            problems.append('fragment CSS 不得重定义共享 .mv- 视觉类')
+        if dangerous.search(css):
+            problems.append('fragment CSS 不得隐藏、裁剪或覆盖语义内容')
+        if '@' in css:
+            problems.append('fragment CSS 不得使用 @ 规则；响应式由共享运行时负责')
+        for selector_list, declarations in re.findall(r'([^{}]+)\{([^{}]*)\}', css):
+            for selector in selector_list.split(','):
+                selector = selector.strip()
+                if selector and not scoped_selector.match(selector):
+                    problems.append(
+                        f'fragment CSS selector 必须使用 #{view_id} 或 .{view_id}- 前缀: {selector}'
+                    )
+            for declaration in declarations.split(';'):
+                declaration = declaration.strip()
+                if not declaration:
+                    continue
+                if ':' not in declaration:
+                    problems.append(f'fragment CSS 声明格式无效: {declaration}')
+                    continue
+                property_name, value = declaration.split(':', 1)
+                property_name = property_name.strip().lower()
+                value = value.strip().lower()
+                if property_name not in safe_layout_properties:
+                    problems.append(
+                        f'fragment CSS 仅允许安全布局属性，禁止: {property_name or "<empty>"}'
+                    )
+                if property_name == 'display' and value not in {
+                    'grid', 'inline-grid', 'flex', 'inline-flex',
+                }:
+                    problems.append(
+                        f'fragment CSS display 仅允许 grid / flex，实际: {value or "<empty>"}'
+                    )
+                if '!important' in value or 'url(' in value or 'var(--mv-' in value:
+                    problems.append('fragment CSS 不得覆盖共享变量、加载资源或使用 !important')
+    return problems
+
+
 def validate_fragment(fragment, view, source_ids):
     parser = FragmentContract(source_ids)
     parser.feed(fragment)
+    parser.problems.extend(validate_fragment_css(fragment, view['id']))
     if not parser.has_flow:
         parser.problems.append('fragment v2 缺少 data-flow 语义作用域')
         raise ValueError('%s fragment 合同失败:\n- %s' % (view['id'], '\n- '.join(parser.problems)))
+    if str(view.get('concept', '')).lower() == 'matrix':
+        wrong_layouts = sorted({flow['layout'] or '<missing>' for flow in parser.flows if flow['layout'] != 'matrix'})
+        if wrong_layouts:
+            parser.problems.append(
+                'concept=matrix 必须使用 data-layout=matrix，实际: %s' % ', '.join(wrong_layouts)
+            )
+        if view.get('relations') or any(flow['edges'] for flow in parser.flows):
+            parser.problems.append('concept=matrix 不得声明流程关系；比较维度应使用分组与 facts')
     expected_nodes = {}
+    expected_node_units = {}
     expected_node_order = []
     for element in view.get('elements', []):
         node_id = element.get('id')
@@ -210,9 +309,15 @@ def validate_fragment(fragment, view, source_ids):
         if unknown:
             parser.problems.append('%s 引用了不存在的源块: %s' % (node_id, ', '.join(unknown)))
         expected_nodes[node_id] = set(sources)
+        expected_node_units[node_id] = element.get('sourceUnitId')
     actual_node_items = [(node, set(sources)) for flow in parser.flows for node, sources in flow['nodes'].items()]
     actual_node_order = [node for node, _ in actual_node_items]
     actual_nodes = {node: sources for node, sources in actual_node_items}
+    actual_node_units = {
+        node: source_unit
+        for flow in parser.flows
+        for node, source_unit in flow['node_units'].items()
+    }
     duplicate_nodes = sorted(node for node in actual_nodes if sum(1 for key, _ in actual_node_items if key == node) > 1)
     if duplicate_nodes:
         parser.problems.append('跨 data-flow 重复 data-node-id: %s' % ', '.join(duplicate_nodes))
@@ -229,8 +334,12 @@ def validate_fragment(fragment, view, source_ids):
         if expected_nodes[node_id] != actual_nodes[node_id]:
             parser.problems.append('%s 的 data-source-blocks 与 views.json 不一致: 期望 %s，实际 %s' % (
                 node_id, ' '.join(sorted(expected_nodes[node_id])), ' '.join(sorted(actual_nodes[node_id]))))
+        if expected_node_units[node_id] != actual_node_units.get(node_id):
+            parser.problems.append('%s 的 data-source-unit 与 views.json 不一致: 期望 %s，实际 %s' % (
+                node_id, expected_node_units[node_id] or '<none>', actual_node_units.get(node_id) or '<none>'))
 
     expected_facts = {}
+    expected_fact_units = {}
     expected_fact_order = []
     scoped_facts = list(view.get('facts', []))
     for element in view.get('elements', []):
@@ -251,9 +360,15 @@ def validate_fragment(fragment, view, source_ids):
         if unknown:
             parser.problems.append('%s 引用了不存在的源块: %s' % (fact_id, ', '.join(unknown)))
         expected_facts[fact_id] = set(sources)
+        expected_fact_units[fact_id] = fact.get('sourceUnitId')
     actual_fact_items = [(fact, set(sources)) for flow in parser.flows for fact, sources in flow['facts'].items()]
     actual_fact_order = [fact for fact, _ in actual_fact_items]
     actual_facts = {fact: sources for fact, sources in actual_fact_items}
+    actual_fact_units = {
+        fact: source_unit
+        for flow in parser.flows
+        for fact, source_unit in flow['fact_units'].items()
+    }
     duplicate_facts = sorted(fact for fact in actual_facts if sum(1 for key, _ in actual_fact_items if key == fact) > 1)
     if duplicate_facts:
         parser.problems.append('跨 data-flow 重复 data-fact-id: %s' % ', '.join(duplicate_facts))
@@ -270,6 +385,9 @@ def validate_fragment(fragment, view, source_ids):
         if expected_facts[fact_id] != actual_facts[fact_id]:
             parser.problems.append('%s 的 data-source-blocks 与 views.json 不一致: 期望 %s，实际 %s' % (
                 fact_id, ' '.join(sorted(expected_facts[fact_id])), ' '.join(sorted(actual_facts[fact_id]))))
+        if expected_fact_units[fact_id] != actual_fact_units.get(fact_id):
+            parser.problems.append('%s 的 data-source-unit 与 views.json 不一致: 期望 %s，实际 %s' % (
+                fact_id, expected_fact_units[fact_id] or '<none>', actual_fact_units.get(fact_id) or '<none>'))
     expected_edges = {(edge['from'], edge['to']) for edge in view.get('relations', [])}
     actual_edges = {edge for flow in parser.flows for edge in flow['edges']}
     missing_edges = sorted(expected_edges - actual_edges)
@@ -278,6 +396,28 @@ def validate_fragment(fragment, view, source_ids):
         parser.problems.append('缺少 views.json 关系: %s' % ', '.join('%s→%s' % edge for edge in missing_edges))
     if extra_edges:
         parser.problems.append('出现 views.json 外关系: %s' % ', '.join('%s→%s' % edge for edge in extra_edges))
+    expected_edge_details = {
+        (edge['from'], edge['to']): {
+            'kind': edge.get('kind') or 'depends',
+            'label': edge.get('label') or '',
+        }
+        for edge in view.get('relations', [])
+    }
+    actual_edge_details = {
+        (edge['from'], edge['to']): edge
+        for flow in parser.flows
+        for edge in flow['edge_details']
+    }
+    for edge_key in sorted(set(expected_edge_details) & set(actual_edge_details)):
+        expected = expected_edge_details[edge_key]
+        actual = actual_edge_details[edge_key]
+        edge_name = '%s→%s' % edge_key
+        if expected['kind'] != actual['kind']:
+            parser.problems.append('%s 的 data-kind 与 views.json 不一致: 期望 %s，实际 %s' % (
+                edge_name, expected['kind'], actual['kind']))
+        if expected['label'] != actual['label']:
+            parser.problems.append('%s 的 data-label 与 views.json 不一致: 期望 %s，实际 %s' % (
+                edge_name, expected['label'] or '<none>', actual['label'] or '<none>'))
     for index, flow in enumerate(parser.flows, 1):
         dangling = sorted({node for edge in flow['edges'] for node in edge if node not in flow['nodes']})
         if dangling:
@@ -331,13 +471,14 @@ header.bar .brand small{font-weight:500;color:var(--muted);font-size:10px;margin
 #paneL .doc code{font-family:var(--mono);font-size:.84em;background:var(--accent-soft);padding:1px 5px;border-radius:4px}
 #paneL .doc pre{background:var(--ink);color:#eee9df;padding:11px 13px;border-radius:9px;overflow-x:auto;font-size:11.5px}
 #paneL .doc pre code{background:none;padding:0;color:inherit}
-#paneL .doc table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0;border:1px solid var(--border)}
+#paneL .doc .tbl-scroll{overflow-x:auto;margin:10px 0}
+#paneL .doc table{width:100%;border-collapse:collapse;font-size:12px;margin:0;border:1px solid var(--border)}
 #paneL .doc th{background:var(--accent-soft);color:var(--muted);text-align:left;font-size:10.5px;text-transform:uppercase}
 #paneL .doc th,#paneL .doc td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
 #paneL .doc ul,#paneL .doc ol{padding-left:20px}#paneL .doc li{margin:2px 0}
 .src-block{scroll-margin-top:62px;border-radius:7px;transition:background 180ms,box-shadow 180ms,opacity 180ms;padding:1px 6px;margin:0 -6px;cursor:pointer}
 #paneR .doc{padding:6px clamp(18px,2.5vw,38px) 112px;max-width:1280px;margin:0 auto}
-section.view{margin:0 0 46px;scroll-margin-top:60px;opacity:0;transform:translateY(10px);transition:opacity 360ms var(--ease),transform 360ms var(--ease)}
+section.view{margin:0 0 46px;scroll-margin-top:60px;container-type:inline-size;opacity:0;transform:translateY(10px);transition:opacity 360ms var(--ease),transform 360ms var(--ease)}
 section.view.in{opacity:1;transform:none}
 section.view>h2{font-family:var(--font);font-size:clamp(20px,1.8vw,25px);line-height:1.2;margin:0 0 4px;display:flex;gap:9px;align-items:baseline;letter-spacing:-.02em}
 section.view>h2 .n{font-family:var(--mono);font-size:9.5px;color:var(--accent);letter-spacing:.11em}
@@ -346,24 +487,25 @@ section.view .compressed-out{font-size:11px;color:var(--muted);margin-top:9px;pa
 [data-source-blocks]{scroll-margin-top:62px}
 .mv-flow{position:relative;isolation:isolate;min-width:0;padding:clamp(14px,1.9vw,22px);border:1px solid var(--border);border-radius:14px;background:color-mix(in srgb,var(--surface) 96%,transparent);box-shadow:0 10px 28px rgba(46,37,26,.06);overflow:hidden;container-type:inline-size}
 .mv-flow::before{content:'';position:absolute;inset:0;z-index:-2;background:linear-gradient(115deg,rgba(162,68,30,.035),transparent 38%),linear-gradient(rgba(35,31,25,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(35,31,25,.035) 1px,transparent 1px);background-size:auto,28px 28px,28px 28px;mask-image:linear-gradient(to bottom,#000,transparent 92%)}
-.mv-flow[data-layout=vertical]{display:grid;gap:22px}.mv-flow[data-layout=horizontal]{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(160px,1fr);gap:24px}.mv-flow[data-layout=lanes]{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:17px}
+.mv-flow[data-layout=vertical]{display:grid;align-items:start;gap:var(--mv-edge-gap,30px)}.mv-flow[data-layout=horizontal]{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));align-items:start;column-gap:var(--mv-edge-gap,48px);row-gap:30px}.mv-flow[data-layout=lanes]{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));align-items:start;column-gap:var(--mv-edge-gap,48px);row-gap:30px}.mv-flow[data-layout=matrix]{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));align-items:start;gap:12px}
 .mv-lane{position:relative;z-index:auto;min-width:0;padding:10px;border:1px solid color-mix(in srgb,var(--border) 82%,transparent);border-radius:11px;background:color-mix(in srgb,var(--surface) 84%,transparent)}
 .mv-lane-title{display:flex;align-items:center;gap:7px;margin:0 0 7px;color:var(--muted);font:650 9.5px/1.2 var(--mono);letter-spacing:.11em;text-transform:uppercase}
 .mv-lane-title::before{content:'';width:14px;height:2px;background:var(--accent)}
-.mv-node{appearance:none;position:relative;z-index:3;display:grid;grid-template-columns:minmax(4.5em,max-content) minmax(0,1fr);align-items:baseline;column-gap:10px;row-gap:2px;width:100%;min-width:0;padding:10px 28px 10px 14px;border:1px solid #d9d1c3;border-radius:9px;background:var(--surface);color:var(--text);text-align:left;box-shadow:0 3px 10px rgba(44,34,24,.055);cursor:pointer;transition:box-shadow 160ms,border-color 120ms,background 120ms,opacity 220ms var(--ease)}
+.mv-node{appearance:none;position:relative;z-index:3;display:flex;flex-wrap:wrap;align-items:baseline;column-gap:10px;row-gap:2px;width:100%;min-width:0;padding:10px 28px 10px 14px;border:1px solid #d9d1c3;border-radius:9px;background:var(--surface);color:var(--text);text-align:left;box-shadow:0 3px 10px rgba(44,34,24,.055);cursor:pointer;transition:box-shadow 160ms,border-color 120ms,background 120ms,opacity 220ms var(--ease)}
 .mv-node::before{content:'';position:absolute;left:-1px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)}
 .mv-node::after{content:attr(data-node-index);position:absolute;right:9px;top:7px;color:#aca397;font:8.5px/1 var(--mono);letter-spacing:.04em}
 .mv-node:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--border));box-shadow:0 10px 24px rgba(44,34,24,.11)}
 .mv-node:active{box-shadow:0 3px 10px rgba(44,34,24,.09)}
 .mv-node[data-tone=good]::before{background:var(--good)}.mv-node[data-tone=warn]::before{background:var(--warn)}
-.mv-node-title{margin:0;min-width:0;font:700 13px/1.28 var(--sans);letter-spacing:-.01em;white-space:nowrap}.mv-node-detail{margin:0;min-width:0;color:var(--muted);font-size:11px;line-height:1.35;overflow-wrap:anywhere}
-.mv-node-meta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.mv-node-title{margin:0;min-width:0;flex:0 1 auto;font:700 13px/1.28 var(--sans);letter-spacing:-.01em;white-space:normal}.mv-node-detail{margin:0;min-width:0;flex:1 1 8em;color:var(--muted);font-size:11px;line-height:1.35;overflow-wrap:anywhere;line-break:anywhere;padding-right:.5em}
+.mv-node-meta{width:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
 .mv-node-meta span{display:inline-flex;align-items:center;min-height:17px;padding:1px 6px;border-radius:999px;background:var(--accent-soft);color:var(--accent-strong);font:600 9.5px/1.2 var(--mono)}
 .mv-fact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:7px;margin:9px 0 0}
+.mv-flow>.mv-fact-grid{grid-column:1/-1;width:100%;align-self:start;margin-top:0}
 .mv-fact{min-width:0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--border) 84%,transparent);border-radius:8px;background:color-mix(in srgb,var(--surface) 90%,transparent);cursor:pointer;transition:background 140ms,border-color 140ms,box-shadow 140ms}
 .mv-fact:hover{border-color:color-mix(in srgb,var(--accent) 42%,var(--border));box-shadow:0 5px 14px rgba(44,34,24,.07)}
 .mv-fact-label,.mv-fact>strong{display:block;margin:0 0 2px;color:var(--text);font:700 11.5px/1.25 var(--sans)}
-.mv-fact-value,.mv-fact>span{display:block;color:var(--muted);font-size:10.5px;line-height:1.35;overflow-wrap:anywhere}
+.mv-fact-value,.mv-fact>span{display:block;color:var(--muted);font-size:10.5px;line-height:1.35;overflow-wrap:anywhere;line-break:anywhere;padding-right:.5em}
 .mv-edge{display:none!important}
 .mv-edge-layer{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;overflow:visible}
 .mv-edge-path{fill:none;stroke:#837a6e;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;opacity:.82;transition:stroke 160ms,stroke-width 160ms,opacity 160ms,stroke-dashoffset 460ms var(--ease)}
@@ -385,7 +527,7 @@ section.view .compressed-out{font-size:11px;color:var(--muted);margin-top:9px;pa
   #paneL,#paneR{grid-column:1;grid-row:1}.pane-tag{padding-inline:16px}#paneL .doc,#paneR .doc{padding-inline:16px}
 }
 @media(max-width:560px){header.bar .brand{max-width:44vw;font-size:14px}.modes button{font-size:11px;padding-inline:9px}.mv-flow{padding:12px;border-radius:12px}}
-@container(max-width:620px){.mv-flow[data-layout=horizontal],.mv-flow[data-layout=lanes]{grid-auto-flow:row;grid-template-columns:minmax(0,1fr);grid-auto-columns:auto}}
+@container(max-width:620px){.mv-flow[data-layout=horizontal],.mv-flow[data-layout=lanes]{grid-template-columns:minmax(0,1fr)}}
 @container(max-width:520px){.mv-node{grid-template-columns:minmax(0,1fr);padding-right:24px}.mv-node-title{white-space:normal}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition-duration:.001ms!important;transition-delay:0ms!important}section.view{opacity:1;transform:none}.mv-flow:not(.is-ready) .mv-node{opacity:1}}
 """
@@ -527,18 +669,37 @@ JS = """
       var sign=end.y>=start.y?1:-1,ys=[(start.y+end.y)/2,start.y+sign*step,end.y-sign*step];obstacles.forEach(function(rect){ys.push(rect.top-10,rect.bottom+10);});
       ys.filter(function(y){return y>Math.min(start.y,end.y)+4&&y<Math.max(start.y,end.y)-4;}).forEach(function(y){candidates.push([start,{x:start.x,y:y},{x:end.x,y:y},end]);});
       var detourXs=[bounds.left,bounds.right];obstacles.forEach(function(rect){detourXs.push(rect.left-10,rect.right+10);});
-      detourXs.filter(function(x){return x>=bounds.left&&x<=bounds.right;}).forEach(function(x){var exit=start.y+sign*escape,entry=end.y-sign*escape;candidates.push([start,{x:start.x,y:exit},{x:x,y:exit},{x:x,y:entry},{x:end.x,y:entry},end]);});
+      detourXs.filter(function(x){return x>=bounds.left&&x<=bounds.right;}).forEach(function(x){var exit=start.y+sign*escape,entry=end.y-sign*escape;candidates.push([start,{x:start.x,y:exit},{x:x,y:exit},{x:x,y:entry},{x:end.x,y:entry},end]);candidates.push([start,{x:x,y:start.y},{x:x,y:end.y},end]);});
     }else{
       var signX=end.x>=start.x?1:-1,xs=[(start.x+end.x)/2,start.x+signX*step,end.x-signX*step];obstacles.forEach(function(rect){xs.push(rect.left-10,rect.right+10);});
       xs.filter(function(x){return x>Math.min(start.x,end.x)+4&&x<Math.max(start.x,end.x)-4;}).forEach(function(x){candidates.push([start,{x:x,y:start.y},{x:x,y:end.y},end]);});
       var detourYs=[bounds.top,bounds.bottom];obstacles.forEach(function(rect){detourYs.push(rect.top-10,rect.bottom+10);});
-      detourYs.filter(function(y){return y>=bounds.top&&y<=bounds.bottom;}).forEach(function(y){var exitX=start.x+signX*escape,entryX=end.x-signX*escape;candidates.push([start,{x:exitX,y:start.y},{x:exitX,y:y},{x:entryX,y:y},{x:entryX,y:end.y},end]);});
+      detourYs.filter(function(y){return y>=bounds.top&&y<=bounds.bottom;}).forEach(function(y){var exitX=start.x+signX*escape,entryX=end.x-signX*escape;candidates.push([start,{x:exitX,y:start.y},{x:exitX,y:y},{x:entryX,y:y},{x:entryX,y:end.y},end]);candidates.push([start,{x:start.x,y:y},{x:end.x,y:y},end]);});
     }
     if(!candidates.length)candidates.push([start,end]);
     function score(points){var hits=0,length=0;for(var i=1;i<points.length;i++){var a=points[i-1],b=points[i];length+=Math.hypot(b.x-a.x,b.y-a.y);obstacles.forEach(function(rect){if(segmentHitsRect(a,b,rect))hits++;});}var hugsOuterEdge=points.some(function(p){return p.x-bounds.left<16||bounds.right-p.x<16||p.y-bounds.top<16||bounds.bottom-p.y<16;});return hits*100000+length+points.length*2+(hugsOuterEdge?64:0);}
     candidates.sort(function(a,b){return score(a)-score(b);});return candidates[0];
   }
   function routePath(start,end,axis,obstacles,bounds){return roundedPath(routePoints(start,end,axis,obstacles,bounds));}
+  function labelColumns(text){return Array.from(text||'').reduce(function(total,char){return total+(/[\u2e80-\u9fff\uf900-\ufaff]/.test(char)?2:1);},0);}
+  function boxesOverlap(a,b){return Math.min(a.right,b.right)-Math.max(a.left,b.left)>0&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>0;}
+  function paddedLabelBox(label,padding){var box=label.getBBox();return{left:box.x-padding,right:box.x+box.width+padding,top:box.y-padding,bottom:box.y+box.height+padding};}
+  function placeEdgeLabel(edge,nodeBoxes,placed,width,height){
+    var text=edge.meta.dataset.label||'';edge.label.textContent=text;if(!text)return;
+    var length;try{length=edge.path.getTotalLength();}catch(e){edge.label.dataset.placementScore='invalid-path';return;}if(!Number.isFinite(length)||length<=0){edge.label.dataset.placementScore='invalid-path';return;}
+    var fractions=[.5],offsets=[0,10,-10,18,-18,28,-28,36,-36],best=null;for(var step=1;step<40;step++)fractions.push(step/40);
+    fractions.some(function(fraction){
+      var distance=length*fraction,point=edge.path.getPointAtLength(distance),before=edge.path.getPointAtLength(Math.max(0,distance-2)),after=edge.path.getPointAtLength(Math.min(length,distance+2)),dx=after.x-before.x,dy=after.y-before.y,norm=Math.hypot(dx,dy)||1,nx=-dy/norm,ny=dx/norm;
+      return offsets.some(function(offset){
+        var x=point.x+nx*offset,y=point.y+ny*offset;edge.label.setAttribute('x',x);edge.label.setAttribute('y',y);
+        var box;try{box=paddedLabelBox(edge.label,3);}catch(e){return false;}
+        var overflow=Math.max(0,6-box.left)+Math.max(0,box.right-(width-6))+Math.max(0,6-box.top)+Math.max(0,box.bottom-(height-6));
+        var nodeHits=nodeBoxes.filter(function(nodeBox){return boxesOverlap(box,nodeBox);}).length,labelHits=placed.filter(function(labelBox){return boxesOverlap(box,labelBox);}).length,score=overflow*1000+nodeHits*100000+labelHits*120000;
+        if(!best||score<best.score)best={x:x,y:y,box:box,score:score};return score===0;
+      });
+    });
+    if(best){if(best.score>0){edge.label.textContent='';edge.label.dataset.placementScore='suppressed:'+best.score;}else{edge.label.setAttribute('x',best.x);edge.label.setAttribute('y',best.y);edge.label.dataset.placementScore=String(best.score);placed.push(best.box);}}
+  }
   function setupFlow(flow,index){
     flow.querySelectorAll('.mv-node').forEach(function(node,nodeIndex){
       node.style.setProperty('--mv-index',nodeIndex);
@@ -546,11 +707,13 @@ JS = """
     });
     var svg=svgEl('svg',{'class':'mv-edge-layer','aria-hidden':'true'}),defs=svgEl('defs'),markerId='mv-arrow-'+index,marker=svgEl('marker',{id:markerId,viewBox:'0 0 10 10',refX:'8.5',refY:'5',markerWidth:'6',markerHeight:'6',orient:'auto-start-reverse'}),arrow=svgEl('path',{d:'M 1 1 L 9 5 L 1 9 z',fill:'context-stroke'});marker.appendChild(arrow);defs.appendChild(marker);svg.appendChild(defs);flow.insertBefore(svg,flow.firstChild);
     flow._edges=[];flow.querySelectorAll('.mv-edge[data-from][data-to]').forEach(function(meta){var path=svgEl('path',{'class':'mv-edge-path','data-kind':meta.dataset.kind||'depends','marker-end':'url(#'+markerId+')','pathLength':'1'}),label=svgEl('text',{'class':'mv-edge-label'});label.textContent=meta.dataset.label||'';path.dataset.from=meta.dataset.from;path.dataset.to=meta.dataset.to;path._label=label;svg.appendChild(path);svg.appendChild(label);flow._edges.push({meta:meta,path:path,label:label});});flow._svg=svg;
-    if('ResizeObserver'in window){var observer=new ResizeObserver(scheduleDraw);observer.observe(flow);flow.querySelectorAll('.mv-node').forEach(function(node){observer.observe(node);});flow._observer=observer;}
+    var longestLabel=flow._edges.reduce(function(longest,edge){return Math.max(longest,labelColumns(edge.meta.dataset.label||''));},0);if(longestLabel)flow.style.setProperty('--mv-edge-gap',Math.min(76,Math.max(48,longestLabel*5+18))+'px');
+    if('ResizeObserver'in window){var observer=new ResizeObserver(scheduleDraw);observer.observe(flow);flow.querySelectorAll('.mv-node,.mv-fact').forEach(function(content){observer.observe(content);});flow._observer=observer;}
   }
   function drawFlow(flow){
     if(!flow.offsetParent||!flow._svg)return;var root=flow.getBoundingClientRect(),width=flow.clientWidth,height=flow.clientHeight;flow._svg.setAttribute('viewBox','0 0 '+width+' '+height);flow._svg.setAttribute('width',width);flow._svg.setAttribute('height',height);
-    flow._edges.forEach(function(edge){var from=flow.querySelector('.mv-node[data-node-id="'+CSS.escape(edge.meta.dataset.from)+'"]'),to=flow.querySelector('.mv-node[data-node-id="'+CSS.escape(edge.meta.dataset.to)+'"]');if(!from||!to){edge.path.setAttribute('d','');edge.label.textContent='';return;}var a=from.getBoundingClientRect(),b=to.getBoundingClientRect(),dx=b.left+b.width/2-(a.left+a.width/2),dy=b.top+b.height/2-(a.top+a.height/2),axis=edge.meta.dataset.route||((Math.abs(dy)>=Math.abs(dx)*.72)?'v':'h');var fromSide=edge.meta.dataset.fromSide||(axis==='v'?(dy>=0?'bottom':'top'):(dx>=0?'right':'left')),toSide=edge.meta.dataset.toSide||(axis==='v'?(dy>=0?'top':'bottom'):(dx>=0?'left':'right')),start=point(a,fromSide,root),end=point(b,toSide,root),obstacles=[].slice.call(flow.querySelectorAll('.mv-node')).filter(function(node){return node!==from&&node!==to;}).map(function(node){var rect=node.getBoundingClientRect();return{left:rect.left-root.left,right:rect.right-root.left,top:rect.top-root.top,bottom:rect.bottom-root.top};}),bounds={left:10,right:width-10,top:10,bottom:height-10},d=routePath(start,end,axis,obstacles,bounds);edge.path.setAttribute('d',d);edge.label.textContent=edge.meta.dataset.label||'';if(edge.label.textContent){try{var pos=edge.path.getPointAtLength(edge.path.getTotalLength()*.5);edge.label.setAttribute('x',pos.x);edge.label.setAttribute('y',pos.y);}catch(e){edge.label.textContent='';}}});
+    flow._edges.forEach(function(edge){var from=flow.querySelector('.mv-node[data-node-id="'+CSS.escape(edge.meta.dataset.from)+'"]'),to=flow.querySelector('.mv-node[data-node-id="'+CSS.escape(edge.meta.dataset.to)+'"]');if(!from||!to){edge.path.setAttribute('d','');edge.label.dataset.placementScore='missing-node';return;}var a=from.getBoundingClientRect(),b=to.getBoundingClientRect(),dx=b.left+b.width/2-(a.left+a.width/2),dy=b.top+b.height/2-(a.top+a.height/2),axis=edge.meta.dataset.route||((Math.abs(dy)>=Math.abs(dx)*.72)?'v':'h');var fromSide=edge.meta.dataset.fromSide||(axis==='v'?(dy>=0?'bottom':'top'):(dx>=0?'right':'left')),toSide=edge.meta.dataset.toSide||(axis==='v'?(dy>=0?'top':'bottom'):(dx>=0?'left':'right')),start=point(a,fromSide,root),end=point(b,toSide,root),obstacles=[].slice.call(flow.querySelectorAll('.mv-node,.mv-fact')).filter(function(content){return content!==from&&content!==to;}).map(function(content){var rect=content.getBoundingClientRect();return{left:rect.left-root.left,right:rect.right-root.left,top:rect.top-root.top,bottom:rect.bottom-root.top};}),bounds={left:10,right:width-10,top:10,bottom:height-10},d=routePath(start,end,axis,obstacles,bounds);edge.path.setAttribute('d',d);});
+    var contentBoxes=[].slice.call(flow.querySelectorAll('.mv-node,.mv-fact')).map(function(content){var rect=content.getBoundingClientRect();return{left:rect.left-root.left-3,right:rect.right-root.left+3,top:rect.top-root.top-3,bottom:rect.bottom-root.top+3};}),placed=[];flow._edges.forEach(function(edge){placeEdgeLabel(edge,contentBoxes,placed,width,height);});
   }
   function drawAll(){drawQueued=false;document.querySelectorAll('[data-flow]').forEach(drawFlow);}
   function scheduleDraw(){if(drawQueued)return;drawQueued=true;requestAnimationFrame(function(){requestAnimationFrame(drawAll);});}
@@ -568,11 +731,22 @@ JS = """
 """
 
 
+def _require_candidate_output(out_path):
+    if not os.fspath(out_path).endswith('.candidate.html'):
+        raise ValueError(
+            'assemble_split.py 只允许写 *.candidate.html；'
+            '最终 reader.html 请使用 build_reader.py'
+        )
+
+
 def main(blocks_path, frag_dir, views_path, out_path):
+    _require_candidate_output(out_path)
     with open(blocks_path, encoding='utf-8') as f:
         blocks = json.load(f)
     with open(views_path, encoding='utf-8') as f:
         plan = json.load(f)
+
+    validate_semantic_model(blocks, plan)
 
     left = ''.join(render_block(b) for b in blocks)
     source_ids = {block['id'] for block in blocks}
@@ -614,5 +788,19 @@ def main(blocks_path, frag_dir, views_path, out_path):
     print('reader -> %s (%d bytes, %d blocks left / %d views right)' % (out_path, len(doc), len(blocks), len(right_parts)))
 
 
+def cli(argv=None):
+    args = list(sys.argv[1:] if argv is None else argv)
+    if len(args) != 4:
+        raise SystemExit(
+            '用法: assemble_split.py <blocks.json> <fragments_dir> '
+            '<views.json> <output.candidate.html>'
+        )
+    try:
+        _require_candidate_output(args[3])
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+    main(*args)
+
+
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+    cli()
