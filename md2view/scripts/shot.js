@@ -350,6 +350,159 @@ async function collectLayoutProblems(page) {
   });
 }
 
+async function collectV3FamilyProblems(page) {
+  return page.$$eval('section[data-v3-view]', views => {
+    const problems = [];
+    const visible = el => {
+      if (!el) return false;
+      const rect = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      return rect.width > 1 && rect.height > 1 && style.display !== 'none' &&
+        style.visibility !== 'hidden' && Number(style.opacity || 1) > 0.05;
+    };
+    const overlaps = (a, b, tolerance = 3) =>
+      Math.min(a.right, b.right) - Math.max(a.left, b.left) > tolerance &&
+      Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > tolerance;
+
+    views.forEach((view, viewIndex) => {
+      const viewId = view.id || `view-${viewIndex + 1}`;
+      const kind = view.dataset.diagramKind || '';
+      const diagram = view.querySelector('.mv-diagram');
+      if (!['architecture', 'flow', 'matrix', 'argument'].includes(kind)) {
+        problems.push({ reason: 'unsupported-family-rendered', view: viewId, kind });
+        return;
+      }
+      if (!visible(diagram)) problems.push({ reason: 'diagram-not-visible', view: viewId, kind });
+
+      const primaries = [...view.querySelectorAll('[data-emphasis="primary"]')];
+      if (primaries.length !== 1) {
+        problems.push({ reason: 'primary-count', view: viewId, count: primaries.length });
+      }
+      const focalIds = (view.dataset.focalIds || '').trim().split(/\s+/).filter(Boolean);
+      focalIds.forEach(focalId => {
+        if (!view.querySelector(`[data-entity-id="${CSS.escape(focalId)}"],[data-fact-id="${CSS.escape(focalId)}"]`)) {
+          problems.push({ reason: 'missing-focal', view: viewId, focalId });
+        }
+      });
+
+      [...view.querySelectorAll('[data-source-blocks]')].forEach(mapped => {
+        if (!(mapped.getAttribute('data-source-blocks') || '').trim()) {
+          problems.push({ reason: 'empty-source-map', view: viewId, tag: mapped.tagName });
+        }
+        if (!(mapped.textContent || '').trim()) {
+          problems.push({ reason: 'empty-mapped-content', view: viewId, tag: mapped.tagName });
+        }
+      });
+
+      const peerBoxes = new Map();
+      [...view.querySelectorAll('.mv-region')].forEach(region => {
+        const parent = region.parentElement && region.parentElement.closest('.mv-region');
+        const key = parent ? parent.dataset.regionId : '<root>';
+        if (!peerBoxes.has(key)) peerBoxes.set(key, []);
+        peerBoxes.get(key).push(region);
+      });
+      peerBoxes.forEach(regions => {
+        regions.filter(visible).forEach((region, index) => {
+          const rect = region.getBoundingClientRect();
+          regions.slice(index + 1).filter(visible).forEach(other => {
+            if (overlaps(rect, other.getBoundingClientRect())) {
+              problems.push({
+                reason: 'peer-region-overlap',
+                view: viewId,
+                first: region.dataset.regionId,
+                second: other.dataset.regionId,
+              });
+            }
+          });
+        });
+      });
+
+      if (kind === 'architecture') {
+        const structuralKinds = new Set(['contains', 'partOf', 'layerOf', 'instanceOf']);
+        [...view.querySelectorAll('.mv-relation[data-relation-id]')].forEach(relation => {
+          if (!structuralKinds.has(relation.dataset.kind)) return;
+          if (relation.dataset.visual !== 'containment') {
+            problems.push({ reason: 'structural-visual', view: viewId, relation: relation.dataset.relationId });
+          }
+          if (view.querySelector(`.mv-connector[data-relation-id="${CSS.escape(relation.dataset.relationId)}"],.mv-architecture-relation[data-relation-id="${CSS.escape(relation.dataset.relationId)}"]`)) {
+            problems.push({ reason: 'structural-connector', view: viewId, relation: relation.dataset.relationId });
+          }
+          if (relation.dataset.kind === 'contains') {
+            const subject = view.querySelector(`[data-owner-entity-id="${CSS.escape(relation.dataset.subject || '')}"]`);
+            const object = view.querySelector(`[data-entity-id="${CSS.escape(relation.dataset.object || '')}"]`);
+            if (!subject || !object || !subject.contains(object) || subject === object) {
+              problems.push({ reason: 'contains-without-nesting', view: viewId, relation: relation.dataset.relationId });
+            }
+          }
+        });
+        [...view.querySelectorAll('.mv-architecture-relation')].forEach(relation => {
+          if (!relation.dataset.visual || !visible(relation)) {
+            problems.push({ reason: 'architecture-relation-not-readable', view: viewId, relation: relation.dataset.relationId });
+          }
+        });
+        [...view.querySelectorAll('.mv-region--crosscut')].forEach(region => {
+          const targets = (region.dataset.targetRegionIds || '').trim().split(/\s+/).filter(Boolean);
+          if (!targets.length || !visible(region.querySelector('.mv-crosscut-targets'))) {
+            problems.push({ reason: 'crosscut-without-targets', view: viewId, region: region.dataset.regionId });
+          }
+          targets.forEach(target => {
+            if (!view.querySelector(`[data-region-id="${CSS.escape(target)}"]`)) {
+              problems.push({ reason: 'crosscut-missing-target', view: viewId, region: region.dataset.regionId, target });
+            }
+          });
+        });
+      }
+
+      if (kind === 'flow') {
+        const connectors = [...view.querySelectorAll('.mv-connector[data-relation-id]')];
+        if (!connectors.length) problems.push({ reason: 'flow-without-connector', view: viewId });
+        connectors.forEach(connector => {
+          if (connector.dataset.directed !== 'true' || !visible(connector)) {
+            problems.push({ reason: 'flow-connector-invalid', view: viewId, relation: connector.dataset.relationId });
+          }
+          for (const endpoint of ['subject', 'object']) {
+            const id = connector.dataset[endpoint];
+            if (!id || !view.querySelector(`[data-entity-id="${CSS.escape(id)}"]`)) {
+              problems.push({ reason: 'flow-endpoint-missing', view: viewId, relation: connector.dataset.relationId, endpoint });
+            }
+          }
+        });
+        const terminal = view.querySelector('[data-state-kind="terminal"],[data-state-kind="persistent"]');
+        if (!terminal && view.dataset.readingKind !== 'cyclic') {
+          problems.push({ reason: 'flow-without-terminal-or-cycle', view: viewId });
+        }
+      }
+
+      if (kind === 'matrix') {
+        const table = view.querySelector('table.mv-matrix');
+        const options = table ? [...table.querySelectorAll('thead [data-entity-id]')] : [];
+        if (!table || options.length < 2) {
+          problems.push({ reason: 'matrix-shape', view: viewId, options: options.length });
+        } else {
+          [...table.querySelectorAll('tbody tr[data-fact-id]')].forEach(row => {
+            const cells = row.querySelectorAll('td[data-target-id]');
+            if (cells.length !== options.length) {
+              problems.push({ reason: 'matrix-row-coverage', view: viewId, fact: row.dataset.factId, cells: cells.length, options: options.length });
+            }
+          });
+        }
+        if (view.querySelector('.mv-connector')) problems.push({ reason: 'matrix-has-flow-connector', view: viewId });
+      }
+
+      if (kind === 'argument') {
+        const claim = view.querySelector('[data-argument-role="claim"]');
+        const evidence = view.querySelector('[data-argument-role="evidence"],[data-argument-role="counterevidence"]');
+        const relation = view.querySelector('.mv-argument-relation[data-kind]');
+        if (!visible(claim) || !visible(evidence) || !visible(relation)) {
+          problems.push({ reason: 'argument-shape', view: viewId });
+        }
+        if (view.querySelector('.mv-connector')) problems.push({ reason: 'argument-has-flow-connector', view: viewId });
+      }
+    });
+    return problems;
+  });
+}
+
 async function assertFactInteractions(page) {
   const factCase = await page.evaluate(() => {
     const splitIds = el => (el.getAttribute('data-source-blocks') || '').trim().split(/\s+/).filter(Boolean);
@@ -441,9 +594,12 @@ async function collectDensityMetrics(page, width) {
     const viewportHeight = pane ? pane.clientHeight : window.innerHeight;
     const round = (value, digits = 2) => Number(value.toFixed(digits));
     return sections.map((view, index) => {
-      const flow = view.querySelector('[data-flow]');
-      const nodes = [...view.querySelectorAll('.mv-node')].filter(el => el.offsetParent);
-      const facts = [...view.querySelectorAll('.mv-fact')].filter(el => el.offsetParent);
+      const isV3 = view.hasAttribute('data-v3-view');
+      const flow = view.querySelector(isV3 ? '.mv-diagram' : '[data-flow]');
+      const nodes = [...view.querySelectorAll(isV3 ? '[data-entity-id]' : '.mv-node')]
+        .filter(el => el.offsetParent);
+      const facts = [...view.querySelectorAll(isV3 ? '[data-fact-id]' : '.mv-fact')]
+        .filter(el => el.offsetParent);
       const flowRect = flow && flow.getBoundingClientRect();
       const nonOverlappingFacts = facts.filter(fact => !fact.closest('.mv-node'));
       const contentArea = [...nodes, ...nonOverlappingFacts].reduce((sum, el) => {
@@ -456,6 +612,7 @@ async function collectDensityMetrics(page, width) {
       return {
         width: viewportWidth,
         id: view.id || `view-${index + 1}`,
+        kind: view.dataset.diagramKind || 'v2',
         nodes: nodes.length,
         facts: facts.length,
         units,
@@ -604,13 +761,19 @@ async function runAssertions(page, width) {
   await page.waitForTimeout(100);
   await page.locator('[data-md2view-mode="r"]').click();
   await page.waitForTimeout(420);
-  const reverseRevealHealth = await mapped.evaluate(el => {
+  const reverseRevealHealth = await page.evaluate(() => {
     const pane = document.querySelector('#paneR');
     const paneRect = pane.getBoundingClientRect();
-    const rect = el.getBoundingClientRect();
+    const pinned = [...pane.querySelectorAll('[data-source-blocks].is-pinned')];
+    const visiblePinned = pinned.filter(el => {
+      const rect = el.getBoundingClientRect();
+      return rect.height > 0 && rect.bottom > paneRect.top && rect.top < paneRect.bottom;
+    });
     return {
-      pinned: el.classList.contains('is-pinned'),
-      visible: rect.bottom > paneRect.top && rect.top < paneRect.bottom,
+      pinned: pinned.length > 0,
+      visible: visiblePinned.length > 0,
+      pinnedCount: pinned.length,
+      visiblePinnedCount: visiblePinned.length,
       paneWidth: paneRect.width,
       viewportWidth: window.innerWidth,
     };
@@ -638,14 +801,14 @@ async function runAssertions(page, width) {
   if (overflow.docScroll > overflow.docClient + 1 || overflow.bodyScroll > overflow.bodyClient + 1) {
     throw new Error(`[shot] ${width}px 视口存在横向溢出: ${JSON.stringify(overflow)}`);
   }
-  const internalOverflow = await page.$$eval('.pane,section.view,[data-flow]', elements => elements.map(el => ({
+  const internalOverflow = await page.$$eval('.pane,section.view,[data-flow],.mv-diagram', elements => elements.map(el => ({
     name: el.id || el.getAttribute('data-layout') || el.className,
     client: el.clientWidth,
     scroll: el.scrollWidth,
   })).filter(item => item.client > 0 && item.scroll > item.client + 1));
   if (internalOverflow.length) throw new Error(`[shot] ${width}px 内部容器横向溢出: ${JSON.stringify(internalOverflow.slice(0, 4))}`);
 
-  const semanticOverflow = await page.$$eval('.mv-node-title,.mv-node-detail,.mv-node-meta span,.mv-fact strong,.mv-fact span', elements => elements.map(el => ({
+  const semanticOverflow = await page.$$eval('.mv-node-title,.mv-node-detail,.mv-node-meta span,.mv-fact strong,.mv-fact span,.mv-entity h3,.mv-entity p,.mv-matrix th,.mv-matrix td,.mv-architecture-relation', elements => elements.map(el => ({
     text: (el.textContent || '').trim().slice(0, 28),
     className: el.className,
     client: el.clientWidth,
@@ -655,6 +818,11 @@ async function runAssertions(page, width) {
 
   const layoutProblems = await collectLayoutProblems(page);
   if (layoutProblems.length) throw new Error(`[shot] ${width}px 视觉密度布局失败: ${JSON.stringify(layoutProblems.slice(0, 4))}`);
+
+  const familyProblems = await collectV3FamilyProblems(page);
+  if (familyProblems.length) {
+    throw new Error(`[shot] ${width}px v3 family 合同失败: ${JSON.stringify(familyProblems.slice(0, 6))}`);
+  }
 
   const factHealth = await page.$$eval('.mv-fact', facts => {
     const flows = [...document.querySelectorAll('[data-flow]')];
@@ -748,6 +916,39 @@ async function preparePage(page, html) {
   await page.waitForTimeout(200);
 }
 
+async function prepareStableScreenshotState(page, semanticOnly = false) {
+  await page.evaluate((semanticOnly) => {
+    document.querySelectorAll('.is-pinned,.is-preview,.is-edge-focus').forEach(el => {
+      el.classList.remove('is-pinned', 'is-preview', 'is-edge-focus');
+    });
+    const hint = document.querySelector('.hint');
+    if (hint) {
+      hint.classList.remove('show');
+      hint.setAttribute('hidden', '');
+    }
+    const left = document.querySelector('#paneL');
+    const right = document.querySelector('#paneR');
+    if (left) left.scrollTop = 0;
+    if (right) right.scrollTop = 0;
+
+    let stableStyle = document.querySelector('#md2view-stable-shot-style');
+    if (!stableStyle) {
+      stableStyle = document.createElement('style');
+      stableStyle.id = 'md2view-stable-shot-style';
+      document.head.appendChild(stableStyle);
+    }
+    stableStyle.textContent = semanticOnly ? `
+      html,body{overflow:visible!important;background:var(--surface-2)!important}
+      header.bar,#paneL,.splitter,.hint{display:none!important}
+      #split,#split.only-l,#split.only-r{display:block!important;height:auto!important;min-height:0!important}
+      #paneR{display:block!important;height:auto!important;overflow:visible!important}
+      #paneR .pane-tag{position:relative!important}
+      #paneR .doc{max-width:1280px!important;margin:0 auto!important;padding-top:10px!important}
+    ` : '';
+  }, semanticOnly);
+  await page.waitForTimeout(120);
+}
+
 (async () => {
   const cfg = parseArgs(process.argv.slice(2));
   fs.mkdirSync(cfg.outDir, { recursive: true });
@@ -790,7 +991,9 @@ async function preparePage(page, html) {
           });
         }
 
+        await prepareStableScreenshotState(page, false);
         await page.screenshot({ path: path.join(cfg.outDir, `full-${width}.png`), fullPage: true });
+        if (cfg.selectors.length) await prepareStableScreenshotState(page, true);
         for (const sel of cfg.selectors) {
           const el = await page.$(sel);
           if (el) {

@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://md2view.local/schema/view-spec-v3.schema.json",
+  "title": "md2view view-spec v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "page", "views"],
+  "properties": {
+    "schemaVersion": {"const": 3},
+    "page": {"$ref": "#/$defs/page"},
+    "views": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/view"}
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {"type": "string", "minLength": 1},
+    "sourceBlockIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/nonEmptyString"}
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "sourceBlockIds"],
+      "properties": {
+        "text": {"$ref": "#/$defs/nonEmptyString"},
+        "sourceBlockIds": {"$ref": "#/$defs/sourceBlockIds"}
+      }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "audience", "readerTask", "centralClaim", "narrative"],
+      "properties": {
+        "title": {"$ref": "#/$defs/nonEmptyString"},
+        "audience": {"$ref": "#/$defs/nonEmptyString"},
+        "readerTask": {"$ref": "#/$defs/nonEmptyString"},
+        "centralClaim": {"$ref": "#/$defs/claim"},
+        "narrative": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["viewId", "role"],
+            "properties": {
+              "viewId": {"$ref": "#/$defs/nonEmptyString"},
+              "role": {"$ref": "#/$defs/nonEmptyString"},
+              "transition": {"$ref": "#/$defs/nonEmptyString"}
+            }
+          }
+        }
+      }
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "title", "question", "centralClaim", "narrativeRole",
+        "diagramKind", "diagramRationale", "entities", "relations", "facts",
+        "composition"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "title": {"$ref": "#/$defs/nonEmptyString"},
+        "question": {"$ref": "#/$defs/nonEmptyString"},
+        "centralClaim": {"$ref": "#/$defs/claim"},
+        "narrativeRole": {"$ref": "#/$defs/nonEmptyString"},
+        "diagramKind": {
+          "enum": [
+            "architecture", "flow", "matrix", "argument",
+            "hierarchy", "topology", "timeline", "dashboard"
+          ]
+        },
+        "diagramRationale": {"$ref": "#/$defs/nonEmptyString"},
+        "entities": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/entity"}
+        },
+        "relations": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/relation"}
+        },
+        "facts": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/fact"}
+        },
+        "composition": {"$ref": "#/$defs/composition"}
+      }
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "type", "emphasis", "label", "detail", "multiplicity",
+        "sourceBlockIds"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "type": {"$ref": "#/$defs/nonEmptyString"},
+        "stateKind": {"enum": ["start", "intermediate", "terminal", "persistent"]},
+        "emphasis": {"enum": ["primary", "secondary", "context"]},
+        "boundary": {"enum": ["internal", "external"]},
+        "label": {"$ref": "#/$defs/nonEmptyString"},
+        "detail": {"$ref": "#/$defs/nonEmptyString"},
+        "multiplicity": {"enum": ["one", "many", "optional"]},
+        "sourceBlockIds": {"$ref": "#/$defs/sourceBlockIds"},
+        "sourceUnitId": {"$ref": "#/$defs/nonEmptyString"}
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "subjectId", "objectId", "kind", "emphasis", "sourceBlockIds"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "subjectId": {"$ref": "#/$defs/nonEmptyString"},
+        "objectId": {"$ref": "#/$defs/nonEmptyString"},
+        "kind": {
+          "enum": [
+            "contains", "partOf", "layerOf", "instanceOf",
+            "calls", "triggers", "produces", "transitionsTo", "returns",
+            "dependsOn", "enables", "constrains", "provides",
+            "connectsTo", "exchangesWith", "peersWith",
+            "observes", "reports", "alerts",
+            "supportsClaim", "contradicts", "mitigates"
+          ]
+        },
+        "emphasis": {"enum": ["primary", "secondary", "context"]},
+        "label": {"$ref": "#/$defs/nonEmptyString"},
+        "sourceBlockIds": {"$ref": "#/$defs/sourceBlockIds"},
+        "sourceUnitId": {"$ref": "#/$defs/nonEmptyString"}
+      }
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "scope", "label", "sourceBlockIds"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "kind": {
+          "enum": [
+            "evidence", "constraint", "risk", "exception", "metric",
+            "checkpoint", "decision"
+          ]
+        },
+        "scope": {"$ref": "#/$defs/factScope"},
+        "label": {"$ref": "#/$defs/nonEmptyString"},
+        "value": {"$ref": "#/$defs/nonEmptyString"},
+        "values": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["targetId", "value"],
+            "properties": {
+              "targetId": {"$ref": "#/$defs/nonEmptyString"},
+              "value": {"$ref": "#/$defs/nonEmptyString"}
+            }
+          }
+        },
+        "sourceBlockIds": {"$ref": "#/$defs/sourceBlockIds"},
+        "sourceUnitId": {"$ref": "#/$defs/nonEmptyString"}
+      },
+      "oneOf": [
+        {"required": ["value"], "not": {"required": ["values"]}},
+        {"required": ["values"], "not": {"required": ["value"]}}
+      ]
+    },
+    "factScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "targetIds"],
+      "properties": {
+        "kind": {"enum": ["entity", "relation", "region", "view"]},
+        "targetIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/nonEmptyString"}
+        }
+      }
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rootRegionId", "readingPath", "focalIds", "regions"],
+      "properties": {
+        "rootRegionId": {"$ref": "#/$defs/nonEmptyString"},
+        "readingPath": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "sequence"],
+          "properties": {
+            "kind": {"enum": ["left-right", "top-down", "center-out", "cyclic", "scan"]},
+            "sequence": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/nonEmptyString"}
+            }
+          }
+        },
+        "focalIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/nonEmptyString"}
+        },
+        "regions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/region"}
+        }
+      }
+    },
+    "region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "primitive", "role", "axis", "parentId", "entityIds",
+        "childRegionIds", "targetRegionIds"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "primitive": {
+          "enum": ["container", "band", "axis", "sequence", "radial", "stack", "crosscut", "inset"]
+        },
+        "role": {"enum": ["main", "support", "crosscut", "inset", "context"]},
+        "axis": {"enum": ["horizontal", "vertical", "none"]},
+        "parentId": {"type": ["string", "null"]},
+        "ownerEntityId": {"$ref": "#/$defs/nonEmptyString"},
+        "entityIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/nonEmptyString"}
+        },
+        "childRegionIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/nonEmptyString"}
+        },
+        "targetRegionIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/nonEmptyString"}
+        }
+      }
+    }
+  }
+}

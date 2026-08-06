@@ -74,7 +74,8 @@ def is_decision_table(block):
 
 
 def _view_entities(view):
-    return [*view.get('elements', []), *view.get('facts', [])]
+    model_entities = view.get('entities', view.get('elements', []))
+    return [*model_entities, *view.get('facts', [])]
 
 
 def _norm_semantic_text(value):
@@ -82,10 +83,16 @@ def _norm_semantic_text(value):
 
 
 def _entity_text(entity):
-    return _norm_semantic_text(' '.join(
+    scalar_text = [
         str(entity.get(field, ''))
         for field in ('label', 'detail', 'value')
-    ))
+    ]
+    comparison_text = [
+        str(item.get('value', ''))
+        for item in entity.get('values', [])
+        if isinstance(item, dict)
+    ]
+    return _norm_semantic_text(' '.join([*scalar_text, *comparison_text]))
 
 
 def validate_semantic_model(blocks, plan):
@@ -137,7 +144,8 @@ def validate_semantic_model(blocks, plan):
                         )
                         continue
                 supplied.add(source_unit_id)
-        if str(view.get('concept', '')).lower() != 'matrix':
+        concept = view.get('diagramKind', view.get('concept', ''))
+        if str(concept).lower() != 'matrix':
             continue
         referenced_blocks = {
             block_id

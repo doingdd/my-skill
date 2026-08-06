@@ -1,54 +1,97 @@
 ---
 name: md2view
-description: 把 Markdown 重编码成可溯源的人类阅读视图——不是渲染加样式，而是抽出信息结构、换成图/表/dashboard，输出「左原文·右重组·滚动同步」的单文件 HTML。Use when 用户要把 md（复盘/报告/规格/README/长文档）变成给人读、易吸收、可分享的视图，或提到 md2view、信息重组、文档可视化、双栏阅读、把文档变图/变好看给人看。不适用于只要忠实渲染 md 的场景（那是普通 markdown 预览，不用本 skill）。
+description: 把 Markdown 重编码成可溯源的人类阅读视图，而不是只做主题美化。模型先声明义、理据、图法与章法，确定性编译器再生成「左原文、右重组、锚定同步」的单文件 HTML。Use when 用户要把复盘、报告、规格、README 或技术长文变成架构图、流程图、比较矩阵、论证图，或提到 md2view、信息重组、双栏阅读、文档可视化。只要忠实渲染 Markdown 时不要用本 skill。
 ---
 
 # md2view
 
-把一份 Markdown **重新编码**成人类友好的视图。核心不是"渲染得好看"，而是**抽出信息结构、换一种编码**（架构图 / 流程图 / dashboard），并让每个视图元素**可溯源回原文**。它是 md2html 的继任者：旧的转格式，新的转视图。
+把 Markdown 重新编码成可独立阅读、可回原文核证的视觉论证。Markdown 是权威源，HTML 是消费投影；产物有问题时修 `view-spec.json`、合同或 renderer，不手修生成的 HTML。
 
-## 定位边界（先划清，别跑偏）
+当前生效合同是 **v3.1**。v2 只用于打开已经生成的自包含快照，不再作为新任务的生成路径。详规见 [PIPELINE.md](PIPELINE.md)，设计依据见 [DESIGN.md](DESIGN.md)。
 
-- **不做**：忠实渲染 + 换主题。那是 markdown viewer，市面一堆（mdview、Typora…），不用本 skill。
-- **只做**：信息重编码 + 保真溯源。模型负责信息结构与构图意图，组装器负责共享视觉、连线几何和交互；每个字能回原文、每个数被核对。
-- 同维度拼"第一眼好看"赢不过美化器；换维度（可信 + 可溯源 + 重编码）才独一份。
+## 不可违反的边界
 
-## 五环流水线
+- 模型只写 `view-spec.json`，不写 HTML、CSS、SVG、像素坐标或 fragment。
+- 先确定读者要形成的判断，再建实体/关系/事实，之后才选择图法和空间骨架；不能从卡片模板倒推语义。
+- 关系不等于连线。包含、分层、实例等结构关系优先用容器、嵌套、层带或重复表达。
+- 每个 claim、entity、relation、fact 都必须有真实 `sourceBlockIds`；表格行和 checkbox 项按 `sourceUnitId` 逐项投影。
+- 每张视图恰有一个 `emphasis=primary` 的 entity；facts 必须就近声明 `entity / relation / region / view` 作用域。
+- 标准交付宽度为 1440 / 1280 / 1024 / 768，最低 768；不做手机适配。
+- 生产者不能给自己的图放行。浏览器门和独立盲读 verdict 都 PASS 后才能原子替换最终 reader。
 
-一份 md 经五环产出单文件双栏 HTML（左原文、右重组、滚动同步）。详规见 [PIPELINE.md](PIPELINE.md)。
+## 六段执行流程
 
-1. **块切分**（确定性）`scripts/parse_blocks.py <md> blocks.json` — 切成带 id 的 source blocks；表格行和 checkbox 项另带稳定 `sourceUnits`，不改变父 block id。
-2. **语义建模**（模型）→ `views.json` — 先建立决策完备的信息模型：`elements` 放结构骨架，`relations` 放关系，`facts` 放会改变判断的条件、证据、约束与取舍；结构化原子单位逐项用 `sourceUnitId` 映射，全部可溯源，数字逐字准。
-3. **分视图编码**（模型·并行）→ `fragments/<vid>.html` — 每视图一个 agent 把既定模型编码成紧凑布局，不得在 fragment 临时发明或删减事实。节点、事实条都挂 `data-source-blocks`，有原子锚点时同步挂 `data-source-unit`；流程连线只声明 `data-from` / `data-to`，禁止手写绝对坐标 SVG 路径。fragment 不写 inline style、不覆盖 `.mv-*`；局部 CSS 只用视图前缀 selector 和安全 grid / flex 属性。
-4. **候选组装**（确定性）— `scripts/assemble_split.py` 先执行语义合同，再注入共享视觉、双栏、动态连线和溯源交互；此阶段只产生待验候选，不代表可交付。
-5. **浏览器验收后原子晋升**（不可省）— `scripts/build_reader.py` 在 1440 / 1280 / 1024 / 768 验证截图、双栏调宽、模式切换、点击溯源、键盘操作、视觉密度和连线连续性；仅全部通过才原子替换最终 `reader.html`，失败保留上一个已知可用版本。标准门禁最低到 768，不扩展手机适配。
+来源盘点与“义”合并为第一段，但决策顺序不能颠倒：
 
-最终交付命令固定为：
+1. **来源盘点 + 义**：运行 `parse_blocks.py` 得到不可变 `blocks.json`；再声明 audience、readerTask、页面/视图 centralClaim、question、narrativeRole。此时不选布局。
+2. **理与据**：在 `view-spec.json` 中建立 typed entities、typed relations、scoped facts、source map；`stateKind` 表达流程状态语义。
+3. **图法**：按主问题选择一个 `diagramKind`，写清 `diagramRationale`；不兼容就拆图或重选。
+4. **章法**：用受限 region tree、readingPath、focalIds 分配位置、分组、阅读起点与视觉重点。
+5. **确定性编译**：`assemble_v3.py` 严格校验合同并由 family renderer 生成候选；模型不参与 DOM 和样式生成。
+6. **独立盲读 + 原子晋升**：真实浏览器生成截图；独立 reviewer 先只看截图复述，再与 spec 对账形成绑定候选摘要的 `visual-verdict.json`；`build_reader.py v3` 重编译并通过全部门禁后原子晋升。
+
+## 四种已实现图法
+
+| family | 何时选择 | 硬条件 | 反例 |
+| --- | --- | --- | --- |
+| `architecture` | 组成、边界、分层、依赖、共享面 | 有结构/依赖关系或有语义 owner 的 region；动态关系只能辅助 | 把八层架构画成八步箭头流程 |
+| `flow` | 触发、状态推进、条件、回路 | 主关系是动态 relation；entity 用 `stateKind` 标明 `terminal/persistent`，或声明闭合循环 | 无方向的分类/层级被强加起点终点 |
+| `matrix` | 多个 option 沿共同维度比较 | 至少两个 `type=option`；每个比较 fact 的 `values[]` 完整覆盖所有 option；禁止动态关系 | 两张方案卡片加一堆全局散文 |
+| `argument` | 证据支持、反驳或缓解某结论 | claim + evidence/counterevidence + 论证 relation；claim 是焦点 | 把证据链画成执行 pipeline |
+
+`hierarchy / topology / timeline / dashboard` 只在词汇表中保留，v3.1 renderer 尚未实现；必须 `unsupported_diagram_kind` 失败，禁止退化成 flow。
+
+`stateKind` 可取 `start / intermediate / terminal / persistent`。它描述状态本体，不是颜色；普通架构实体无需硬填。flow 若不是闭合循环，至少要显式出现 `terminal` 或 `persistent`。
+
+## 冷启动执行
+
+下文 `$SK` 是本 skill 的实际安装目录。为任务建立独立工作目录：
+
+```bash
+mkdir -p work && cd work
+python3 $SK/scripts/parse_blocks.py ../input.md blocks.json
+# 模型读取 input.md + blocks.json，按 PIPELINE.md 生成 view-spec.json；不要生成 HTML
+python3 $SK/scripts/assemble_v3.py blocks.json view-spec.json reader.candidate.html
+node $SK/scripts/shot.js reader.candidate.html shots --viewports=1440,1280,1024,768
+python3 $SK/scripts/coverage.py blocks.json reader.candidate.html
+shasum -a 256 reader.candidate.html
 ```
-python3 $SK/scripts/build_reader.py blocks.json fragments/ views.json reader.html --shots-dir shots/
+
+然后把 **shots 中的最终截图**交给与生产者不同的视觉 agent 或人工 reviewer。第一轮不得向 reviewer 提供 `centralClaim`、`diagramKind`、relation kinds、`focalIds`；reviewer 先写实际看见的命题、主关系、首个焦点、fact 归属和更低误读方案。第二轮再与 spec 对账，写 `visual-verdict.json`：
+
+- `candidate` 必须是 `<最终文件 stem>.candidate.html`，例如最终文件为 `reader.html` 时写 `reader.candidate.html`。
+- `candidateSha256` 必须等于上面候选文件的 64 位 SHA256。
+- `reviewer.id` 必须与最终命令的 `--producer-id` 不同，且 `independentFromProducer=true`。
+- 每个 view 恰好出现一次；`primaryRelationMatches` 精确覆盖该 view 的全部 `emphasis=primary` relations；`factScopeMatches` 精确覆盖全部 facts。
+- `claimMatches`、`focalMatches`、所有逐项 `matches`、每个 view verdict 和总 verdict 都必须为 `true/PASS`。`REJECT` 或 `UNCERTAIN` 都不能晋升。
+
+最终只通过 v3 出口交付：
+
+```bash
+python3 $SK/scripts/build_reader.py v3 \
+  blocks.json view-spec.json reader.html \
+  --visual-verdict visual-verdict.json \
+  --producer-id <本次生产者稳定ID> \
+  --shots-dir shots
 ```
-不要把 `assemble_split.py` 的直接输出当成最终产物；它只允许写入 `*.candidate.html` 调试候选，最终文件必须经过浏览器门禁。
 
-**保真机制**：不是靠某一层不犯错，是靠环与环之间对账——建模的引用/数字错被 fragment 层回源拦截，布局与交互 bug 被浏览器校验拦截。决策表每行、checkbox 每项必须各有独立节点或 fact，不能由一条总结吞并。`scripts/coverage.py blocks.json out.html` 同时报告全文覆盖、右栏 block 投影、原子语义投影和 nodes/facts 计数；全文覆盖不能替代重组完整性。
+该命令会重新确定性编译候选，并验证 1440 / 1280 / 1024 / 768 浏览器行为、verdict 中的候选名与 SHA256、reviewer/producer 独立性、全部视图、全部主关系和全部 facts。任一门失败时不会覆盖已有 `reader.html`。
 
-fragment 的节点与 facts 必须保持模型中的 DOM 阅读顺序；视觉分支和泳道只能通过 CSS 布局表达，不能牺牲键盘顺序、屏幕阅读器顺序或运行时编号。
+## 返回前自检
 
-## 重组质量下限
+- 右栏脱离原文能否回答：是什么、为什么、约束/取舍、如何行动或判断？
+- 这是最匹配主问题的 family，还是因为习惯画流程才选 flow？
+- primary relation 是否与 family 兼容？结构关系是否主要由空间表达？
+- 每个 entity 是否恰好归属一个 region？region tree 是否唯一根、可达、无环？
+- facts 是否贴近正确 entity/relation/region，而不是为了排版被抬成 view fact？
+- 每个强制表格行/check-item 是否由独立 `sourceUnitId` 保留完整可见内容？数字是否逐字一致？
+- 768 及以上是否无横向溢出、遮挡、断裂和失效交互？不要为通过门禁删掉决策事实。
+- 独立 reviewer 是否真的先盲读，且原始 readback 没被生产者改写？
 
-右栏不是短摘要，也不是把段落换成卡片。它独立阅读时必须回答四件事：**发生了什么、为什么重要、受什么条件/取舍约束、接下来如何判断或行动**。左栏用于核证和下钻，不能替右栏补缺失的决策维度。
+对抗回归：
 
-- **语义密度**：骨架用节点与关系表达；会改变理解或决策的信息进入可溯源 `facts`。矩阵不能只剩 A/B 两条路径，流程不能删掉 guard、invariant、checkpoint。
-- **原子完整性**：对比表的每个决策行、无序或有序 checkbox 的每个验收项都要由一个独立 `sourceUnitId` 承载；表格事实必须可见地保留该行首列 key 与其余每个单元格，checkbox 事实必须可见地保留完整条目（允许拆在 label / value）；可追加总结，不得用总结替代逐项表示。
-- **视觉密度**：优先用信息行、紧凑事实网格和真实分组，不用装饰性大留白、错层窄卡片或重复标签制造篇幅。
-- **压缩边界**：只有查阅型细节可进入 `compressedOut`；若省略后会改变方案选择、执行条件、风险判断或验收结论，就必须留在右栏。
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s $SK/scripts -p 'test_*.py'
+```
 
-**fragment v2 边界**：旧的 `reader.html` 是自包含快照，可继续打开；旧 fragments 需要按 v2 语义合同重新生成，才能获得动态连线、自适应布局和新交互。不维护两套长期兼容逻辑。
-
-## 判断要不要用它
-
-- 文档信息结构厚（章节多 / 表格多 / 数字多 / 逻辑关系多）、要给人读或分享 → **用**。
-- 只要把 md 忠实转成带样式 html → **不用**，普通渲染即可。
-
-## 成本提醒
-
-一份文档约十几次模型调用（1 建模 + N 制图 + 若干校验），这是信息重编码 + 保真的代价。轻量文档或只需渲染时不要用本 skill。
+不要把 `assemble_v3.py` 的候选当最终交付，也不要使用 legacy 的 `views.json + fragments/ + assemble_split.py` 路径生成新 reader。

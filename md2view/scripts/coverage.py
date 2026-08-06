@@ -33,13 +33,17 @@ class SourceMapParser(HTMLParser):
         attrs = dict(attrs)
         classes = set((attrs.get('class') or '').split())
         starts_flow = 'data-flow' in attrs
+        starts_v3_view = 'data-v3-view' in attrs
+        starts_matrix_scope = starts_flow or starts_v3_view
         if starts_flow:
             self.flow_stack.append(attrs.get('data-layout') == 'matrix')
+        elif starts_v3_view:
+            self.flow_stack.append(attrs.get('data-diagram-kind') == 'matrix')
         if tag not in {
             'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link',
             'meta', 'param', 'source', 'track', 'wbr',
         }:
-            self.stack.append((tag, starts_flow))
+            self.stack.append((tag, starts_matrix_scope))
         source_blocks = attrs.get('data-source-blocks')
         if source_blocks:
             block_ids = source_blocks.split()
@@ -49,9 +53,9 @@ class SourceMapParser(HTMLParser):
         source_unit = attrs.get('data-source-unit')
         if source_unit:
             self.source_unit_ids.add(source_unit)
-        if 'mv-node' in classes:
+        if 'mv-node' in classes or 'mv-entity' in classes:
             self.nodes += 1
-        if 'mv-fact' in classes:
+        if 'mv-fact' in classes or 'data-fact-id' in attrs:
             self.facts += 1
 
     def handle_endtag(self, tag):
