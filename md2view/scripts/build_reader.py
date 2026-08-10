@@ -1,203 +1,100 @@
 #!/usr/bin/env python3
-"""Build a reader candidate and promote it only after browser validation."""
+"""md2view v4 构建器:blocks.json + 模型自由创作的 right-pane.html → 单文件 reader.html。
+
+职责边界:
+  确定性层(本脚本)——左栏权威原文渲染、双栏壳、锚点联动、溯源验证、原子写出。
+  模型——右栏内容的设计与表达(自由 HTML + mv-* 组件 + data-sources 锚点)。
+
+溯源验证不通过时不写任何文件。
+
+用法: build_reader.py <blocks.json> <right-pane.html> <reader.html> [--title 标题]
+"""
 import argparse
 import json
 import os
-from pathlib import Path
-import subprocess
 import sys
-import tempfile
 
-from assemble_split import main as assemble_reader
-from assemble_v3 import main as assemble_reader_v3
-from visual_verdict import validate_visual_verdict
+from md_source import esc, render_block
+from verify_anchors import verify_fragment
 
-
-DESKTOP_VIEWPORTS = '1440,1280,1024,768'
+ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, 'assets')
 
 
-def promote_candidate(candidate_path, final_path, validator):
-    candidate_path = os.fspath(candidate_path)
-    final_path = os.fspath(final_path)
-    validator(candidate_path)
-    os.replace(candidate_path, final_path)
+def load_asset(name):
+    with open(os.path.join(ASSETS, name), encoding='utf-8') as f:
+        return f.read()
 
 
-def run_browser_gate(candidate_path, shots_dir):
-    script_path = Path(__file__).with_name('shot.js')
-    command = [
-        'node',
-        str(script_path),
-        os.fspath(candidate_path),
-        os.fspath(shots_dir),
-        f'--viewports={DESKTOP_VIEWPORTS}',
-    ]
-    subprocess.run(command, check=True)
+def default_title(blocks):
+    for block in blocks:
+        if block['type'] == 'heading':
+            return block['raw'].lstrip('#').strip()
+    return 'md2view 阅读器'
 
 
-def build_reader(
-    blocks_path,
-    fragments_dir,
-    views_path,
-    final_path,
-    shots_dir,
-    *,
-    assembler=assemble_reader,
-    validator=None,
-    visual_verdict_path=None,
-):
-    """Assemble to a sibling temp file; expose it only after the browser gate passes."""
-    final = Path(final_path)
-    final.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        prefix=f'.{final.stem}.',
-        suffix='.candidate.html',
-        dir=final.parent,
-        delete=False,
-    ) as handle:
-        candidate = Path(handle.name)
-
-    try:
-        assembler(
-            os.fspath(blocks_path),
-            os.fspath(fragments_dir),
-            os.fspath(views_path),
-            os.fspath(candidate),
-        )
-        if validator is None:
-            def gate(path):
-                run_browser_gate(path, shots_dir)
-                if visual_verdict_path:
-                    validate_visual_verdict(visual_verdict_path, candidate_path=path)
-        else:
-            gate = validator
-        promote_candidate(candidate, final, gate)
-    finally:
-        if candidate.exists():
-            candidate.unlink()
-    print(f'reader promoted -> {final} (browser gate: {DESKTOP_VIEWPORTS})')
-
-
-def build_reader_v3(
-    blocks_path,
-    spec_path,
-    final_path,
-    shots_dir,
-    *,
-    visual_verdict_path=None,
-    producer_id=None,
-    assembler=assemble_reader_v3,
-    browser_validator=None,
-):
-    """Compile v3 and promote only after browser and independent visual gates."""
-    if not visual_verdict_path:
-        raise ValueError('v3 晋升必须提供 visual-verdict.json')
-    if not str(producer_id or '').strip():
-        raise ValueError('v3 晋升必须由编排器提供 producer_id')
-    final = Path(final_path)
-    final.parent.mkdir(parents=True, exist_ok=True)
-    with open(spec_path, encoding='utf-8') as handle:
-        spec = json.load(handle)
-    with tempfile.NamedTemporaryFile(
-        prefix=f'.{final.stem}.',
-        suffix='.candidate.html',
-        dir=final.parent,
-        delete=False,
-    ) as handle:
-        candidate = Path(handle.name)
-
-    try:
-        assembler(
-            os.fspath(blocks_path),
-            os.fspath(spec_path),
-            os.fspath(candidate),
-        )
-
-        def gate(path):
-            browser_gate = browser_validator or (
-                lambda candidate_path: run_browser_gate(candidate_path, shots_dir)
-            )
-            browser_gate(path)
-            validate_visual_verdict(
-                visual_verdict_path,
-                candidate_path=path,
-                candidate_ref=f'{final.stem}.candidate.html',
-                producer_id=producer_id,
-                require_digest=True,
-                spec=spec,
-            )
-
-        promote_candidate(candidate, final, gate)
-    finally:
-        if candidate.exists():
-            candidate.unlink()
-    print(
-        f'reader v3 promoted -> {final} '
-        f'(browser gate: {DESKTOP_VIEWPORTS}; visual verdict: PASS)'
+def build(blocks, fragment, title):
+    css = load_asset('shell.css')
+    js = load_asset('shell.js')
+    left = ''.join(render_block(b) for b in blocks)
+    return (
+        '<!doctype html>\n<html lang="zh"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>' + esc(title) + ' · 双栏</title><style>' + css + '</style></head><body>'
+        '<header class="bar"><div class="brand">' + esc(title) +
+        '<small>source ↔ view</small></div><div class="toolbar">'
+        '<div class="sync-status" data-md2view-status role="status" aria-live="polite">双栏联动</div>'
+        '<div class="modes" role="group" aria-label="阅读模式">'
+        '<button data-md2view-mode="l" aria-pressed="false">原文</button>'
+        '<button class="on" data-md2view-mode="both" aria-pressed="true">双栏</button>'
+        '<button data-md2view-mode="r" aria-pressed="false">信息重组</button>'
+        '</div></div></header>'
+        '<div id="split" data-md2view-split data-layout="both">'
+        '<div class="pane" id="paneL" aria-label="Markdown 原文">'
+        '<div class="pane-tag">Markdown 原文 · 权威源</div><div class="doc">' + left + '</div></div>'
+        '<div class="splitter" data-md2view-separator role="separator" tabindex="0" '
+        'aria-label="调整原文栏宽度" aria-orientation="vertical" aria-valuemin="28" '
+        'aria-valuemax="68" aria-valuenow="42" title="拖动调宽 · 双击重置"></div>'
+        '<div class="pane" id="paneR" aria-label="信息重组">'
+        '<div class="pane-tag">信息重组 · 人类视图</div><div class="doc">' + fragment + '</div></div>'
+        '</div>'
+        '<div class="hint" aria-hidden="true">拖动中线调宽 · 点击内容锁定映射</div>'
+        '<script>' + js + '</script></body></html>'
     )
 
 
 def main(argv=None):
-    raw_args = list(sys.argv[1:] if argv is None else argv)
-    if raw_args and raw_args[0] == 'v3':
-        parser = argparse.ArgumentParser(
-            description='Compile a v3 view-spec and promote it after all gates pass.',
-        )
-        parser.add_argument('blocks')
-        parser.add_argument('spec')
-        parser.add_argument('output')
-        parser.add_argument('--shots-dir')
-        parser.add_argument('--visual-verdict', required=True)
-        parser.add_argument('--producer-id', required=True)
-        args = parser.parse_args(raw_args[1:])
-        output = Path(args.output)
-        shots = Path(args.shots_dir) if args.shots_dir else output.parent / 'shots'
-        build_reader_v3(
-            args.blocks,
-            args.spec,
-            output,
-            shots,
-            visual_verdict_path=args.visual_verdict,
-            producer_id=args.producer_id,
-        )
-        return
+    parser = argparse.ArgumentParser(description='md2view v4 构建器')
+    parser.add_argument('blocks', help='parse_blocks.py 输出的 blocks.json')
+    parser.add_argument('fragment', help='模型创作的 right-pane.html')
+    parser.add_argument('output', help='最终 reader.html')
+    parser.add_argument('--title', help='页面标题(默认取首个标题块)')
+    args = parser.parse_args(argv)
 
-    parser = argparse.ArgumentParser(
-        description='组装候选 reader，并仅在桌面浏览器门禁通过后原子替换最终文件。',
-    )
-    parser.add_argument('blocks')
-    parser.add_argument('fragments')
-    parser.add_argument('views')
-    parser.add_argument('output')
-    parser.add_argument(
-        '--shots-dir',
-        help='截图与失败诊断目录；默认是输出文件旁的 shots/',
-    )
-    parser.add_argument(
-        '--visual-verdict',
-        help='可选的 visual-verdict.json；提供后会作为晋升强门禁',
-    )
-    args = parser.parse_args(raw_args)
-    output = Path(args.output)
-    shots = Path(args.shots_dir) if args.shots_dir else output.parent / 'shots'
-    build_reader(
-        args.blocks,
-        args.fragments,
-        args.views,
-        output,
-        shots,
-        visual_verdict_path=args.visual_verdict,
-    )
+    with open(args.blocks, encoding='utf-8') as f:
+        blocks = json.load(f)
+    with open(args.fragment, encoding='utf-8') as f:
+        fragment = f.read()
+
+    errors, warnings, stats = verify_fragment(blocks, fragment)
+    for warning in warnings:
+        print(f'WARN  {warning}')
+    if errors:
+        print(f'FAIL  溯源验证未通过,{len(errors)} 个问题;未写出 {args.output}:')
+        for error in errors:
+            print(f'  - {error}')
+        return 1
+
+    title = args.title or default_title(blocks)
+    doc = build(blocks, fragment, title)
+    tmp = args.output + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        f.write(doc)
+    os.replace(tmp, args.output)
+    print(f'PASS  覆盖 {stats["covered"]}/{stats["blocks"]} blocks · '
+          f'{stats["sourced_elements"]} 个溯源元素 · {stats["views"]} 个视图')
+    print(f'reader -> {args.output} ({len(doc)} bytes)')
+    return 0
 
 
 if __name__ == '__main__':
-    main()
-
-
-__all__ = [
-    'DESKTOP_VIEWPORTS',
-    'build_reader',
-    'build_reader_v3',
-    'promote_candidate',
-    'run_browser_gate',
-]
+    sys.exit(main())

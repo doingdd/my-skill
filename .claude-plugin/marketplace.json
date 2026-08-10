@@ -85,7 +85,7 @@
       "name": "md2view",
       "source": "./",
       "strict": false,
-      "description": "把 Markdown 重编码成可溯源的人类阅读视图（图/表/dashboard），输出左原文·右重组·滚动同步的单文件 HTML",
+      "description": "把 Markdown 重编码成可溯源的人类阅读视图:模型自由设计右栏(图/表/卡/链),确定性壳管双栏锚定同步与溯源验证,输出单文件 HTML",
       "version": "1.0.0",
       "skills": ["./md2view"]
     },

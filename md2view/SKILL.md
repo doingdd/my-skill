@@ -1,98 +1,100 @@
 ---
 name: md2view
-description: 把 Markdown 重编码成可溯源的人类阅读视图，而不是只做主题美化。模型先声明义、理据、图法与章法，确定性编译器再生成「左原文、右重组、锚定同步」的单文件 HTML。Use when 用户要把复盘、报告、规格、README 或技术长文变成架构图、流程图、比较矩阵、论证图，或提到 md2view、信息重组、双栏阅读、文档可视化。只要忠实渲染 Markdown 时不要用本 skill。
+description: 把 Markdown 重编码成可溯源的人类阅读视图。模型自由设计并手写右栏 HTML(组件词汇 + 设计 token),确定性壳负责左栏原文、双栏锚定同步与溯源验证——每个语义元素必须带 data-sources 锚点,可见文本保留词法锚点,数字逐字抄录。Use when 用户要把复盘、报告、规格、README 或技术长文变成架构图、流程图、比较矩阵、论证图,或提到 md2view、信息重组、双栏阅读、文档可视化。只要忠实渲染 Markdown 时不要用本 skill。
 ---
 
 # md2view
 
-把 Markdown 重新编码成可独立阅读、可回原文核证的视觉论证。Markdown 是权威源，HTML 是消费投影；产物有问题时修 `view-spec.json`、合同或 renderer，不手修生成的 HTML。
+把 Markdown 重新编码成可独立阅读、可回原文核证的视觉阅读器。产物是单文件 `reader.html`:左栏权威原文,右栏信息重组,点击任意元素双向定位。
 
-当前生效合同是 **v3.1**。v2 只用于打开已经生成的自包含快照，不再作为新任务的生成路径。详规见 [PIPELINE.md](PIPELINE.md)，设计依据见 [DESIGN.md](DESIGN.md)。
+## 第一性原理
 
-## 不可违反的边界
+这个产品的价值链分工是:
 
-- 模型只写 `view-spec.json`，不写 HTML、CSS、SVG、像素坐标或 fragment。
-- 先确定读者要形成的判断，再建实体/关系/事实，之后才选择图法和空间骨架；不能从卡片模板倒推语义。
-- 关系不等于连线。包含、分层、实例等结构关系优先用容器、嵌套、层带或重复表达。
-- 每个 claim、entity、relation、fact 都必须有真实 `sourceBlockIds`；表格行和 checkbox 项按 `sourceUnitId` 逐项投影。
-- 每张视图恰有一个 `emphasis=primary` 的 entity；facts 必须就近声明 `entity / relation / region / view` 作用域。
-- 标准交付宽度为 1440 / 1280 / 1024 / 768，最低 768；不做手机适配。
-- 生产者不能给自己的图放行。浏览器门和独立盲读 verdict 都 PASS 后才能原子替换最终 reader。
+| 环节 | 谁做 | 为什么 |
+| --- | --- | --- |
+| 理解文章、判断什么值得表达 | 模型 | 只有模型能读 |
+| 设计表达形式(图/表/卡/散文)与视觉节奏 | 模型 | 设计判断不可形式化;模板渲染只会产出"两框一箭头"的机械图 |
+| 写右栏 HTML | 模型 | 自由创作才能好看;但必须带着锚点写 |
+| 左栏原文渲染、双栏联动、壳 | 确定性脚本 | 忠实与一致不由模型负责 |
+| 溯源验证(覆盖/锚点/数字) | 确定性脚本 | 可核证性是机器问题 |
+| 表达质量 | **模型亲眼截图自审** | 看不见自己作品的设计师不可能及格 |
 
-## 六段执行流程
+历史的失败模式(v3)是把第 2、3 环交给确定性模板、把第 6 环删掉——门禁全过,表达全废。v4 的纪律只有一句话:**形式自由,锚点强制,自审闭环**。
 
-来源盘点与“义”合并为第一段，但决策顺序不能颠倒：
+## 执行流程
 
-1. **来源盘点 + 义**：运行 `parse_blocks.py` 得到不可变 `blocks.json`；再声明 audience、readerTask、页面/视图 centralClaim、question、narrativeRole。此时不选布局。
-2. **理与据**：在 `view-spec.json` 中建立 typed entities、typed relations、scoped facts、source map；`stateKind` 表达流程状态语义。
-3. **图法**：按主问题选择一个 `diagramKind`，写清 `diagramRationale`；不兼容就拆图或重选。
-4. **章法**：用受限 region tree、readingPath、focalIds 分配位置、分组、阅读起点与视觉重点。
-5. **确定性编译**：`assemble_v3.py` 严格校验合同并由 family renderer 生成候选；模型不参与 DOM 和样式生成。
-6. **独立盲读 + 原子晋升**：真实浏览器生成截图；独立 reviewer 先只看截图复述，再与 spec 对账形成绑定候选摘要的 `visual-verdict.json`；`build_reader.py v3` 重编译并通过全部门禁后原子晋升。
+下文 `$SK` 是本 skill 的实际安装目录。为任务建立独立工作目录。
 
-## 四种已实现图法
-
-| family | 何时选择 | 硬条件 | 反例 |
-| --- | --- | --- | --- |
-| `architecture` | 组成、边界、分层、依赖、共享面 | 有结构/依赖关系或有语义 owner 的 region；不得混入论证 relation，动态关系只能辅助 | 把八层架构画成八步箭头流程 |
-| `flow` | 触发、状态推进、条件、回路 | 所有 relation 都属于动态族；entity 用 `stateKind` 标明 `terminal/persistent`，或声明闭合循环 | 无方向的分类/层级被强加起点终点 |
-| `matrix` | 多个 option 沿共同维度比较 | 所有 entity 都是 `type=option` 且至少两个；relations 必须为空；每个比较 fact 的 `values[]` 完整覆盖所有 option | 两张方案卡片加一堆全局散文 |
-| `argument` | 证据支持、反驳或缓解某结论 | claim + evidence/counterevidence；所有 relation 都属于论证族；claim 是焦点 | 把证据链画成执行 pipeline |
-
-`hierarchy / topology / timeline / dashboard` 只是后续设计候选，不是 v3.1 schema 的合法值；合同阶段必须 `unsupported_diagram_kind` 失败，禁止等到 renderer 才失败，更禁止退化成 flow。
-
-`stateKind` 可取 `start / intermediate / terminal / persistent`。它描述状态本体，不是颜色；普通架构实体无需硬填。flow 若不是闭合循环，至少要显式出现 `terminal` 或 `persistent`。
-
-## 冷启动执行
-
-下文 `$SK` 是本 skill 的实际安装目录。为任务建立独立工作目录：
+### 1. 解析来源(确定性)
 
 ```bash
-mkdir -p work && cd work
-python3 $SK/scripts/parse_blocks.py ../input.md blocks.json
-# 模型读取 input.md + blocks.json，按 PIPELINE.md 生成 view-spec.json；不要生成 HTML
-python3 $SK/scripts/assemble_v3.py blocks.json view-spec.json reader.candidate.html
-node $SK/scripts/shot.js reader.candidate.html shots --viewports=1440,1280,1024,768
-python3 $SK/scripts/coverage.py blocks.json reader.candidate.html
-shasum -a 256 reader.candidate.html
+python3 $SK/scripts/parse_blocks.py input.md blocks.json
 ```
 
-然后把 **shots 中的最终截图**交给与生产者不同的视觉 agent 或人工 reviewer。第一轮不得向 reviewer 提供 `centralClaim`、`diagramKind`、relation kinds、`focalIds`；reviewer 先写实际看见的命题、主关系、首个焦点、fact 归属和更低误读方案。第二轮再与 spec 对账，写 `visual-verdict.json`：
+`blocks.json` 是来源账本:每块有稳定 id(`b000`…);表格数据行与 checkbox 项有原子 id(`b030:r001`、`b038:i001`)。heading 与 `---` 分隔线不要求投影,其余每个 block 都必须被右栏引用。
 
-- `candidate` 必须是 `<最终文件 stem>.candidate.html`，例如最终文件为 `reader.html` 时写 `reader.candidate.html`。
-- `candidateSha256` 必须等于上面候选文件的 64 位 SHA256。
-- `reviewer.id` 必须与最终命令的 `--producer-id` 不同，且 `independentFromProducer=true`。
-- 每个 view 恰好出现一次；`primaryRelationMatches` 精确覆盖该 view 的全部 `emphasis=primary` relations；`factScopeMatches` 精确覆盖全部 facts。
-- `claimMatches`、`focalMatches`、所有逐项 `matches`、每个 view verdict 和总 verdict 都必须为 `true/PASS`。`REJECT` 或 `UNCERTAIN` 都不能晋升。
+### 2. 通读全文,先判断再动手(模型)
 
-最终只通过 v3 出口交付：
+读完原文后先回答(写在工作笔记里,不用落盘成 JSON):
+
+- 谁读?读完 5 秒后应形成什么判断?
+- 全文真正的命题有几条?哪些是主关系,哪些是证据?
+- **每块内容配什么载体**:图(关系是真的)、表(选项×维度)、卡(并列要点)、步骤条(阶段推进)、标注条(风险/约束/决策)、还是纯散文(不值得视觉化的内容允许是散文——但散文也要带锚点)?
+- 视图序列怎么排(全局 → 机制 → 证据/取舍 → 决策 → 行动 → 验证)?一个视图只回答一个问题;若只是原文章节换皮,合并或删除。
+
+不得从"这里能放几张卡片"倒推语义;不得按 block 顺序做"逐段取证"。
+
+### 3. 自由创作 right-pane.html(模型)
+
+右栏是一个 HTML 片段:`<header class="mv-page-head">` 开场 + 若干 `<section class="mv-view">`。用 `references/design-system.md` 的组件词汇(`mv-*` 类)与 design token 组合;图的画法见 `references/diagram-cookbook.md`。允许为单张图写 scoped `<style>`(选择器必须以 `#视图id` 开头),禁止脚本、外部资源、隐藏文字的 CSS。
+
+硬性纪律只有三条:
+
+1. **每个承载内容的元素都带 `data-sources="b005 b006"`**(可选 `data-unit="b030:r002"` 精确认领表格行)。纯装饰容器不带。
+2. **可见文本与每个被引 block 共享至少一个实义词锚**(≥3 字中文窗口,或两个 2 字窗口,或一个拉丁词)。可以概括,不能完全换词后只挂 id。
+3. **数字逐字抄录**:元素里的每个阿拉伯数字必须出现在被引 block 原文里(`35`、`0.82.x`、`≥80%`),不心算、不换算、不新造。
+
+第 2 条防换词,**防不住添加**。每个形容词、每个关系断言、每个"横切/唯一/首选"都要过一遍"源文说了吗"。这是生产者纪律,验证器兜不住。
+
+### 4. 溯源验证(确定性)
 
 ```bash
-python3 $SK/scripts/build_reader.py v3 \
-  blocks.json view-spec.json reader.html \
-  --visual-verdict visual-verdict.json \
-  --producer-id <本次生产者稳定ID> \
-  --shots-dir shots
+python3 $SK/scripts/verify_anchors.py blocks.json right-pane.html
 ```
 
-该命令会重新确定性编译候选，并验证 1440 / 1280 / 1024 / 768 浏览器行为、verdict 中的候选名与 SHA256、reviewer/producer 独立性、全部视图、全部主关系和全部 facts。任一门失败时不会覆盖已有 `reader.html`。
+FAIL 时逐条修:补引用、补词锚、把数字改回原文写法。**不得**为过门把有来源的内容删掉或把数字改成无来源的约数;源文只有概数时就写概数。
+
+### 5. 构建(确定性,验证不过不产出)
+
+```bash
+python3 $SK/scripts/build_reader.py blocks.json right-pane.html reader.html
+```
+
+### 6. 截图自审,至少两轮(模型,强制)
+
+用浏览器(shot.js 或 chrome-devtools/playwright)在 1440 与 768 各截图,**亲眼看完每一屏**,写几句自评,修改,再来一轮。审什么:
+
+- 5 秒测试:遮住说明文字,只看节点标题、位置、容器、连线,能否复述主结构?
+- 连线不穿字、不穿容器、不压标签;同向双边加双向标签合并为一根;长链不散。
+- 密度:没有大空白孤卡,没有句子密度冒充结构密度;信息按主次分区。
+- 表格行完整;高亮(主路径/主对象)有且只有一处重点。
+- 768 不横向溢出;双栏/原文/重组三模式可用;点右栏元素左栏滚动高亮。
+
+未亲眼看过截图就交付 = 未完成。
 
 ## 返回前自检
 
-- 右栏脱离原文能否回答：是什么、为什么、约束/取舍、如何行动或判断？
-- 这是最匹配主问题的 family，还是因为习惯画流程才选 flow？
-- 每条 relation 是否都与 family 兼容？结构关系是否主要由空间表达？
-- flow 的主路径、分支终态和回路是否全部显式可见，且每个分支实体都能从起点到达？
-- 每个 entity 是否恰好归属一个 region？region tree 是否唯一根、可达、无环？
-- facts 是否贴近正确 entity/relation/region，而不是为了排版被抬成 view fact？
-- 每个强制表格行/check-item 是否由独立 `sourceUnitId` 保留完整可见内容？数字是否逐字一致？
-- 768 及以上是否无横向溢出、遮挡、断裂和失效交互？不要为通过门禁删掉决策事实。
-- 独立 reviewer 是否真的先盲读，且原始 readback 没被生产者改写？
+- 右栏脱离原文能否回答:是什么、为什么、约束/取舍、如何行动或判断?
+- 每个 `data-sources` 里的 block 是否真被该元素的可见文本锚住,还是"挂个 id 装溯源"?
+- 每张图是否值得画?遮住图注后图本身是否还能读出主关系?不值得画的内容是否老实地写成了散文/表格?
+- 有没有为了过验证删掉已取证内容、编造源文没有的关系(层级说成横切、并列说成因果)?
+- 是否至少两轮截图自审,且第二轮真的改了东西?
 
-对抗回归：
+## 对抗回归
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s $SK/scripts -p 'test_*.py'
 ```
 
-不要把 `assemble_v3.py` 的候选当最终交付，也不要使用 legacy 的 `views.json + fragments/ + assemble_split.py` 路径生成新 reader。
+参考实现(正例):`examples/agent-swarm/`(516 行架构设计文档 → 12 视图);反模式目录:`references/anti-patterns.md`(含 v3 时代的真实失败截图描述)。

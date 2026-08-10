@@ -15,7 +15,7 @@
 | [wechat-article-md-local](./wechat-article-md-local/) | 微信公众号文章下载为本地 Markdown，图片自动本地化 | 收到公众号文章链接，需要存档、分析或引用 | (收到 mp.weixin.qq.com 链接自动触发) |
 | [x-article-download](./x-article-download/) | X/Twitter 内容下载，支持单条推文和整账号批量 | 收到 X 推文/账号链接，需要存档或分析 | (收到 x.com 链接自动触发) |
 | [xiaohongshu-downloader](./xiaohongshu-downloader/) | 小红书视频下载 + Whisper 口播转录为 Markdown 逐字稿 | 收到小红书视频链接，需要分析或翻译口播内容 | (收到 xiaohongshu.com/xhslink.com 链接自动触发) |
-| [md2view](./md2view/) | 把 Markdown 重编码成可溯源的人类视图（图/表/dashboard），输出左原文·右重组·滚动同步的单文件 HTML | 复盘/报告/规格/长文档要给人读、易吸收、可分享 | `/md2view` |
+| [md2view](./md2view/) | 把 Markdown 重编码成可溯源的人类视图（模型自由设计 + 锚点验证），输出左原文·右重组·锚定同步的单文件 HTML | 复盘/报告/规格/长文档要给人读、易吸收、可分享 | `/md2view` |
 | [git-push-guard](./git-push-guard/) | 纯 hook 插件（无 skill）：拦截直推默认分支 master/main，ask 确认放行，支持按仓库路径白名单永久放行 | AI 帮你提交代码时想守住共享分支纪律 | (git push 到 master/main 自动触发；仅 Plugin 安装方式可用) |
 
 ## 安装
@@ -251,9 +251,9 @@ HARNESS_PROJECT_DIR=/abs/path/to/project bash ~/.codex/skills/harness/inspector.
 
 ![md2view 双栏同步阅读器](./md2view/assets/demo-split.png)
 
-`md2view` 把一份 Markdown **重新编码**成人类读得进去的视图——不是渲染加样式，而是抽出信息结构换一种编码（架构图 / 流程图 / dashboard），且每个视图元素都能一键回到原文出处。它是 md2html 的继任者：旧的转格式，新的转视图。
+`md2view` 把一份 Markdown **重新编码**成人类读得进去的视图——不是渲染加样式,而是抽出信息结构换一种编码(架构图 / 流程链 / 对比矩阵 / 标注卡),且每个视图元素都能一键回到原文出处。它是 md2html 的继任者:旧的转格式,新的转视图。
 
-**核心理念**：md 是给 AI 和 git 的权威源，HTML 是给人的消费投影；人类该读的不是文字墙，是按信息类型选最优编码的信息设计；有损压缩 + 可回溯 = 无损（每个元素溯源回原文，左原文右重组双栏滚动同步）；保真靠建模 → 制图 → 视觉校验多环对账，不靠模型自觉。
+**核心理念**:md 是给 AI 和 git 的权威源,HTML 是给人的消费投影;人类该读的不是文字墙,是按信息类型选最优编码的信息设计;有损压缩 + 可回溯 = 无损(每个元素溯源回原文,左原文右重组双栏锚定同步)。v4 起,表达归模型自由创作(组件词汇 + 设计系统),核证归机器(data-sources 锚点 + 词法锚点 + 数字逐字 + 100% 来源覆盖),生产者必须截图自审闭环。
 
 它和市面 md→html 工具**正交**：那些是美化器（优化第一眼好看），`md2view` 是可信重编码器（优化敢拿去做决策、敢溯源微调）。
 
