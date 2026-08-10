@@ -89,6 +89,7 @@ python3 $SK/scripts/build_reader.py blocks.json right-pane.html reader.html
 - 密度:没有大空白孤卡,没有句子密度冒充结构密度;信息按主次分区。
 - 表格行完整;高亮(主路径/主对象)有且只有一处重点。
 - 768 不横向溢出;双栏/原文/重组三模式可用;点右栏元素左栏滚动高亮;点左栏抽屉内源块,右栏抽屉自动展开并定位。
+- 交互必须用**真实点击**验证(playwright `locator.click()` / chrome-devtools 真点):`el.click()` / `dispatchEvent` 不是可信激活事件,`<details>` 开合这类原生行为测不出来;浏览器有缓存,改完壳要禁缓存强刷再测。
 
 未亲眼看过截图就交付 = 未完成。
 

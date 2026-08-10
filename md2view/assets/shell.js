@@ -117,11 +117,12 @@
     if(move&&target)queueReveal(R,target);
     setEdgeFocus(targets[0]&&targets[0].closest('[data-node]'));setStatus('已定位 · '+bid+' · '+targets.length+' 个视图元素');flashHint(wrap.classList.contains('only-l')?'已锁定 · 切换到信息重组查看':'已锁定重组映射 · Esc 取消');
   }
-  R.addEventListener('pointerover',function(event){var el=event.target.closest('[data-sources]');if(el&&R.contains(el))preview(el);});
+  R.addEventListener('pointerover',function(event){if(event.target.closest('summary'))return;var el=event.target.closest('[data-sources]');if(el&&R.contains(el))preview(el);});
   R.addEventListener('pointerout',function(event){var el=event.target.closest('[data-sources]');if(el&&!el.contains(event.relatedTarget))clearPreview();});
-  R.addEventListener('click',function(event){var el=event.target.closest('[data-sources]');if(!el)return;if(event.target.closest('a'))return;event.preventDefault();if(pinned===el)clearPinned(true);else pinRight(el,true);});
+  R.addEventListener('click',function(event){var el=event.target.closest('[data-sources]');if(!el)return;if(event.target.closest('a,summary'))return;event.preventDefault();if(pinned===el)clearPinned(true);else pinRight(el,true);});
   L.addEventListener('click',function(event){var el=event.target.closest('[data-block]');if(!el)return;if(event.target.closest('a'))return;if(pinned===el)clearPinned(true);else pinLeft(el,true);});
   document.addEventListener('keydown',function(event){
+    if(event.target.closest&&event.target.closest('summary'))return;
     var el=event.target.closest&&event.target.closest('[data-sources],[data-block]');
     if(el&&(event.key==='Enter'||event.key===' ')){event.preventDefault();el.click();}
     if(event.key==='Escape'&&pinned)clearPinned(true);
