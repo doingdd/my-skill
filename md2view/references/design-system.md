@@ -26,6 +26,8 @@
 | `.mv-list` | 紧凑列表 | `ol` 的编号自动 accent |
 | `.mv-facts` + `.mv-fact` | 事实行(`.mv-fact-l` 标签 + `.mv-fact-v` 内容) | 适合"幂等/重试/超时"这类规则清单 |
 | `.mv-steps` | 纵向步骤条,`li data-n="P0a"` | 阶段路线、操作手册 |
+| `details.mv-drawer` | 明细抽屉(默认折叠) | 大表、字段清单、验收细目;`summary` 内 `.mv-kick` 放"展开明细";**details/summary 不带 data-sources**,内容由内部元素各自引用;定位时壳自动展开 |
+| `details.mv-appendix` | 附录级抽屉(虚线更弱) | 参考资料、指针表 |
 
 ## 图原语(画法详见 diagram-cookbook.md)
 

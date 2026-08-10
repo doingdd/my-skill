@@ -66,9 +66,10 @@ class FragmentProbe(HTMLParser):
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.sourced = []          # [{sources, unit, text, tag, classes}]
+        self.sourced = []          # [{sources, unit, text, tag, classes, drawer}]
         self.stack = []            # open elements: {tag, attrs, entry}
         self.hidden_depth = 0
+        self.details_depth = 0
         self.diagrams = []         # [{nodes: [id], edges: [(from,to)]}]
         self.diagram_stack = []
         self.forbidden = []        # 禁用的标签出现位置
@@ -88,6 +89,8 @@ class FragmentProbe(HTMLParser):
         )
         if hidden_here:
             self.hidden_depth += 1
+        if tag == 'details':
+            self.details_depth += 1
         diagram = None
         if 'data-diagram' in attrs:
             diagram = {'nodes': [], 'edges': []}
@@ -108,12 +111,14 @@ class FragmentProbe(HTMLParser):
                 'text': [],
                 'tag': tag,
                 'classes': classes,
+                'drawer': self.details_depth > 0,
             }
             self.sourced.append(entry)
         if 'mv-view' in classes:
             self.views += 1
         if tag not in VOID_TAGS:
             self.stack.append({'tag': tag, 'entry': entry, 'hidden': hidden_here,
+                               'details': tag == 'details',
                                'diagram': self.diagram_stack and 'data-diagram' in attrs})
 
     def handle_startendtag(self, tag, attrs_list):
@@ -126,6 +131,8 @@ class FragmentProbe(HTMLParser):
             open_el = self.stack.pop()
             if open_el['hidden']:
                 self.hidden_depth -= 1
+            if open_el.get('details'):
+                self.details_depth -= 1
             if open_el['diagram']:
                 self.diagram_stack.pop()
             if open_el['tag'] == tag:
@@ -209,6 +216,14 @@ def verify_fragment(blocks, fragment):
     if uncovered:
         preview = ', '.join(uncovered[:12]) + (' …' if len(uncovered) > 12 else '')
         errors.append(f'{len(uncovered)} 个非标题 block 未被任何右栏元素引用: {preview}')
+    drawer_only = [bid for bid, entries in cited.items()
+                   if bid in block_by_id
+                   and block_by_id[bid]['type'] not in ('heading', 'rule')
+                   and all(e['drawer'] for e in entries)]
+    if drawer_only:
+        preview = ', '.join(sorted(drawer_only)[:12]) + (' …' if len(drawer_only) > 12 else '')
+        warnings.append(f'{len(drawer_only)} 个 block 只在抽屉/折叠区被引用(主视觉零承载): {preview};'
+                        f'若有核心命题混在其中,把它提到主视觉')
 
     # ---- 原子单元:表格行 / checkbox 项 ----
     pane_text = norm(' '.join(probe.all_text))

@@ -303,6 +303,21 @@ ol.mv-list>li::marker{font-family:var(--mono);font-size:11px;color:var(--accent)
   box-shadow:0 0 0 2px var(--accent)!important;border-radius:8px}
 .mv-node.is-pinned{border-color:var(--accent);box-shadow:var(--shadow-2)!important}
 
+/* 抽屉:明细/附录默认折叠,点击展开;内容仍带锚点,定位时自动展开 */
+details.mv-drawer{margin:12px 0;border:1px solid var(--line);border-radius:11px;
+  background:var(--surface);box-shadow:var(--shadow-1)}
+details.mv-drawer>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:9px;
+  padding:11px 15px;font:650 12.5px/1.35 var(--sans);border-radius:11px;user-select:none;color:var(--ink-2)}
+details.mv-drawer>summary::-webkit-details-marker{display:none}
+details.mv-drawer>summary::before{content:'▸';color:var(--accent);font:11px/1 var(--mono);transition:transform .16s var(--ease)}
+details.mv-drawer[open]>summary::before{transform:rotate(90deg)}
+details.mv-drawer>summary:hover{background:var(--accent-soft);color:var(--ink)}
+details.mv-drawer>summary .mv-kick{margin-left:auto;font:9.5px/1.3 var(--mono);color:var(--faint);letter-spacing:.08em;white-space:nowrap}
+details.mv-drawer>.mv-drawer-body{padding:4px 15px 15px;border-top:1px solid var(--line)}
+details.mv-drawer>.mv-drawer-body>:first-child{margin-top:10px}
+details.mv-appendix{margin-top:8px;border-style:dashed;background:transparent;box-shadow:none}
+details.mv-appendix>summary{color:var(--muted)}
+
 .hint{position:fixed;bottom:16px;left:50%;transform:translate(-50%,8px);background:var(--ink);color:#f5f3ee;
   font:11px/1.35 var(--mono);padding:8px 14px;border-radius:999px;opacity:0;z-index:30;pointer-events:none;
   transition:opacity .22s,transform .22s var(--ease);box-shadow:var(--shadow-2)}

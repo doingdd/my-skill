@@ -161,6 +161,18 @@ class TestVerifyFragment(unittest.TestCase):
         errors, _, _ = self.check(fragment)
         self.assertEqual(errors, [])
 
+    def test_details_drawer_counts_as_covered_but_warns(self):
+        # 明细收进 <details> 抽屉是合法投影(可寻址),但只进抽屉要给出提醒
+        fragment = GOOD.replace(
+            '<ul class="mv-list" data-sources="b003">',
+            '<details class="mv-drawer"><summary>设计原则</summary>'
+            '<ul class="mv-list" data-sources="b003">')
+        fragment = fragment.replace('</ul>\n</section>', '</ul></details>\n</section>')
+        errors, warnings, stats = self.check(fragment)
+        self.assertEqual(errors, [])
+        self.assertEqual(stats['covered'], 4)
+        self.assertTrue(any('抽屉' in w and 'b003' in w for w in warnings), warnings)
+
 
 if __name__ == '__main__':
     unittest.main()

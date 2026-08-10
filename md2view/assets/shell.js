@@ -58,6 +58,8 @@
     for(var i=0;i<ids.length;i++){if(lIndex[ids[i]])return lIndex[ids[i]];}
     return null;
   }
+  function inClosedDetails(el){for(var p=el;p&&p!==R;p=p.parentElement){if(p.tagName==='DETAILS'&&!p.open)return true;}return false;}
+  function openAncestors(el){for(var p=el;p&&p!==R;p=p.parentElement){if(p.tagName==='DETAILS')p.open=true;}}
   function firstTargetFor(el){
     if(!el)return null;
     if(R.contains(el)&&el.matches('[data-sources]'))return el;
@@ -110,7 +112,9 @@
   }
   function pinLeft(el,move){
     var bid=el.getAttribute('data-block'),targets=rIndex[bid]||[];clearPinned(false);clearPreview();pinned=el;el.classList.add('is-pinned');targets.forEach(function(target){target.classList.add('is-pinned');});
-    if(move&&targets[0])queueReveal(R,targets[0]);
+    var target=firstTargetFor(el);
+    if(target)openAncestors(target);
+    if(move&&target)queueReveal(R,target);
     setEdgeFocus(targets[0]&&targets[0].closest('[data-node]'));setStatus('已定位 · '+bid+' · '+targets.length+' 个视图元素');flashHint(wrap.classList.contains('only-l')?'已锁定 · 切换到信息重组查看':'已锁定重组映射 · Esc 取消');
   }
   R.addEventListener('pointerover',function(event){var el=event.target.closest('[data-sources]');if(el&&R.contains(el))preview(el);});
