@@ -9,7 +9,7 @@
   var separator=document.querySelector('[data-md2view-separator]');
   var status=document.querySelector('[data-md2view-status]');
   var hint=document.querySelector('.hint');
-  var compact=window.matchMedia('(max-width:899px)');
+  var compact=window.matchMedia('(max-width:767px)');
   var reduced=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
   var driver=null,lock=false,pinned=null,pendingReveal=null,previewed=[],syncEls=[],drawQueued=false;
   var rIndex={},lIndex={};

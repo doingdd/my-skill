@@ -9,7 +9,7 @@
   --ink:#1b1a17;          /* 主文字,暖黑 */
   --ink-2:#454139;        /* 次文字 */
   --muted:#7a736a;        /* 说明文字 */
-  --faint:#aba49a;        /* 最弱文字/编号 */
+  --faint:#8d867a;        /* 最弱文字/编号 */
   --line:#e4e1da;         /* 细线 */
   --line-2:#d5d1c8;       /* 强线/边框 */
   --paper:#f7f5f0;        /* 左栏原文底(暖纸=权威文档) */
@@ -253,15 +253,21 @@ ol.mv-list>li::marker{font-family:var(--mono);font-size:11px;color:var(--accent)
 .mv-node.tone-ok{border-color:var(--ok)} .mv-node.tone-ok .mv-node-t{color:var(--ok)}
 .mv-node.tone-warn{border-color:var(--warn)} .mv-node.tone-warn .mv-node-t{color:var(--warn)}
 .mv-node.tone-risk{border-color:var(--risk)} .mv-node.tone-risk .mv-node-t{color:var(--risk)}
-.mv-node .mv-node-corner{position:absolute;top:6px;right:9px;color:var(--faint);font:8.5px/1 var(--mono);letter-spacing:.05em}
+.mv-node .mv-node-corner{position:absolute;top:6px;right:9px;color:var(--faint);font:9px/1 var(--mono);letter-spacing:.05em}
 
-/* 简单链:无需 SVG 的方向表达 */
-.mv-chain{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin:12px 0}
+/* 简单链:无需 SVG 的方向表达。箭头用 ::before 绑定在目标节点上,折行永不拆散。 */
+.mv-chain{display:flex;flex-wrap:wrap;align-items:stretch;column-gap:26px;row-gap:10px;margin:12px 0}
 .mv-chain .mv-node{flex:1 1 0;min-width:130px}
 .mv-chain.no-grow .mv-node{flex:0 1 auto;min-width:118px}
-.mv-chain-arrow{align-self:center;flex:none;color:var(--faint);font:600 15px/1 var(--mono);padding:0 2px;user-select:none}
-.mv-chain.vertical{flex-direction:column}
-.mv-chain.vertical .mv-chain-arrow{transform:rotate(90deg);align-self:flex-start;margin-left:26px}
+.mv-chain>*{position:relative}
+.mv-chain>*+*::before{content:'→';position:absolute;left:-21px;top:50%;transform:translateY(-50%);
+  color:var(--faint);font:600 14px/1 var(--mono);pointer-events:none}
+.mv-chain>*[data-arrow]::before{content:attr(data-arrow)}
+.mv-chain>*[data-arrow-tone="risk"]::before{color:var(--risk)}
+.mv-chain.vertical{flex-direction:column;column-gap:0;row-gap:16px}
+.mv-chain.vertical>*+*::before{left:24px;top:-15px;transform:rotate(90deg)}
+/* 行内分隔符(非链组件内联使用) */
+.mv-sep{color:var(--faint);font:600 12px/1 var(--mono);padding:0 2px;user-select:none}
 
 /* 步骤条(纵向 spine) */
 .mv-steps{list-style:none;margin:12px 0;padding:0;position:relative}
@@ -324,7 +330,7 @@ details.mv-appendix>summary{color:var(--muted)}
 .hint.show{opacity:.93;transform:translate(-50%,0)}
 
 /* ---------- 响应式 ---------- */
-@media(max-width:899px){
+@media(max-width:767px){
   :root{--header-h:52px}
   header.bar{padding:0 12px 0 16px}
   .brand small,.sync-status{display:none}
