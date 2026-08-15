@@ -17,6 +17,7 @@
 | [xiaohongshu-downloader](./xiaohongshu-downloader/) | 小红书视频下载 + Whisper 口播转录为 Markdown 逐字稿 | 收到小红书视频链接，需要分析或翻译口播内容 | (收到 xiaohongshu.com/xhslink.com 链接自动触发) |
 | [md2view](./md2view/) | 把 Markdown 重编码成可溯源的人类视图（图/表/dashboard），输出左原文·右重组·滚动同步的单文件 HTML | 复盘/报告/规格/长文档要给人读、易吸收、可分享 | `/md2view` |
 | [git-push-guard](./git-push-guard/) | 纯 hook 插件（无 skill）：拦截直推默认分支 master/main，ask 确认放行，支持按仓库路径白名单永久放行 | AI 帮你提交代码时想守住共享分支纪律 | (git push 到 master/main 自动触发；仅 Plugin 安装方式可用) |
+| [hkr-render](./hkr-render/) | 公众号完整管线：Markdown 排版（7 个精品主题）→ 封面（亮度检查/自动暗化）→ 推送草稿箱（支持多图文） | 公众号文章排版发布，多篇合一条草稿，深色模式与手机端字号已调优 | `排版` / `微信排版` / `/format` |
 
 ## 安装
 
@@ -57,6 +58,8 @@ cp -r wechat-article-md-local ~/.codex/skills/
 cp -r x-article-download ~/.codex/skills/
 cp -r xiaohongshu-downloader ~/.codex/skills/
 cp -r md2view ~/.codex/skills/
+# hkr-render 需要先按其 SKILL.md 创建 config.json（微信 AppID/Secret 等）
+cp -r hkr-render ~/.codex/skills/
 ```
 
 ### 复制到 Claude Code
@@ -72,6 +75,8 @@ cp -r wechat-article-md-local ~/.claude/skills/
 cp -r x-article-download ~/.claude/skills/
 cp -r xiaohongshu-downloader ~/.claude/skills/
 cp -r md2view ~/.claude/skills/
+# hkr-render 需要先按其 SKILL.md 创建 config.json（微信 AppID/Secret 等）
+cp -r hkr-render ~/.claude/skills/
 ```
 
 ### 让 Agent 帮你安装

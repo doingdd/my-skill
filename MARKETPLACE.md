@@ -139,6 +139,22 @@ registry: https://github.com/hanzhangzzz/my-skill
 }
 ```
 
+### hkr-render
+
+```json
+{
+  "name": "hkr-render",
+  "version": "2.1.0",
+  "description": "公众号完整管线：Markdown 排版（7 个精品主题，手机端字号/深色模式已调优）→ 封面（亮度检查/自动暗化遮罩）→ 推送草稿箱（多图文最多 8 篇、自动摘要、失败重试）。fork 自 xiaohu-wechat-format，转为个人维护。需自建 config.json 配置微信 AppID/Secret。",
+  "trigger": "排版 / 微信排版 / /format",
+  "keywords": ["hkr-render", "wechat", "公众号", "排版", "微信排版", "草稿箱", "多图文", "封面", "主题"],
+  "compatibility": "Claude Code",
+  "install_path": "hkr-render/",
+  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "license": "MIT"
+}
+```
+
 ## 安装指令模板
 
 Agent 可以通过以下方式安装本市场中的 skill：
