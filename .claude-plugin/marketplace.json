@@ -85,8 +85,8 @@
       "name": "do-something",
       "source": "./",
       "strict": false,
-      "description": "自主推进当前项目：判断此刻杠杆最高的一件事并做完它——有待办做待办，有目的第一性推理，没目的勇敢找一个；产出隔离在 do/ 分支，DO.md 是唯一记忆与方向盘，适合 cron/loop 无人值守",
-      "version": "1.0.0",
+      "description": "自主推进当前项目：判断此刻杠杆最高的一件事并做完它——有待办做待办，有目的第一性推理，没目的勇敢找一个；所有运行共用一条 do/main 分支续做，DO.md 是跨运行的记忆与方向盘，适合 cron/loop 无人值守",
+      "version": "1.1.0",
       "skills": ["./do-something"]
     },
     {
