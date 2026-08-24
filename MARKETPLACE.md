@@ -160,7 +160,7 @@ registry: https://github.com/hanzhangzzz/my-skill
 ```json
 {
   "name": "do-something",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "自主推进当前项目：读懂项目状态，判断此刻最值得做的一件事，做完它。三层判断——有待办做待办；有目的从目的第一性推理（敢于违背固化文档）；没目的就勇敢替项目找一个。所有运行共用一条 do/main 分支续做（续做优先于新开），DO.md 是跨运行的记忆与方向盘，人类合并即收割、删除即否决。适合 cron/loop 无人值守烧掉闲置 token",
   "trigger": "/do-something",
   "keywords": ["do-something", "自主推进", "autonomous", "cron", "loop", "无人值守", "first principles", "第一性原理", "idle tokens"],
