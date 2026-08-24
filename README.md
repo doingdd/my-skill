@@ -17,6 +17,7 @@
 | [xiaohongshu-downloader](./xiaohongshu-downloader/) | 小红书视频下载 + Whisper 口播转录为 Markdown 逐字稿 | 收到小红书视频链接，需要分析或翻译口播内容 | (收到 xiaohongshu.com/xhslink.com 链接自动触发) |
 | [md2view](./md2view/) | 把 Markdown 重编码成可溯源的人类视图（图/表/dashboard），输出左原文·右重组·滚动同步的单文件 HTML | 复盘/报告/规格/长文档要给人读、易吸收、可分享 | `/md2view` |
 | [git-push-guard](./git-push-guard/) | 纯 hook 插件（无 skill）：拦截直推默认分支 master/main，ask 确认放行，支持按仓库路径白名单永久放行 | AI 帮你提交代码时想守住共享分支纪律 | (git push 到 master/main 自动触发；仅 Plugin 安装方式可用) |
+| [do-something](./do-something/) | 自主推进当前项目：判断此刻杠杆最高的一件事并做完它——有待办做待办，有目的第一性推理，没目的勇敢找一个；产出隔离在 do/ 分支等人类 review | 订阅 token 用不完，想让 AI 在你睡觉/吃饭时自主推进项目（配合 cron/loop） | `/do-something` / `做点什么` / `自己看着办` |
 | [hkr-render](./hkr-render/) | 公众号完整管线：Markdown 排版（7 个精品主题）→ 封面（亮度检查/自动暗化）→ 推送草稿箱（支持多图文） | 公众号文章排版发布，多篇合一条草稿，深色模式与手机端字号已调优 | `排版` / `微信排版` / `/format` |
 
 ## 安装
@@ -33,6 +34,7 @@
 /plugin install repo-tidy@my-skill        # 含 SessionStart 仓库状态注入 hook
 /plugin install repo-map@my-skill         # 含 UserPromptSubmit 仓库地图注入 hook
 /plugin install git-push-guard@my-skill   # 纯 hook：直推 master/main 拦截
+/plugin install do-something@my-skill
 /plugin install md2view@my-skill
 /plugin install harness@my-skill
 /plugin install gpt-image2-prompt-director@my-skill
