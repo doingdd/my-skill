@@ -60,6 +60,7 @@ cp -r wechat-article-md-local ~/.codex/skills/
 cp -r x-article-download ~/.codex/skills/
 cp -r xiaohongshu-downloader ~/.codex/skills/
 cp -r md2view ~/.codex/skills/
+cp -r do-something ~/.codex/skills/
 # hkr-render 需要先按其 SKILL.md 创建 config.json（微信 AppID/Secret 等）
 cp -r hkr-render ~/.codex/skills/
 ```
@@ -77,6 +78,7 @@ cp -r wechat-article-md-local ~/.claude/skills/
 cp -r x-article-download ~/.claude/skills/
 cp -r xiaohongshu-downloader ~/.claude/skills/
 cp -r md2view ~/.claude/skills/
+cp -r do-something ~/.claude/skills/
 # hkr-render 需要先按其 SKILL.md 创建 config.json（微信 AppID/Secret 等）
 cp -r hkr-render ~/.claude/skills/
 ```
