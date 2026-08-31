@@ -33,7 +33,7 @@
 □ 步骤 4 完成：已按章节级翻译生成 original.md 和 translated.md
 □ 步骤 5 完成：已生成 slides_metadata.json（3-6 个幻灯片段落）
 □ 步骤 6 完成：已生成 combined.md
-□ 步骤 7 完成：已复制并运行 generate_slides.py，通过一次 Codex CLI 会话生成全部 AI 幻灯片图片
+□ 步骤 7 完成：已复制并运行 generate_slides.py，通过并发 Codex CLI 会话生成全部 AI 幻灯片图片
 □ 步骤 8 完成：已复制并运行 build.py，生成 preview.html（含内嵌图片）
 □ 步骤 9 完成：已输出完整的质量报告
 ```
@@ -407,7 +407,7 @@ curl -L -o "output/${SLUG}/images/figure1.png" "${IMAGE_URL}"
 
 > **🚨 普通模式强制步骤：生成失败必须停止，不得继续构建空幻灯片预览**
 >
-> `generate_slides.py` 只启动一次 `codex exec`，同一 Codex 子会话再按顺序为每个内容块调用内置 `$imagegen`。脚本不直接调用图片 API，也不读取任何图片 API Token。
+> `generate_slides.py` 为每个内容块启动一个独立 `codex exec` 会话，默认 4 路并发，各会话内调用内置 `$imagegen`。Codex 把产物写进 `$CODEX_HOME/generated_images/<会话 id>/`，会话之间目录天然隔离，因此并发不会互相挑错图片。脚本不直接调用图片 API，也不读取任何图片 API Token。
 
 #### 7.1 复制生成脚本
 
@@ -435,6 +435,7 @@ python3 generate_slides.py
 - `-i/--input`：元数据文件，默认 `slides_metadata.json`
 - `-o/--output`：图片目录，默认 `slides/`
 - `-a/--aspect-ratio`：写入提示词的目标画布比例，默认 `16:9`
+- `-j/--concurrency`：并发的 Codex 会话数，默认 `4`；`-j 1` 退回串行
 - `--dry-run`：只生成 `slides/prompts.json`，不启动 Codex CLI
 
 #### 7.3 前置条件与失败处理
@@ -445,7 +446,7 @@ python3 generate_slides.py
 - 当前 CLI 版本和账号可访问内置 `imagegen` skill / `image_gen` 工具；
 - 当前网络允许 Codex 完成图片生成。
 
-脚本会把完整子会话日志保存到 `slides/codex-imagegen.log`。如果 Codex CLI 退出异常、任一目标 PNG 缺失或格式无效，脚本返回非零，并保留原有整组图片不变。
+脚本会把各会话日志按 slide 分段合并保存到 `slides/codex-imagegen.log`。如果 Codex CLI 退出异常、任一目标 PNG 缺失或格式无效，脚本返回非零，并保留原有整组图片不变。
 
 失败时读取日志并向用户报告实际错误；不要继续步骤 8，也不要把只有占位卡片的 HTML 报告为完整交付。
 

@@ -31,7 +31,7 @@ description: |
 2. **图片 100% 保留** - 自动下载所有图片，失败时保留原始链接
 3. **技术术语精准** - 首次出现标注原文，专有名词保留英文
 4. **三栏预览** - 原文/翻译/PPT概要同步滚动
-5. **AI 幻灯片生成** - 主 session 无关，通过本机 Codex CLI 的内置 imagegen 生成概要图
+5. **AI 幻灯片生成** - 主 session 无关，通过本机 Codex CLI 的内置 imagegen 并发生成概要图
 
 ## 脚本说明
 
@@ -40,7 +40,7 @@ description: |
 | 脚本 | 用途 |
 |------|------|
 | `web_fetcher.py` | 高质量网页抓取，优于 WebFetch 工具 |
-| `generate_slides.py` | 单次调用 Codex CLI，由内置 `$imagegen` 生成整组幻灯片 |
+| `generate_slides.py` | 并发调用 Codex CLI（默认 4 路），由内置 `$imagegen` 生成整组幻灯片 |
 | `build.py` | 构建三栏预览 HTML |
 
 **🚨 关键执行规则:**

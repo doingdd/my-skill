@@ -13,6 +13,7 @@ Doc Reader - HTML 构建脚本
 
 import base64
 import glob
+import html
 import json
 import os
 import sys
@@ -76,6 +77,24 @@ def collect_slide_images():
                 continue
     return images
 
+def first_heading(markdown: str) -> str:
+    """取 Markdown 的首个一级标题作为文档标题。
+
+    代码块内的 ``#`` 不是标题，需跳过围栏区域。
+    """
+    in_fence = False
+    for line in markdown.splitlines():
+        stripped = line.strip()
+        if stripped.startswith('```') or stripped.startswith('~~~'):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if stripped.startswith('# '):
+            return stripped[2:].strip()
+    return ''
+
+
 def build_html():
     """构建 preview.html"""
 
@@ -88,13 +107,21 @@ def build_html():
     slide_images = collect_slide_images()
     has_images = len(slide_images) > 0
 
-    # 尝试解析 slides JSON，提取标题
+    # 解析 slides JSON；标题以译文 H1 为准（元数据契约里没有 title 字段）
     try:
         slides_data = json.loads(slides_json)
-        title = slides_data.get('title', '文档阅读器')
+        metadata_title = str(slides_data.get('title') or '').strip()
     except json.JSONDecodeError:
-        title = '文档阅读器'
-        slides_json = '{"title":"文档阅读器","total_slides":0,"slides":[]}'
+        metadata_title = ''
+        slides_json = '{"total_slides":0,"slides":[]}'
+
+    title = (
+        metadata_title
+        or first_heading(translated_md)
+        or first_heading(original_md)
+        or '文档阅读器'
+    )
+    title_html = html.escape(title)
 
     # 转义内容
     original_md_escaped = escape_script_content(original_md)
@@ -109,7 +136,7 @@ def build_html():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{title} - Doc Reader</title>
+    <title>{title_html} - Doc Reader</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {{
@@ -227,7 +254,14 @@ def build_html():
             overflow-x: auto; margin: 16px 0;
         }}
         .markdown-content pre code {{ background: none; padding: 0; }}
-        .markdown-content img {{ max-width: 100%; border-radius: 8px; margin: 16px 0; }}
+        /* 正文图片：站点靠自身 CSS 约束尺寸并提供卡片底色，脱离站点后
+           1000x1000 的装饰插画会撑满整栏，透明底 SVG 在深色主题下也会失真。
+           统一给高度上限和浅色底，两个主题下都保持原站观感。 */
+        .markdown-content img {{
+            max-width: 100%; max-height: 360px; width: auto;
+            object-fit: contain; display: block;
+            background: #FAF9F5; border-radius: 8px; margin: 16px 0;
+        }}
         .markdown-content hr {{ border: none; border-top: 1px solid var(--border); margin: 32px 0; }}
         .markdown-content table {{ width: 100%; border-collapse: collapse; margin: 16px 0; }}
         .markdown-content th, .markdown-content td {{
@@ -364,7 +398,7 @@ def build_html():
     <header class="header">
         <div class="header-title">
             <span>📖</span>
-            <span id="doc-title">{title}</span>
+            <span id="doc-title">{title_html}</span>
         </div>
         <div class="header-controls">
             <button class="control-btn active" onclick="toggleColumn('original')">原文</button>
