@@ -12,3 +12,6 @@ md2view/save.txt
 __pycache__/
 .mypy_cache/
 .ruff_cache/
+
+# doc-reader 翻译产物
+output/
