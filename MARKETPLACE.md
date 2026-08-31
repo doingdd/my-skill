@@ -139,6 +139,54 @@ registry: https://github.com/hanzhangzzz/my-skill
 }
 ```
 
+### hkr-render
+
+```json
+{
+  "name": "hkr-render",
+  "version": "2.1.0",
+  "description": "公众号完整管线：Markdown 排版（7 个精品主题，手机端字号/深色模式已调优）→ 封面（亮度检查/自动暗化遮罩）→ 推送草稿箱（多图文最多 8 篇、自动摘要、失败重试）。fork 自 xiaohu-wechat-format，转为个人维护。需自建 config.json 配置微信 AppID/Secret。",
+  "trigger": "排版 / 微信排版 / /format",
+  "keywords": ["hkr-render", "wechat", "公众号", "排版", "微信排版", "草稿箱", "多图文", "封面", "主题"],
+  "compatibility": "Claude Code",
+  "install_path": "hkr-render/",
+  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "license": "MIT"
+}
+```
+
+### do-something
+
+```json
+{
+  "name": "do-something",
+  "version": "1.2.0",
+  "description": "自主推进当前项目：读懂项目状态，判断此刻最值得做的一件事，做完它。三层判断——有待办做待办；有目的从目的第一性推理（敢于违背固化文档）；没目的就勇敢替项目找一个。所有运行共用一条 do/main 分支续做（续做优先于新开），DO.md 是跨运行的记忆与方向盘，人类合并即收割、删除即否决。适合 cron/loop 无人值守烧掉闲置 token",
+  "trigger": "/do-something",
+  "keywords": ["do-something", "自主推进", "autonomous", "cron", "loop", "无人值守", "first principles", "第一性原理", "idle tokens"],
+  "compatibility": "Claude Code, Codex",
+  "install_path": "do-something/",
+  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "license": "MIT"
+}
+```
+
+### doc-reader
+
+```json
+{
+  "name": "doc-reader",
+  "version": "1.0.0",
+  "description": "英文技术文档精准翻译：网页 URL 或本地 PDF → 章节级翻译保持术语一致，图片 100% 保留，生成原文/译文/AI 幻灯片三栏本地预览 HTML；幻灯片通过本机 Codex CLI 内置 imagegen 生成，不依赖任何图片 API Key",
+  "trigger": "/doc-reader",
+  "keywords": ["doc-reader", "翻译", "技术文档", "translate", "markdown", "pdf", "幻灯片", "imagegen", "codex"],
+  "compatibility": "Claude Code, Codex（幻灯片生成需本机安装并登录 Codex CLI）",
+  "install_path": "doc-reader/",
+  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "license": "MIT"
+}
+```
+
 ## 安装指令模板
 
 Agent 可以通过以下方式安装本市场中的 skill：
