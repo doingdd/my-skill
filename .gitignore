@@ -3,3 +3,12 @@ repo-map.config.json
 repo-map-cache.json
 *.jsonl
 .serena/
+
+# 本地实验/回归产物与浏览器快照，可能含非公开素材，绝不入库
+md2view/work/
+md2view/--out-dir/
+md2view/save.txt
+.playwright-mcp/
+__pycache__/
+.mypy_cache/
+.ruff_cache/
