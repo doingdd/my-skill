@@ -128,6 +128,14 @@
       "description": "小红书视频下载 + Whisper 口播转录为 Markdown 逐字稿",
       "version": "1.0.0",
       "skills": ["./xiaohongshu-downloader"]
+    },
+    {
+      "name": "doc-reader",
+      "source": "./",
+      "strict": false,
+      "description": "英文技术文档/PDF 章节级精准翻译为中文，图片 100% 保留，生成原文·译文·AI 幻灯片三栏本地预览 HTML（幻灯片经本机 Codex CLI imagegen 生成）",
+      "version": "1.0.0",
+      "skills": ["./doc-reader"]
     }
   ]
 }
