@@ -227,7 +227,14 @@ def build_html():
             overflow-x: auto; margin: 16px 0;
         }}
         .markdown-content pre code {{ background: none; padding: 0; }}
-        .markdown-content img {{ max-width: 100%; border-radius: 8px; margin: 16px 0; }}
+        /* 正文图片：站点靠自身 CSS 约束尺寸并提供卡片底色，脱离站点后
+           1000x1000 的装饰插画会撑满整栏，透明底 SVG 在深色主题下也会失真。
+           统一给高度上限和浅色底，两个主题下都保持原站观感。 */
+        .markdown-content img {{
+            max-width: 100%; max-height: 360px; width: auto;
+            object-fit: contain; display: block;
+            background: #FAF9F5; border-radius: 8px; margin: 16px 0;
+        }}
         .markdown-content hr {{ border: none; border-top: 1px solid var(--border); margin: 32px 0; }}
         .markdown-content table {{ width: 100%; border-collapse: collapse; margin: 16px 0; }}
         .markdown-content th, .markdown-content td {{

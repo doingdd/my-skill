@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""通过一次 Codex CLI 会话生成 Doc Reader 幻灯片图片。
+"""并发调用 Codex CLI 生成 Doc Reader 幻灯片图片。
 
-脚本读取 ``slides_metadata.json``，为所有幻灯片构建提示词，然后只启动
-一次 ``codex exec``。该 Codex 子会话逐张调用内置 ``$imagegen`` skill，
-将生成结果写入临时目录。全部图片校验通过后，脚本才会替换
+脚本读取 ``slides_metadata.json``，为每张幻灯片构建提示词，并为每张图
+启动一个独立的 ``codex exec`` 会话，默认 4 路并发。每个会话调用内置
+``$imagegen`` skill，把结果写入临时目录。Codex 将 image_gen 产物落在
+``$CODEX_HOME/generated_images/<会话 id>/`` 下，会话之间目录天然隔离，
+因此并发不会互相挑错图片。全部图片校验通过后，脚本才会替换
 ``slides/slide_*.png``，避免失败时留下半套新产物。
 
 前置条件：
@@ -13,6 +15,7 @@
 
 用法：
     python3 generate_slides.py
+    python3 generate_slides.py -j 2      # 降低并发
     python3 generate_slides.py --dry-run
 """
 
@@ -25,12 +28,14 @@ import subprocess
 import sys
 import tempfile
 import zlib
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Optional
 
 
 DEFAULT_ASPECT_RATIO = "16:9"
 TIMEOUT_PER_SLIDE_SECONDS = 900
+DEFAULT_CONCURRENCY = 4
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 ACCENT_COLORS = {
@@ -213,14 +218,13 @@ def build_codex_command(codex_path: str, working_dir: Path) -> list[str]:
 def run_codex_imagegen(
     manifest_path: Path,
     working_dir: Path,
-    slide_count: int,
 ) -> tuple[int, str]:
-    """启动唯一一次 Codex CLI 调用并返回退出码与完整日志。"""
+    """为单张幻灯片启动一次 Codex CLI 调用，返回退出码与完整日志。"""
     codex_path = shutil.which("codex")
     if not codex_path:
         return 127, "未在 PATH 中找到 codex；请先安装 Codex CLI"
 
-    timeout = max(TIMEOUT_PER_SLIDE_SECONDS, slide_count * TIMEOUT_PER_SLIDE_SECONDS)
+    timeout = TIMEOUT_PER_SLIDE_SECONDS
     command = build_codex_command(codex_path, working_dir)
 
     try:
@@ -270,8 +274,9 @@ def generate_all_slides(
     output_dir: str = "slides",
     aspect_ratio: str = DEFAULT_ASPECT_RATIO,
     dry_run: bool = False,
+    concurrency: int = 0,
 ) -> list[dict]:
-    """通过一个 Codex 子会话生成整组幻灯片，并在批次校验后提交。"""
+    """并发生成整组幻灯片：一张图一个 Codex 会话，批次全部校验通过才提交。"""
     metadata_file = Path(metadata_path)
     if not metadata_file.is_file():
         print(f"❌ 元数据文件不存在: {metadata_path}")
@@ -312,7 +317,7 @@ def generate_all_slides(
 
     print(f"🎨 准备生成 {len(slides)} 张幻灯片图片")
     print(f"📐 目标画布: {aspect_ratio}")
-    print("🤖 执行方式: 单次 codex exec，由 $imagegen 逐张生成")
+    print("🤖 执行方式: 每张图一个 codex exec 会话，由 $imagegen 生成")
     print(f"💾 提示词已保存: {prompts_path}")
 
     results = [
@@ -328,57 +333,86 @@ def generate_all_slides(
         return results
 
     working_dir = Path.cwd().resolve()
+    workers = max(1, min(concurrency or len(prompts), len(prompts)))
+    print(f"⚡ 并发度: {workers}（每张图一个独立 codex exec 会话）")
+
     with tempfile.TemporaryDirectory(prefix=".imagegen-staging-", dir=output_path) as temp_dir:
         staging_dir = Path(temp_dir)
         jobs = []
         for prompt_data in prompts:
-            jobs.append(
-                {
-                    "index": prompt_data["index"],
-                    "title": prompt_data["title"],
-                    "prompt": prompt_data["prompt"],
-                    "output_path": str(
-                        staging_dir / f"slide_{prompt_data['index']:02d}.png"
-                    ),
-                }
+            index = prompt_data["index"]
+            job = {
+                "index": index,
+                "title": prompt_data["title"],
+                "prompt": prompt_data["prompt"],
+                "output_path": str(staging_dir / f"slide_{index:02d}.png"),
+            }
+            # 每张图独占一个 manifest，对应一个独立 codex exec 会话。
+            # Codex 把 image_gen 产物写进 $CODEX_HOME/generated_images/<会话 id>/，
+            # 会话之间目录天然隔离，因此并发不会互相挑错图片。
+            manifest_path = staging_dir / f"imagegen_manifest_{index:02d}.json"
+            manifest_path.write_text(
+                json.dumps({"jobs": [job]}, ensure_ascii=False, indent=2),
+                encoding="utf-8",
             )
+            job["manifest_path"] = manifest_path
+            jobs.append(job)
 
-        manifest_path = staging_dir / "imagegen_manifest.json"
-        manifest_path.write_text(
-            json.dumps({"jobs": jobs}, ensure_ascii=False, indent=2),
+        logs: dict[int, tuple[int, str]] = {}
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {
+                pool.submit(
+                    run_codex_imagegen,
+                    job["manifest_path"],
+                    working_dir,
+                ): job
+                for job in jobs
+            }
+            for future in as_completed(futures):
+                job = futures[future]
+                returncode, codex_log = future.result()
+                logs[job["index"]] = (returncode, codex_log)
+                mark = "✅" if returncode == 0 else "⚠️"
+                print(f"{mark} [{job['index']}] Codex 会话结束（退出码 {returncode}）")
+
+        log_path = output_path / "codex-imagegen.log"
+        log_path.write_text(
+            "\n\n".join(
+                f"===== slide_{index:02d} · 退出码 {logs[index][0]} =====\n{logs[index][1]}"
+                for index in sorted(logs)
+            ),
             encoding="utf-8",
         )
-
-        returncode, codex_log = run_codex_imagegen(
-            manifest_path=manifest_path,
-            working_dir=working_dir,
-            slide_count=len(slides),
-        )
-        log_path = output_path / "codex-imagegen.log"
-        log_path.write_text(codex_log, encoding="utf-8")
         print(f"🧾 Codex 日志已保存: {log_path}")
 
         staged_errors = []
+        failed_sessions = []
         for job in jobs:
+            index = job["index"]
+            returncode = logs.get(index, (1, ""))[0]
+            if returncode != 0:
+                failed_sessions.append(index)
             error = validate_png(Path(job["output_path"]))
             if error:
-                staged_errors.append((job["index"], error))
+                staged_errors.append((index, error))
 
-        if returncode != 0 or staged_errors:
-            cli_error = f"Codex CLI 退出码 {returncode}" if returncode != 0 else ""
+        if failed_sessions or staged_errors:
             error_by_index = dict(staged_errors)
             for result in results:
-                detail = error_by_index.get(result["index"])
-                result["error"] = detail or cli_error or "整批图片未通过校验"
+                index = result["index"]
+                detail = error_by_index.get(index)
+                if detail:
+                    result["error"] = detail
+                elif index in failed_sessions:
+                    result["error"] = f"Codex CLI 退出码 {logs[index][0]}"
+                else:
+                    result["error"] = "同批其他图片失败，整批未提交"
             print("❌ 图片批次未提交：旧图片保持不变")
-            if cli_error:
-                print(f"   {cli_error}")
+            for index in failed_sessions:
+                print(f"   slide_{index:02d}: Codex CLI 退出码 {logs[index][0]}")
             for index, error in staged_errors:
                 print(f"   slide_{index:02d}.png: {error}")
-            if codex_log:
-                print("   Codex 日志尾部:")
-                for line in codex_log.rstrip().splitlines()[-12:]:
-                    print(f"   {line}")
+            print(f"   完整日志见 {log_path}")
             return results
 
         for result, job in zip(results, jobs):
@@ -412,6 +446,13 @@ def main() -> int:
     parser.add_argument(
         "--dry-run", action="store_true", help="仅生成提示词，不启动 Codex CLI"
     )
+    parser.add_argument(
+        "-j",
+        "--concurrency",
+        type=int,
+        default=DEFAULT_CONCURRENCY,
+        help=f"并发的 Codex 会话数（默认: {DEFAULT_CONCURRENCY}；1 即串行）",
+    )
     args = parser.parse_args()
 
     results = generate_all_slides(
@@ -419,6 +460,7 @@ def main() -> int:
         output_dir=args.output,
         aspect_ratio=args.aspect_ratio,
         dry_run=args.dry_run,
+        concurrency=args.concurrency,
     )
     if not results or any(not result["success"] for result in results):
         return 1
