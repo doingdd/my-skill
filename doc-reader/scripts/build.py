@@ -13,6 +13,7 @@ Doc Reader - HTML 构建脚本
 
 import base64
 import glob
+import html
 import json
 import os
 import sys
@@ -76,6 +77,24 @@ def collect_slide_images():
                 continue
     return images
 
+def first_heading(markdown: str) -> str:
+    """取 Markdown 的首个一级标题作为文档标题。
+
+    代码块内的 ``#`` 不是标题，需跳过围栏区域。
+    """
+    in_fence = False
+    for line in markdown.splitlines():
+        stripped = line.strip()
+        if stripped.startswith('```') or stripped.startswith('~~~'):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if stripped.startswith('# '):
+            return stripped[2:].strip()
+    return ''
+
+
 def build_html():
     """构建 preview.html"""
 
@@ -88,13 +107,21 @@ def build_html():
     slide_images = collect_slide_images()
     has_images = len(slide_images) > 0
 
-    # 尝试解析 slides JSON，提取标题
+    # 解析 slides JSON；标题以译文 H1 为准（元数据契约里没有 title 字段）
     try:
         slides_data = json.loads(slides_json)
-        title = slides_data.get('title', '文档阅读器')
+        metadata_title = str(slides_data.get('title') or '').strip()
     except json.JSONDecodeError:
-        title = '文档阅读器'
-        slides_json = '{"title":"文档阅读器","total_slides":0,"slides":[]}'
+        metadata_title = ''
+        slides_json = '{"total_slides":0,"slides":[]}'
+
+    title = (
+        metadata_title
+        or first_heading(translated_md)
+        or first_heading(original_md)
+        or '文档阅读器'
+    )
+    title_html = html.escape(title)
 
     # 转义内容
     original_md_escaped = escape_script_content(original_md)
@@ -109,7 +136,7 @@ def build_html():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{title} - Doc Reader</title>
+    <title>{title_html} - Doc Reader</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {{
@@ -371,7 +398,7 @@ def build_html():
     <header class="header">
         <div class="header-title">
             <span>📖</span>
-            <span id="doc-title">{title}</span>
+            <span id="doc-title">{title_html}</span>
         </div>
         <div class="header-controls">
             <button class="control-btn active" onclick="toggleColumn('original')">原文</button>
