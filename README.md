@@ -16,6 +16,7 @@
 | [x-article-download](./x-article-download/) | X/Twitter 内容下载，支持单条推文和整账号批量 | 收到 X 推文/账号链接，需要存档或分析 | (收到 x.com 链接自动触发) |
 | [xiaohongshu-downloader](./xiaohongshu-downloader/) | 小红书视频下载 + Whisper 口播转录为 Markdown 逐字稿 | 收到小红书视频链接，需要分析或翻译口播内容 | (收到 xiaohongshu.com/xhslink.com 链接自动触发) |
 | [md2view](./md2view/) | 把 Markdown 重编码成可溯源的人类视图（图/表/dashboard），输出左原文·右重组·滚动同步的单文件 HTML | 复盘/报告/规格/长文档要给人读、易吸收、可分享 | `/md2view` |
+| [doc-reader](./doc-reader/) | 英文技术文档/PDF 章节级精准翻译为中文，图片 100% 保留，生成原文·译文·AI 幻灯片三栏本地预览 HTML | 读长篇英文技术博客、论文、官方文档，想要可对照、可回看的中文版 | `/doc-reader <URL 或 PDF>` |
 | [git-push-guard](./git-push-guard/) | 纯 hook 插件（无 skill）：拦截直推默认分支 master/main，ask 确认放行，支持按仓库路径白名单永久放行 | AI 帮你提交代码时想守住共享分支纪律 | (git push 到 master/main 自动触发；仅 Plugin 安装方式可用) |
 | [do-something](./do-something/) | 自主推进当前项目：判断此刻杠杆最高的一件事并做完它——有待办做待办，有目的第一性推理，没目的勇敢找一个；所有运行在一条 do/main 分支上续做累积，人类合并即收割 | 订阅 token 用不完，想让 AI 在你睡觉/吃饭时自主推进项目（配合 cron/loop） | `/do-something` / `做点什么` / `自己看着办` |
 | [hkr-render](./hkr-render/) | 公众号完整管线：Markdown 排版（7 个精品主题）→ 封面（亮度检查/自动暗化）→ 推送草稿箱（支持多图文） | 公众号文章排版发布，多篇合一条草稿，深色模式与手机端字号已调优 | `排版` / `微信排版` / `/format` |
@@ -36,6 +37,7 @@
 /plugin install git-push-guard@my-skill   # 纯 hook：直推 master/main 拦截
 /plugin install do-something@my-skill
 /plugin install md2view@my-skill
+/plugin install doc-reader@my-skill
 /plugin install harness@my-skill
 /plugin install gpt-image2-prompt-director@my-skill
 /plugin install wechat-article-md-local@my-skill
@@ -60,6 +62,7 @@ cp -r wechat-article-md-local ~/.codex/skills/
 cp -r x-article-download ~/.codex/skills/
 cp -r xiaohongshu-downloader ~/.codex/skills/
 cp -r md2view ~/.codex/skills/
+cp -r doc-reader ~/.codex/skills/
 cp -r do-something ~/.codex/skills/
 # hkr-render 需要先按其 SKILL.md 创建 config.json（微信 AppID/Secret 等）
 cp -r hkr-render ~/.codex/skills/
@@ -78,6 +81,7 @@ cp -r wechat-article-md-local ~/.claude/skills/
 cp -r x-article-download ~/.claude/skills/
 cp -r xiaohongshu-downloader ~/.claude/skills/
 cp -r md2view ~/.claude/skills/
+cp -r doc-reader ~/.claude/skills/
 cp -r do-something ~/.claude/skills/
 # hkr-render 需要先按其 SKILL.md 创建 config.json（微信 AppID/Secret 等）
 cp -r hkr-render ~/.claude/skills/
@@ -90,6 +94,14 @@ cp -r hkr-render ~/.claude/skills/
 ```text
 安装 skill：gpt-image2-prompt-director
 描述：把普通点子升级成高质量 GPT image2 生图提示词，并提供头像、表情包、信息图、卡片、海报、产品图等任务的评测门禁
+安装源：https://github.com/hanzhangzzz/my-skill
+```
+
+或：
+
+```text
+安装 skill：doc-reader
+描述：英文技术文档/PDF 章节级精准翻译为中文，图片 100% 保留，生成原文·译文·AI 幻灯片三栏本地预览 HTML
 安装源：https://github.com/hanzhangzzz/my-skill
 ```
 

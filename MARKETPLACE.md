@@ -171,6 +171,22 @@ registry: https://github.com/hanzhangzzz/my-skill
 }
 ```
 
+### doc-reader
+
+```json
+{
+  "name": "doc-reader",
+  "version": "1.0.0",
+  "description": "英文技术文档精准翻译：网页 URL 或本地 PDF → 章节级翻译保持术语一致，图片 100% 保留，生成原文/译文/AI 幻灯片三栏本地预览 HTML；幻灯片通过本机 Codex CLI 内置 imagegen 生成，不依赖任何图片 API Key",
+  "trigger": "/doc-reader",
+  "keywords": ["doc-reader", "翻译", "技术文档", "translate", "markdown", "pdf", "幻灯片", "imagegen", "codex"],
+  "compatibility": "Claude Code, Codex（幻灯片生成需本机安装并登录 Codex CLI）",
+  "install_path": "doc-reader/",
+  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "license": "MIT"
+}
+```
+
 ## 安装指令模板
 
 Agent 可以通过以下方式安装本市场中的 skill：
