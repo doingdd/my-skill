@@ -38,6 +38,7 @@
 /plugin install do-something@my-skill
 /plugin install md2view@my-skill
 /plugin install doc-reader@my-skill
+/plugin install hkr-render@my-skill       # 需先按其 SKILL.md 创建 config.json（微信 AppID/Secret）
 /plugin install harness@my-skill
 /plugin install gpt-image2-prompt-director@my-skill
 /plugin install wechat-article-md-local@my-skill
