@@ -129,7 +129,7 @@ registry: https://github.com/hanzhangzzz/my-skill
 {
   "name": "md2view",
   "version": "1.0.0",
-  "description": "把 Markdown 重编码成可溯源的人类阅读视图——抽出信息结构换成图/表/dashboard，输出左原文·右重组·滚动同步的单文件 HTML；保真靠建模→制图→视觉校验多环对账。md2html 的继任者。",
+  "description": "把 Markdown 重编码成可溯源的人类阅读视图——模型自由设计右栏表达(架构图/流程链/矩阵/卡片),确定性壳负责左栏原文、双栏锚定同步与溯源验证(词法锚点+数字逐字+100% 来源覆盖)。md2html 的继任者。",
   "trigger": "/md2view",
   "keywords": ["md2view", "markdown", "信息重组", "information design", "dashboard", "可视化", "双栏阅读", "source map", "溯源", "html"],
   "compatibility": "Claude Code, Codex",
