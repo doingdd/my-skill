@@ -22,12 +22,14 @@ description: 仓库归位与清理：切回最新 master、删除已合并/upstr
 
 ### 1. Dry-run 出清单
 
+`SKILL_DIR` 指本 SKILL.md 所在目录（全局安装、项目级安装、plugin 缓存目录均适用，按实际安装位置解析，不要硬编码）。
+
 ```bash
 # 单仓库（默认当前目录）
-python3 ~/.claude/skills/repo-tidy/scripts/repo_tidy.py <repo-path>
+python3 "$SKILL_DIR/scripts/repo_tidy.py" <repo-path>
 
 # 全部仓库（扫描 ~/Desktop/Works/code）
-python3 ~/.claude/skills/repo-tidy/scripts/repo_tidy.py --all
+python3 "$SKILL_DIR/scripts/repo_tidy.py" --all
 ```
 
 ### 2. 确认后执行
@@ -35,13 +37,13 @@ python3 ~/.claude/skills/repo-tidy/scripts/repo_tidy.py --all
 把 dry-run 清单展示给用户；**涉及删除分支/worktree 时必须等用户确认**（用户本轮已明确说「清理」「归位」的，单仓库可直接 `--apply`）。
 
 ```bash
-python3 ~/.claude/skills/repo-tidy/scripts/repo_tidy.py <repo-path> --apply
+python3 "$SKILL_DIR/scripts/repo_tidy.py" <repo-path> --apply
 ```
 
 ### 3. 开新任务（一条命令：归位 + 开分支/worktree）
 
 ```bash
-python3 ~/.claude/skills/repo-tidy/scripts/repo_tidy.py <repo-path> --new <task>
+python3 "$SKILL_DIR/scripts/repo_tidy.py" <repo-path> --new <task>
 ```
 
 - 先对该仓库执行一次归位（等价 `--apply`，安全边界相同）

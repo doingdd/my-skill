@@ -1,3 +1,14 @@
+---
+name: hkr-render
+description: |
+  公众号完整管线：Markdown 排版（7 个精品主题）→ 封面（可选，亮度检查/自动暗化）→ 推送草稿箱（可选，支持多图文）。
+  把 Markdown 或纯文本转为微信公众号兼容的内联样式 HTML，AI 自动补充结构与排版增强。
+  当用户说"排版""微信排版""格式化文章""format""公众号发布"时使用。需先按 SKILL.md 创建 config.json（微信 AppID/Secret）。
+trigger: /format
+compatibility: Claude Code, Codex
+license: MIT
+---
+
 # xiaohu-wechat-format
 
 公众号一键排版技能。把任意文本内容（Markdown、纯文本、格式粗糙的笔记）转成微信公众号兼容的排版 HTML，AI 自动理解内容结构并增强排版，可视化选择主题后一键复制粘贴到微信后台。可选生成封面图、推送草稿箱。

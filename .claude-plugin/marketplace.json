@@ -136,6 +136,14 @@
       "description": "英文技术文档/PDF 章节级精准翻译为中文，图片 100% 保留，生成原文·译文·AI 幻灯片三栏本地预览 HTML（幻灯片经本机 Codex CLI imagegen 生成）",
       "version": "1.0.0",
       "skills": ["./doc-reader"]
+    },
+    {
+      "name": "hkr-render",
+      "source": "./",
+      "strict": false,
+      "description": "公众号完整管线：Markdown 排版（7 个精品主题）→ 封面（亮度检查/自动暗化）→ 推送草稿箱（支持多图文）；需先按 SKILL.md 创建 config.json",
+      "version": "1.0.0",
+      "skills": ["./hkr-render"]
     }
   ]
 }
