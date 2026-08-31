@@ -2,7 +2,6 @@
 
 - Status: v4 当前生效(2026-08-10 重构)
 - Active contract: `SKILL.md`、`references/design-system.md`、`references/diagram-cookbook.md`、`references/anti-patterns.md`
-- 参考实现: `examples/agent-swarm/`
 
 ## v4 为什么存在
 

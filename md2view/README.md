@@ -30,7 +30,7 @@ AI 生成的文档越来越多,也越来越又长又臭。而人在任务之间�
 
 ## 设计状态
 
-当前生效版本是 **v4**(2026-08 重构),执行合同见 [SKILL.md](SKILL.md),设计依据见 [DESIGN.md](DESIGN.md);组件词汇见 [references/design-system.md](references/design-system.md),图画法见 [references/diagram-cookbook.md](references/diagram-cookbook.md),反面教材见 [references/anti-patterns.md](references/anti-patterns.md)。参考实现:[examples/agent-swarm/](examples/agent-swarm/)(516 行架构设计文档 → 12 视图)。v3 及更早的自包含 reader 仍可离线打开;旧的 JSON 合同生成路径已删除(git 历史可回溯)。
+当前生效版本是 **v4**(2026-08 重构),执行合同见 [SKILL.md](SKILL.md),设计依据见 [DESIGN.md](DESIGN.md);组件词汇见 [references/design-system.md](references/design-system.md),图画法见 [references/diagram-cookbook.md](references/diagram-cookbook.md),反面教材见 [references/anti-patterns.md](references/anti-patterns.md)。v3 及更早的自包含 reader 仍可离线打开;旧的 JSON 合同生成路径已删除(git 历史可回溯)。
 
 ## 流水线
 

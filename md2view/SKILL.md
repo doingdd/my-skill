@@ -108,4 +108,4 @@ python3 $SK/scripts/build_reader.py blocks.json right-pane.html reader.html
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s $SK/scripts -p 'test_*.py'
 ```
 
-参考实现(正例):`examples/agent-swarm/`(516 行架构设计文档 → 12 视图);反模式目录:`references/anti-patterns.md`(含 v3 时代的真实失败截图描述)。
+反模式目录:`references/anti-patterns.md`(含 v3 时代的真实失败截图描述)。
