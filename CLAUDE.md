@@ -1,6 +1,6 @@
-# My Skill Market — AI 开发指南
+# agent-skills-zh — AI 开发指南
 
-本仓库是一个轻量级 Agent Skills 市场。任何 AI Agent 都可以为这个市场贡献新的 skills。
+本仓库（GitHub: hanzhangzzz/agent-skills-zh，原名 my-skill）是一个面向中文开发者的 Agent Skills 集合。任何 AI Agent 都可以为它贡献新的 skills。
 
 ## 添加新 Skill 的流程
 
