@@ -1,5 +1,7 @@
 # agent-skills-zh
 
+**中文** | [English](./README.en.md)
+
 **Agent Skills for Claude Code, Codex and 20+ coding agents — built for Chinese-speaking developers.**
 Translate English docs into Chinese, archive WeChat / Xiaohongshu / X content as Markdown, keep multi-repo Git hygiene, direct GPT-image prompts, and run autonomous improvement loops — one `SKILL.md` per capability, install only what you need.
 
@@ -113,6 +115,33 @@ Install the skill "doc-reader" from https://github.com/hanzhangzzz/agent-skills-
 - **Reading English docs in Chinese** should not lose images, structure or terminology — `doc-reader` keeps all three and adds AI slides on top.
 - **Multi-repo, multi-task agent work** rots Git state fast; `repo-tidy` and `repo-map` keep every task on a clean branch with the right paths.
 - **Agents that improve things while you are away** — `harness` and `do-something` are two levels of autonomy, from a reviewed three-role loop to "just pick the best thing and ship it".
+
+## doc-reader
+
+一条命令，把一篇英文技术文章变成可对照阅读的中文版：左栏原文、中栏译文（章节级翻译，术语一致，图片 100% 保留）、右栏每个章节一张 AI 知识卡幻灯片。下面是真实产出，输入是 Anthropic 的一篇客户案例：
+
+![doc-reader 三栏预览：原文 · 译文 · AI 幻灯片](./assets/readme/doc-reader-preview.jpg)
+
+幻灯片由本机 Codex CLI 内置 imagegen 生成，不需要图片 API Key。提示词经过单变量实验校准：画面可见汉字控制在 250 字以内，字形错误从平均 2.5 处/图降到 0（实验记录见 [doc-reader/instructions.md](./doc-reader/instructions.md)）。
+
+![doc-reader 生成的 AI 幻灯片示例](./assets/readme/doc-reader-slide.jpg)
+
+```text
+/doc-reader https://claude.com/blog/how-warp-builds-self-improving-agents-on-claude
+/doc-reader ./paper.pdf --no-ppt      # 只翻译，不生成幻灯片
+```
+
+## hkr-render
+
+Markdown 一键变成公众号可直接发布的排版，7 个主题，深色模式与手机端字号已调优；可选生成封面并推送到草稿箱，支持多篇合一条图文：
+
+![hkr-render 主题总览](./hkr-render/docs/gallery-preview.png)
+
+```text
+排版这篇文章 ./article.md    # 打开主题画廊，用你的真实文章预览 7 个主题，选中即复制微信兼容 HTML
+生成封面                     # 可选：封面亮度检查，浅色底自动加渐变暗化
+推送到公众号草稿箱           # 可选：需要 config.json 里的 AppID/Secret
+```
 
 ## GPT Image2 Prompt Director
 
