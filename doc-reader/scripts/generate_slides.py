@@ -39,27 +39,20 @@ DEFAULT_CONCURRENCY = 4
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 ACCENT_COLORS = {
-    "intro": "soft orange/amber (#F5A623) as primary accent",
-    "problem": "muted coral/salmon (#E57373) as warning accent",
-    "solution": "soft teal/mint (#4DB6AC) as positive accent",
-    "feature": "soft blue (#64B5F6) as tech accent",
-    "benefit": "warm gold/yellow (#FFD54F) as success accent",
-    "example": "soft purple/lavender (#B39DDB) as case study accent",
-    "tip": "amber/orange (#FFB74D) as tip accent",
-    "conclusion": "soft teal and orange as summary accents",
+    "intro": "柔和橙黄色（#F5A623）作为主强调色",
+    "problem": "柔和珊瑚红（#E57373）作为警示强调色",
+    "solution": "柔和青绿色（#4DB6AC）作为正向强调色",
+    "feature": "柔和蓝色（#64B5F6）作为科技感强调色",
+    "benefit": "暖金黄色（#FFD54F）作为成功强调色",
+    "example": "柔和薰衣草紫（#B39DDB）作为案例强调色",
+    "tip": "琥珀橙色（#FFB74D）作为提示强调色",
+    "conclusion": "柔和青绿与橙色作为总结强调色",
 }
 
-DESIGN_PRINCIPLES = """
-Unified visual system for the whole slide series:
-- warm cream/beige paper-like background (#F5F0E6), never pure white or dark
-- dark brown/coffee titles, borders, icons, and main lines (#5D4037)
-- simple hand-drawn sketch icons with consistent thin strokes
-- rounded rectangle cards, soft shadows, and dashed connection arrows
-- modular knowledge-map layout with clear hierarchy and generous whitespace
-- warm, muted colors; no neon, photorealism, 3D objects, logos, or watermark
-- all visible text must be readable Simplified Chinese; use visual metaphors
-  instead of dense paragraphs
-""".strip()
+# 画面可见汉字预算。实测（2026-08-31，gpt-image-2 内置路径，每臂 n=4）：
+# ≤120 字与 ~270 字的中文简报均 0 字形错误，~440 字整段原文 0.6 错/图，
+# ChatGPT 网页版同提示词自动压缩到 140–284 字后也是 0 错。250 取安全区间上沿。
+VISIBLE_CJK_BUDGET = 250
 
 
 def slide_content(slide: dict) -> str:
@@ -72,31 +65,28 @@ def build_image_prompt(
     article_title: str,
     aspect_ratio: str = DEFAULT_ASPECT_RATIO,
 ) -> str:
-    """把一个内容块整理为 imagegen 的生产级视觉规格。"""
+    """把一个内容块写成给 imagegen 的中文创作简报。
+
+    原文只作素材，由图片模型提炼；关键约束是可见汉字预算——
+    字形错误随画面汉字数上升，而渲染档位不受提示词控制。
+    """
     slide_type = str(slide.get("type") or "feature")
     title = str(slide.get("title") or f"幻灯片 {slide.get('index', '')}").strip()
-    section = str(slide.get("section") or "").strip()
+    section = str(slide.get("section") or "").strip() or title
     content = slide_content(slide)
     index = slide.get("index", 1)
-    accent_color = ACCENT_COLORS.get(slide_type, ACCENT_COLORS["feature"])
+    accent = ACCENT_COLORS.get(slide_type, ACCENT_COLORS["feature"])
 
-    return f"""Use case: productivity-visual
-Asset type: technical article summary slide, slide {index} in one visual series
-Primary request: visualize the supplied Chinese source content as a polished knowledge-card infographic
-Article: {article_title}
-Section: {section or title}
-Topic: {title}
-Source content:
+    return f"""请画一张 {aspect_ratio} 的技术文章总结幻灯片（同一系列的第 {index} 张），风格是温暖的手绘知识地图，像 Notion 模板那种教育类信息图：米色纸质背景（#F5F0E6），深咖啡色（#5D4037）的标题、线条和简笔画图标，统一的细线条手绘图标，圆角卡片、柔和阴影、虚线箭头，模块化布局、层级清晰、留白充足，点缀少量{accent}。不要霓虹色、不要写实照片、不要 3D、不要 logo 和水印。所有可见文字都用简体中文，标题只出现一次："{title}"。
+
+内容来自文章《{article_title}》的章节「{section}」。下面是原文，它是素材，不是要照抄到画面上的文字：
 {content}
 
-Style/medium: warm hand-drawn knowledge map, Notion-template-like educational infographic
-Composition/framing: {aspect_ratio} landscape slide; identify 3-5 core concepts; organize them in a clear hierarchy or flow; use rounded cards and dashed arrows
-Color palette: warm cream background, dark coffee lines, accent {accent_color}
-Text (verbatim): use "{title}" once as the main title
-Language: any other visible labels must be concise, readable Simplified Chinese
-Constraints:
-{DESIGN_PRINCIPLES}
-Preserve the meaning of the source content. Do not invent facts, data, brands, or claims.
+排版要求（最重要）：
+- 先从原文提炼 3-5 个核心概念，组织成清晰的层级或流程，用视觉隐喻代替大段文字
+- 画面上所有可见汉字总量不超过 {VISIBLE_CJK_BUDGET} 个：每个概念一个 8 字以内的短标签，可配一句 20 字以内的说明；数字、专有名词、人名保留原样
+- 不要把原文整段抄上去；宁可少写字，也不要写小字
+- 忠实于原文，不要编造事实、数据或品牌
 """.strip()
 
 

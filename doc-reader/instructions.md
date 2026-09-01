@@ -387,7 +387,7 @@ curl -L -o "output/${SLUG}/images/figure1.png" "${IMAGE_URL}"
 ```
 
 **关键提醒**：
-- `description` 字段是 AI 文生图的输入源，内容越完整，生成的幻灯片信息密度越高
+- `description` 字段是 AI 文生图的**素材**：保持完整原文，让图片模型自己提炼；提示词会限制画面可见汉字 ≤250（`generate_slides.py` 的 `VISIBLE_CJK_BUDGET`），因为字形错误随画面汉字数上升，而渲染档位不受提示词控制
 - 严格 3-6 个内容块，每块应覆盖文章 20-35% 的内容
 - **必须显式指定 `index` 字段**（1, 2, 3...），否则所有图片会覆盖同一个文件
 
