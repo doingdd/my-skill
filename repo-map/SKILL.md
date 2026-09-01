@@ -1,6 +1,8 @@
 ---
 name: repo-map
-description: 本地仓库地图（全局项目自动索引）的安装与维护。解决"在 A 仓库聊着聊着需要引用/修改 B 仓库，每次手贴路径"的问题：扫描本地全部 git 仓库生成一张增量自愈的地图（名称/路径/读写角色/职责），UserPromptSubmit hook 在用户提到仓库名时自动注入路径与读写角色，关联关系沉淀到项目 CLAUDE.md。可选开启 macOS launchd 定时增量同步，让新建仓库自动进地图。触发词：仓库地图、repo-map、全局项目索引、跨仓库引用、找不到本地仓库、仓库地图定时更新。
+description: |
+  Local repository map for multi-repo development: scan every local git repo into an incremental, self-healing index (name, path, read/write role, purpose); a UserPromptSubmit hook auto-injects the path and role whenever a repo name is mentioned, so cross-repo references and edits never need hand-pasted paths; optional macOS launchd scheduled sync keeps new repos in the map. Use when the user works across multiple local repositories or says 仓库地图, repo-map, repo map, 全局项目索引, 跨仓库引用, 找不到本地仓库, 仓库地图定时更新.
+
 ---
 
 # repo-map：本地仓库地图

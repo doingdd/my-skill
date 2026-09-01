@@ -1,6 +1,8 @@
 ---
 name: md2view
-description: 把 Markdown 重编码成可溯源的人类阅读视图。模型自由设计并手写右栏 HTML(组件词汇 + 设计 token),确定性壳负责左栏原文、双栏锚定同步与溯源验证——每个语义元素必须带 data-sources 锚点,可见文本保留词法锚点,数字逐字抄录。Use when 用户要把复盘、报告、规格、README 或技术长文变成架构图、流程图、比较矩阵、论证图,或提到 md2view、信息重组、双栏阅读、文档可视化。只要忠实渲染 Markdown 时不要用本 skill。
+description: |
+  Re-encode a Markdown document into a traceable human-reading view: a single-file HTML with the original on the left and a model-designed visual re-organization on the right (architecture diagrams, flow chains, comparison matrices, argument maps, annotated cards), where every element carries data-sources anchors back to the source, visible text keeps lexical anchors and numbers are copied verbatim. Use when the user wants a retrospective, report, spec, README or long technical document turned into something easier to absorb and share, or says /md2view, md2view, 信息重组, 双栏阅读, 文档可视化, 把文档做成图. Do not use for plain faithful Markdown rendering.
+
 ---
 
 # md2view

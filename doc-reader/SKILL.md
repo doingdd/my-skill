@@ -1,11 +1,8 @@
 ---
 name: doc-reader
 description: |
-  技术文档精准翻译工具，采用章节级翻译策略，将英文技术文档翻译为中文。
-  当用户提到 "/doc-reader"、"翻译这篇文章"、"翻译文档"、"翻译博客"、"translate this article" 时使用。
-  支持输入：(1) 在线网页 URL (2) 本地 PDF 文件路径
-  核心能力：(1) 章节级翻译保持术语一致 (2) 100%图片保留 (3) 生成本地三栏预览HTML (4) 通过Codex CLI的imagegen生成AI幻灯片
-  支持参数：--no-ppt 跳过幻灯片生成，--quick 快速模式仅翻译
+  Translate an English technical article (web URL) or a local PDF into accurate Chinese, section by section with consistent terminology, keeping 100% of the images, and build a local three-column preview HTML (original · translation · AI slides). Slides are generated through the local Codex CLI built-in imagegen, so no image API key is needed. Use when the user shares an English blog post, paper, docs page or PDF and wants a faithful, side-by-side Chinese version, or says /doc-reader, 翻译这篇文章, 翻译文档, 翻译博客, 翻译 PDF, translate this article. Options: --no-ppt skips slide generation, --quick translates only.
+
 ---
 
 # Doc Reader

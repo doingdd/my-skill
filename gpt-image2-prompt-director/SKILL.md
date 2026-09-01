@@ -1,6 +1,8 @@
 ---
 name: gpt-image2-prompt-director
-description: Use when the user wants to create, improve, evaluate, or systematize GPT image2 prompts that turn weak ideas into high-impact image generation briefs, including prompt director workflows, idea generation, visual prompt frameworks, and benchmark evaluation.
+description: |
+  Turn a weak idea into a high-impact GPT image2 (gpt-image-2) generation brief: prompt director workflows, idea generation, visual prompt frameworks, artifact specs for avatars, sticker/emoji packs, infographics, platform covers, posters and product shots, plus benchmark evaluation against an expert prompt set. Use when the user wants to create, improve, repair or systematically evaluate image generation prompts, or says $gpt-image2-prompt-director, 生图提示词, 图片提示词优化, 头像提示词, 表情包, 信息图提示词, 海报提示词, 修一下这个 prompt.
+
 ---
 
 # GPT Image2 Prompt Director

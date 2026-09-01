@@ -1,60 +1,31 @@
 ---
-name: My Skill Market
-description: Agent Skills Market - 轻量级 AI Agent Skills 市场
-version: 1.0.0
-registry: https://github.com/hanzhangzzz/my-skill
+name: agent-skills-zh
+description: Agent Skills for Claude Code & Codex, Chinese-first — 面向中文开发者的 Agent Skills 注册表
+version: 1.1.0
+registry: https://github.com/hanzhangzzz/agent-skills-zh
+install: npx skills add hanzhangzzz/agent-skills-zh
 ---
 
-# My Skill Market Registry
+# agent-skills-zh Registry
 
-本文件是 Skill Market 的注册表索引，Agent 可以解析此文件来发现和安装可用的 skills。
+Machine-readable index of every skill in this repository. Agents can parse this file to discover and install skills; humans should read [README.md](./README.md).
+
+本文件是仓库的注册表索引，Agent 可以解析它来发现和安装 skill；人类请看 README。
 
 ## Skills 索引
 
-### harness
+### doc-reader
 
 ```json
 {
-  "name": "harness",
-  "version": "1.0.0",
-  "description": "Harness Engineering 最小实践 — 三角色 AI 自治循环（Inspector → Worker → Reviewer），通过 TODO.md 共享看板驱动持续改进",
-  "trigger": "/harness",
-  "keywords": ["harness", "automation", "inspection", "workflow", "CI/CD"],
-  "compatibility": "Claude Code",
-  "install_path": "harness/",
-  "repo": "https://github.com/hanzhangzzz/my-skill",
-  "license": "MIT"
-}
-```
-
-### gpt-image2-prompt-director
-
-```json
-{
-  "name": "gpt-image2-prompt-director",
-  "version": "1.0.0",
-  "description": "GPT image2 提示词导演：把弱点子升级成高质量生图 brief，并用 benchmark 与 hard gates 评测头像、表情包、信息图、卡片、海报等 prompt",
-  "trigger": "$gpt-image2-prompt-director",
-  "keywords": ["gpt-image2", "image generation", "prompt", "avatar", "sticker", "infographic", "visual design", "evaluation"],
-  "compatibility": "Claude Code, Codex",
-  "install_path": "gpt-image2-prompt-director/",
-  "repo": "https://github.com/hanzhangzzz/my-skill",
-  "license": "MIT"
-}
-```
-
-### repo-map
-
-```json
-{
-  "name": "repo-map",
-  "version": "1.0.0",
-  "description": "本地仓库地图（全局项目自动索引）：扫描本地全部 git 仓库生成增量自愈缓存，UserPromptSubmit hook 在用户提到仓库名时自动注入路径与读写角色，跨仓库引用不再手贴路径；可选开启 macOS launchd 定时增量同步让新建仓库自动进图；关联关系按'宁可漏掉，不能沉淀错'选择性沉淀",
-  "trigger": "仓库地图 / repo-map",
-  "keywords": ["repo-map", "仓库地图", "跨仓库", "multi-repo", "索引", "hook", "registry", "launchd", "定时同步"],
-  "compatibility": "Claude Code（完整体验）；Codex 仅 resolve 命令，无 hook 自动注入",
-  "install_path": "repo-map/",
-  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "name": "doc-reader",
+  "version": "1.1.0",
+  "description": "Translate an English technical article (URL) or PDF into accurate Chinese section by section, keep 100% of images, build a local 3-column preview HTML (original · translation · AI slides). Slides via local Codex CLI imagegen, no image API key. 英文技术文档/PDF 章节级精准翻译，图片全保留，三栏本地预览",
+  "trigger": "/doc-reader",
+  "keywords": ["doc-reader", "translate", "translation", "english to chinese", "technical documentation", "pdf", "markdown", "slides", "imagegen", "codex", "翻译", "技术文档", "幻灯片"],
+  "compatibility": "Claude Code, Codex (slides need a logged-in local Codex CLI)",
+  "install_path": "doc-reader/",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
   "license": "MIT"
 }
 ```
@@ -65,28 +36,12 @@ registry: https://github.com/hanzhangzzz/my-skill
 {
   "name": "wechat-article-md-local",
   "version": "1.0.0",
-  "description": "微信公众号单篇文章下载为本地 Markdown：自动提取正文、下载图片到本地、生成带格式的 Markdown，支持 Playwright 截断回退",
-  "trigger": "wechat-article-md-local",
-  "keywords": ["wechat", "weixin", "公众号", "微信公众号", "markdown", "下载", "article"],
-  "compatibility": "Claude Code, Codex, Hermes Agent",
+  "description": "Save a WeChat Official Account (mp.weixin.qq.com) article as local Markdown with images downloaded; HTML fallback. 公众号文章下载为本地 Markdown，图片本地化",
+  "trigger": "auto on mp.weixin.qq.com links",
+  "keywords": ["wechat", "weixin", "official account", "mp.weixin.qq.com", "article", "markdown", "download", "archive", "微信", "公众号", "文章下载"],
+  "compatibility": "Claude Code, Codex",
   "install_path": "wechat-article-md-local/",
-  "repo": "https://github.com/hanzhangzzz/my-skill",
-  "license": "MIT"
-}
-```
-
-### x-article-download
-
-```json
-{
-  "name": "x-article-download",
-  "version": "4.0.0",
-  "description": "X/Twitter 内容下载为 Markdown：支持单条推文（文字/图片/视频/GitHub 仓库）和整账号批量下载，自动转录视频口播",
-  "trigger": "x-article-download",
-  "keywords": ["x", "twitter", "下载", "markdown", "推文", "视频转录", "whisper", "xreach"],
-  "compatibility": "Claude Code, Codex, Hermes Agent",
-  "install_path": "x-article-download/",
-  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
   "license": "MIT"
 }
 ```
@@ -96,13 +51,77 @@ registry: https://github.com/hanzhangzzz/my-skill
 ```json
 {
   "name": "xiaohongshu-downloader",
-  "version": "2.0.0",
-  "description": "小红书视频下载 + Whisper 口播转录为 Markdown：中文视频直接保存逐字稿，英文视频翻译后保存，自动生成 transcript.md",
-  "trigger": "xiaohongshu-downloader",
-  "keywords": ["xiaohongshu", "小红书", "下载", "视频", "转录", "whisper", "逐字稿", "markdown"],
-  "compatibility": "Claude Code, Codex, Hermes Agent",
+  "version": "1.0.0",
+  "description": "Download a Xiaohongshu (RedNote) video from xiaohongshu.com / xhslink.com and transcribe the voice-over with Whisper into a Markdown transcript. 小红书视频下载 + 口播逐字稿",
+  "trigger": "auto on xiaohongshu.com / xhslink.com links",
+  "keywords": ["xiaohongshu", "rednote", "xhs", "video", "download", "whisper", "transcript", "transcription", "markdown", "小红书", "口播", "逐字稿", "视频转文字"],
+  "compatibility": "Claude Code, Codex",
   "install_path": "xiaohongshu-downloader/",
-  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
+  "license": "MIT"
+}
+```
+
+### x-article-download
+
+```json
+{
+  "name": "x-article-download",
+  "version": "1.0.0",
+  "description": "Download a tweet, a long-form X article or an entire account to Markdown (text, images, videos, linked GitHub repos); auto-detects content type. X/Twitter 单条或整账号批量下载为 Markdown",
+  "trigger": "auto on x.com / twitter.com links",
+  "keywords": ["x", "twitter", "tweet", "x article", "download", "archive", "markdown", "batch", "推特", "推文下载", "X 文章"],
+  "compatibility": "Claude Code, Codex",
+  "install_path": "x-article-download/",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
+  "license": "MIT"
+}
+```
+
+### hkr-render
+
+```json
+{
+  "name": "hkr-render",
+  "version": "1.0.0",
+  "description": "WeChat Official Account publishing pipeline: Markdown → WeChat-compatible inline-style HTML (7 themes) → cover image with brightness check → push to draft box, multi-article supported. 公众号排版 → 封面 → 推送草稿箱",
+  "trigger": "排版 / 微信排版 / /format",
+  "keywords": ["wechat", "weixin", "official account", "publishing", "formatting", "typesetting", "markdown to html", "cover image", "draft", "公众号", "排版", "微信排版", "发布"],
+  "compatibility": "Claude Code, Codex (needs config.json with WeChat AppID/Secret)",
+  "install_path": "hkr-render/",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
+  "license": "MIT"
+}
+```
+
+### md2view
+
+```json
+{
+  "name": "md2view",
+  "version": "4.0.0",
+  "description": "Re-encode a Markdown document into a traceable two-column reading view — original on the left, model-designed diagrams/flows/matrices/cards on the right, every element anchored to its source — as a single-file HTML. Markdown 重编码为可溯源的双栏阅读视图",
+  "trigger": "/md2view",
+  "keywords": ["markdown", "html", "visualization", "document", "diagram", "two-column", "traceable", "report", "spec", "文档可视化", "信息重组", "双栏阅读", "复盘"],
+  "compatibility": "Claude Code, Codex",
+  "install_path": "md2view/",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
+  "license": "MIT"
+}
+```
+
+### gpt-image2-prompt-director
+
+```json
+{
+  "name": "gpt-image2-prompt-director",
+  "version": "1.0.0",
+  "description": "Turn a weak idea into a production-grade GPT image2 (gpt-image-2) generation brief — avatars, sticker packs, infographics, covers, posters, product shots — with a built-in 40-case benchmark and hard gates. GPT image2 提示词导演 + 评测门禁",
+  "trigger": "$gpt-image2-prompt-director",
+  "keywords": ["gpt-image-2", "gpt image2", "image generation", "prompt", "prompt engineering", "avatar", "sticker", "infographic", "poster", "benchmark", "生图", "提示词", "头像", "表情包", "信息图"],
+  "compatibility": "Claude Code, Codex",
+  "install_path": "gpt-image2-prompt-director/",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
   "license": "MIT"
 }
 ```
@@ -113,44 +132,44 @@ registry: https://github.com/hanzhangzzz/my-skill
 {
   "name": "repo-tidy",
   "version": "1.0.0",
-  "description": "仓库归位与并行任务底座：tidy 清理已合并/upstream 消亡分支与废弃 worktree 并切回最新 master；--new 一条命令归位+开新任务分支，主检出被占用时自动建并行 worktree；SessionStart hook 开局注入分支/ahead-behind/脏净状态。安全底线：未推提交/脏工作区/刚切出的空分支只报告不动手。",
-  "trigger": "归位 / repo tidy / 开新任务",
-  "keywords": ["repo-tidy", "git", "worktree", "分支清理", "归位", "并行任务", "master 同步", "branch hygiene"],
-  "compatibility": "Claude Code, Codex（SessionStart hook 仅 Claude Code）",
+  "description": "Git tidy-up and parallel-task base: back to latest master/main, prune merged or upstream-gone branches, remove stale worktrees; --new <task> does tidy + task branch in one command (parallel worktree when the checkout is busy); SessionStart hook injects repo status. 仓库归位与并行任务底座",
+  "trigger": "归位 / 开新任务 / repo tidy",
+  "keywords": ["git", "branch", "worktree", "cleanup", "tidy", "parallel tasks", "hook", "session start", "归位", "整理仓库", "清理分支", "开新任务"],
+  "compatibility": "Claude Code (hook), Codex (commands)",
   "install_path": "repo-tidy/",
-  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
   "license": "MIT"
 }
 ```
 
-### md2view
+### repo-map
 
 ```json
 {
-  "name": "md2view",
+  "name": "repo-map",
   "version": "1.0.0",
-  "description": "把 Markdown 重编码成可溯源的人类阅读视图——模型自由设计右栏表达(架构图/流程链/矩阵/卡片),确定性壳负责左栏原文、双栏锚定同步与溯源验证(词法锚点+数字逐字+100% 来源覆盖)。md2html 的继任者。",
-  "trigger": "/md2view",
-  "keywords": ["md2view", "markdown", "信息重组", "information design", "dashboard", "可视化", "双栏阅读", "source map", "溯源", "html"],
-  "compatibility": "Claude Code, Codex",
-  "install_path": "md2view/",
-  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "description": "Local repository map: self-healing index of all local git repos (name, path, read/write role, purpose); UserPromptSubmit hook injects path + role whenever a repo name is mentioned; optional macOS launchd sync. 本地仓库地图，提到仓库名自动注入路径",
+  "trigger": "仓库地图 / repo-map",
+  "keywords": ["git", "multi-repo", "monorepo", "repository index", "hook", "prompt injection", "launchd", "仓库地图", "全局项目索引", "跨仓库"],
+  "compatibility": "Claude Code (hook), Codex (resolve command)",
+  "install_path": "repo-map/",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
   "license": "MIT"
 }
 ```
 
-### hkr-render
+### harness
 
 ```json
 {
-  "name": "hkr-render",
-  "version": "2.1.0",
-  "description": "公众号完整管线：Markdown 排版（7 个精品主题，手机端字号/深色模式已调优）→ 封面（亮度检查/自动暗化遮罩）→ 推送草稿箱（多图文最多 8 篇、自动摘要、失败重试）。fork 自 xiaohu-wechat-format，转为个人维护。需自建 config.json 配置微信 AppID/Secret。",
-  "trigger": "排版 / 微信排版 / /format",
-  "keywords": ["hkr-render", "wechat", "公众号", "排版", "微信排版", "草稿箱", "多图文", "封面", "主题"],
-  "compatibility": "Claude Code",
-  "install_path": "hkr-render/",
-  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "name": "harness",
+  "version": "1.0.0",
+  "description": "Minimal Harness Engineering loop: Inspector finds issues, Worker fixes, Reviewer verifies, coordinated through a shared TODO.md board; run once or on a schedule. 三角色 AI 自治改进循环",
+  "trigger": "/harness",
+  "keywords": ["harness", "harness engineering", "autonomous agent", "code review", "automation", "inspection", "workflow", "TODO", "AI 自治循环", "自动巡检修复"],
+  "compatibility": "Claude Code, Codex",
+  "install_path": "harness/",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
   "license": "MIT"
 }
 ```
@@ -161,111 +180,55 @@ registry: https://github.com/hanzhangzzz/my-skill
 {
   "name": "do-something",
   "version": "1.2.0",
-  "description": "自主推进当前项目：读懂项目状态，判断此刻最值得做的一件事，做完它。三层判断——有待办做待办；有目的从目的第一性推理（敢于违背固化文档）；没目的就勇敢替项目找一个。所有运行共用一条 do/main 分支续做（续做优先于新开），DO.md 是跨运行的记忆与方向盘，人类合并即收割、删除即否决。适合 cron/loop 无人值守烧掉闲置 token",
+  "description": "Autonomously pick and finish the highest-leverage task in the current project: backlog first, then purpose-driven reasoning, then choose a purpose; all runs continue on one do/main branch with DO.md as memory, humans merge to harvest or delete to veto. 自主推进项目，适合 cron/loop 无人值守",
   "trigger": "/do-something",
-  "keywords": ["do-something", "自主推进", "autonomous", "cron", "loop", "无人值守", "first principles", "第一性原理", "idle tokens"],
+  "keywords": ["autonomous", "agent", "cron", "loop", "unattended", "project improvement", "backlog", "做点什么", "自己看着办", "推进一下"],
   "compatibility": "Claude Code, Codex",
   "install_path": "do-something/",
-  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
   "license": "MIT"
 }
 ```
 
-### doc-reader
+### git-push-guard
 
 ```json
 {
-  "name": "doc-reader",
+  "name": "git-push-guard",
   "version": "1.0.0",
-  "description": "英文技术文档精准翻译：网页 URL 或本地 PDF → 章节级翻译保持术语一致，图片 100% 保留，生成原文/译文/AI 幻灯片三栏本地预览 HTML；幻灯片通过本机 Codex CLI 内置 imagegen 生成，不依赖任何图片 API Key",
-  "trigger": "/doc-reader",
-  "keywords": ["doc-reader", "翻译", "技术文档", "translate", "markdown", "pdf", "幻灯片", "imagegen", "codex"],
-  "compatibility": "Claude Code, Codex（幻灯片生成需本机安装并登录 Codex CLI）",
-  "install_path": "doc-reader/",
-  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "description": "Hook-only Claude Code plugin (no SKILL.md): intercepts direct git push to master/main, asks for confirmation, per-repo path allowlist for permanent bypass. 纯 hook：直推默认分支拦截",
+  "trigger": "auto on git push to master/main",
+  "keywords": ["git", "push", "hook", "guard", "protect main", "protect master", "PreToolUse", "分支保护", "直推拦截"],
+  "compatibility": "Claude Code plugin only",
+  "install_path": "git-push-guard/",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
   "license": "MIT"
 }
 ```
 
-## 安装指令模板
+## 安装指令模板 · Install templates
 
-Agent 可以通过以下方式安装本市场中的 skill：
-
-### 自然语言描述（推荐）
-
-```
-请从 https://github.com/hanzhangzzz/my-skill 安装 harness skill
-描述：这是一个三角色 AI 自治循环系统，包含 Inspector、Worker、Reviewer，通过 TODO.md 共享看板驱动持续改进
-```
-
-```
-请从 https://github.com/hanzhangzzz/my-skill 安装 gpt-image2-prompt-director skill
-描述：这是一个 GPT image2 提示词导演，可从弱点子生成高质量生图 brief，并用 benchmark/hard gates 做评测
-```
-
-### 直接引用
-
-```
-安装 skill：harness
-来源：https://github.com/hanzhangzzz/my-skill
-路径：harness/
-```
-
-```json
-安装 skill：gpt-image2-prompt-director
-来源：https://github.com/hanzhangzzz/my-skill
-路径：gpt-image2-prompt-director/
-```
-
-```json
-安装 skill：harness
-来源：https://github.com/hanzhangzzz/my-skill
-路径：harness/
-```
-
-```json
-安装 skill：wechat-article-md-local
-来源：https://github.com/hanzhangzzz/my-skill
-路径：wechat-article-md-local/
-```
-
-```json
-安装 skill：x-article-download
-来源：https://github.com/hanzhangzzz/my-skill
-路径：x-article-download/
-```
-
-```json
-安装 skill：xiaohongshu-downloader
-来源：https://github.com/hanzhangzzz/my-skill
-路径：xiaohongshu-downloader/
-```
-
-## 市场运营指南
-
-### 作为 Skill Market 的角色
-
-本仓库作为一个轻量级 Skill Market：
-1. **展示**: 在 README.md 中展示所有可用的 skills
-2. **索引**: 在 MARKETPLACE.md 中提供机器可读的索引
-3. **安装**: 支持 NPX、Agent 描述安装等多种方式
-
-### 添加新 Skill
-
-1. 在仓库根目录创建 `<skill-name>/` 目录
-2. 按规范组织 `SKILL.md` 和相关文件
-3. 更新 `MARKETPLACE.md` 添加新 skill 的索引
-4. 更新 `README.md` 添加新 skill 的说明
-
-### NPX 安装格式
+Agents can install any skill above with one of these:
 
 ```bash
-npx github:hanzhangzzz/my-skill/harness
+# Skills CLI (Claude Code, Codex, Cursor, Copilot, Windsurf, Gemini CLI, ...)
+npx skills add hanzhangzzz/agent-skills-zh -s <skill-name> -g
+
+# Claude Code plugin marketplace (hooks auto-enabled)
+/plugin marketplace add hanzhangzzz/agent-skills-zh
+/plugin install <skill-name>@agent-skills-zh
+
+# Manual copy
+git clone https://github.com/hanzhangzzz/agent-skills-zh
+cp -r agent-skills-zh/<skill-name> ~/.claude/skills/    # or ~/.codex/skills/
 ```
 
-或克隆后本地安装：
+Natural-language request an agent understands · 自然语言安装请求：
 
-```bash
-git clone https://github.com/hanzhangzzz/my-skill
-cp -r my-skill/harness ~/.claude/skills/
+```text
+请从 https://github.com/hanzhangzzz/agent-skills-zh 安装 doc-reader skill
+```
+
+```text
+Install the "hkr-render" skill from https://github.com/hanzhangzzz/agent-skills-zh
 ```

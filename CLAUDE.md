@@ -132,7 +132,7 @@ grep -r "/Users/" <skill-name>/ || echo "无用户路径 ✓"
   "keywords": ["keyword1", "keyword2"],
   "compatibility": "Claude Code",
   "install_path": "<skill-name>/",
-  "repo": "https://github.com/hanzhangzzz/my-skill",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
   "license": "MIT"
 }
 ```
@@ -180,8 +180,8 @@ grep -r "/Users/" <skill-name>/ || echo "无用户路径 ✓"
 
 ```bash
 claude plugin marketplace add <仓库本地路径>
-claude plugin install <skill-name>@my-skill
-claude plugin details <skill-name>@my-skill   # 确认 Skills/Hooks 数量正确
+claude plugin install <skill-name>@agent-skills-zh
+claude plugin details <skill-name>@agent-skills-zh   # 确认 Skills/Hooks 数量正确
 ```
 
 ### 8. 提交变更

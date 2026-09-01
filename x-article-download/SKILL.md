@@ -1,6 +1,7 @@
 ---
 name: x-article-download
-description: 下载 X/Twitter 内容为本地 Markdown，支持单条推文（长文/图片/视频/GitHub 仓库）和整账号批量下载。自动判断内容类型执行对应策略。
+description: |
+  Download X/Twitter content to local Markdown: a single tweet or long-form article (text, images, videos, linked GitHub repos) or an entire account in batch; auto-detects the content type and applies the right strategy. Use when the user shares an x.com or twitter.com link and wants to save, archive, analyze or translate it, or says 下载推文, 下载 X 文章, 保存这条推特, 批量下载账号, download tweet, archive X account, twitter to markdown.
 version: 4.0.0
 author: doing
 metadata:

@@ -49,8 +49,8 @@ python3 scripts/build_reader.py blocks.json right-pane.html reader.html  # 5. �
 ## 安装
 
 ```bash
-git clone https://github.com/hanzhangzzz/my-skill.git
-cp -r my-skill/md2view ~/.claude/skills/     # Claude Code
+git clone https://github.com/hanzhangzzz/agent-skills-zh.git
+cp -r agent-skills-zh/md2view ~/.claude/skills/     # Claude Code
 # 或 ~/.codex/skills/ (Codex)
 ```
 

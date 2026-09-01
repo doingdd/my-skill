@@ -1,11 +1,11 @@
 {
-  "name": "my-skill",
+  "name": "agent-skills-zh",
   "owner": {
     "name": "hanzhangzzz",
-    "url": "https://github.com/hanzhangzzz/my-skill"
+    "url": "https://github.com/hanzhangzzz/agent-skills-zh"
   },
   "metadata": {
-    "description": "My Skill Market — 轻量级 Agent Skills 市场，一个 plugin 只含一个 skill，按需安装",
+    "description": "agent-skills-zh — Agent Skills for Claude Code & Codex, Chinese-first: doc translation, WeChat/Xiaohongshu/X archiving, repo hygiene, GPT-image prompts, autonomous loops. One plugin = one skill, install what you need.",
     "version": "1.0.0"
   },
   "plugins": [
@@ -13,9 +13,11 @@
       "name": "repo-tidy",
       "source": "./",
       "strict": false,
-      "description": "仓库归位与并行任务底座：tidy 清理已合并分支/废弃 worktree 并切回最新 master，--new 一条命令归位+开任务分支；含 SessionStart hook 开局注入仓库状态",
+      "description": "Git tidy-up + parallel-task base: back to latest master, prune merged branches/stale worktrees, --new opens a task branch (parallel worktree when busy); SessionStart hook injects repo status. 仓库归位与并行任务底座",
       "version": "1.0.0",
-      "skills": ["./repo-tidy"],
+      "skills": [
+        "./repo-tidy"
+      ],
       "hooks": {
         "SessionStart": [
           {
@@ -35,9 +37,11 @@
       "name": "repo-map",
       "source": "./",
       "strict": false,
-      "description": "本地仓库地图：扫描全部本地 git 仓库生成增量自愈索引；含 UserPromptSubmit hook，提到仓库名自动注入路径与读写角色",
+      "description": "Local repository map: self-healing index of all local git repos; UserPromptSubmit hook injects path + read/write role whenever a repo name is mentioned. 本地仓库地图，提到仓库名自动注入路径",
       "version": "1.0.0",
-      "skills": ["./repo-map"],
+      "skills": [
+        "./repo-map"
+      ],
       "hooks": {
         "UserPromptSubmit": [
           {
@@ -56,7 +60,7 @@
       "name": "git-push-guard",
       "source": "./",
       "strict": false,
-      "description": "纯 hook 插件：拦截直推默认分支 master/main（ask 询问放行），支持按仓库路径的永久白名单（~/.claude/hooks/push-default-branch-allowlist.txt）",
+      "description": "Hook-only plugin: intercepts direct git push to master/main, asks for confirmation, per-repo allowlist (~/.claude/hooks/push-default-branch-allowlist.txt). 纯 hook：直推默认分支拦截",
       "version": "1.0.0",
       "hooks": {
         "PreToolUse": [
@@ -77,73 +81,91 @@
       "name": "harness",
       "source": "./",
       "strict": false,
-      "description": "Harness Engineering 最小实践：Inspector → Worker → Reviewer 三角色循环，通过 TODO.md 共享看板驱动仓库持续改进",
+      "description": "Minimal Harness Engineering: Inspector → Worker → Reviewer loop driven by a shared TODO.md, on demand or scheduled. 三角色 AI 自治改进循环",
       "version": "1.0.0",
-      "skills": ["./harness"]
+      "skills": [
+        "./harness"
+      ]
     },
     {
       "name": "do-something",
       "source": "./",
       "strict": false,
-      "description": "自主推进当前项目：判断此刻杠杆最高的一件事并做完它——有待办做待办，有目的第一性推理，没目的勇敢找一个；所有运行共用一条 do/main 分支续做，DO.md 是跨运行的记忆与方向盘，适合 cron/loop 无人值守",
+      "description": "Autonomously pick and finish the highest-leverage task in the project; all runs continue on one do/main branch with DO.md as memory, humans merge to harvest. 自主推进项目，适合 cron/loop 无人值守",
       "version": "1.2.0",
-      "skills": ["./do-something"]
+      "skills": [
+        "./do-something"
+      ]
     },
     {
       "name": "md2view",
       "source": "./",
       "strict": false,
-      "description": "把 Markdown 重编码成可溯源的人类阅读视图:模型自由设计右栏(图/表/卡/链),确定性壳管双栏锚定同步与溯源验证,输出单文件 HTML",
+      "description": "Re-encode Markdown into a traceable two-column reading view (diagrams, flows, matrices, cards) with every element anchored to the source; single-file HTML. Markdown 重编码为可溯源的双栏阅读视图",
       "version": "1.0.0",
-      "skills": ["./md2view"]
+      "skills": [
+        "./md2view"
+      ]
     },
     {
       "name": "gpt-image2-prompt-director",
       "source": "./",
       "strict": false,
-      "description": "GPT image2 提示词导演：把弱点子升级成可生图、可评测的创意 brief",
+      "description": "Turn a weak idea into a production-grade GPT image2 brief (avatars, sticker packs, infographics, covers, posters, product shots) with a built-in benchmark. GPT image2 提示词导演 + 评测门禁",
       "version": "1.0.0",
-      "skills": ["./gpt-image2-prompt-director"]
+      "skills": [
+        "./gpt-image2-prompt-director"
+      ]
     },
     {
       "name": "wechat-article-md-local",
       "source": "./",
       "strict": false,
-      "description": "微信公众号文章下载为本地 Markdown，图片自动本地化",
+      "description": "Save a WeChat Official Account (mp.weixin.qq.com) article as local Markdown with images downloaded. 公众号文章下载为本地 Markdown",
       "version": "1.0.0",
-      "skills": ["./wechat-article-md-local"]
+      "skills": [
+        "./wechat-article-md-local"
+      ]
     },
     {
       "name": "x-article-download",
       "source": "./",
       "strict": false,
-      "description": "X/Twitter 内容下载，支持单条推文和整账号批量",
+      "description": "Download a tweet, long-form X article or whole account to Markdown (text, images, videos, linked repos). X/Twitter 单条或整账号批量下载",
       "version": "1.0.0",
-      "skills": ["./x-article-download"]
+      "skills": [
+        "./x-article-download"
+      ]
     },
     {
       "name": "xiaohongshu-downloader",
       "source": "./",
       "strict": false,
-      "description": "小红书视频下载 + Whisper 口播转录为 Markdown 逐字稿",
+      "description": "Download a Xiaohongshu (RedNote) video and transcribe the voice-over with Whisper into a Markdown transcript. 小红书视频下载 + 口播逐字稿",
       "version": "1.0.0",
-      "skills": ["./xiaohongshu-downloader"]
+      "skills": [
+        "./xiaohongshu-downloader"
+      ]
     },
     {
       "name": "doc-reader",
       "source": "./",
       "strict": false,
-      "description": "英文技术文档/PDF 章节级精准翻译为中文，图片 100% 保留，生成原文·译文·AI 幻灯片三栏本地预览 HTML（幻灯片经本机 Codex CLI imagegen 生成）",
+      "description": "Translate an English article/PDF into Chinese section by section, keep 100% of images, build a 3-column preview (original · translation · AI slides via local Codex imagegen). 英文技术文档/PDF 精准翻译 + 三栏预览",
       "version": "1.0.0",
-      "skills": ["./doc-reader"]
+      "skills": [
+        "./doc-reader"
+      ]
     },
     {
       "name": "hkr-render",
       "source": "./",
       "strict": false,
-      "description": "公众号完整管线：Markdown 排版（7 个精品主题）→ 封面（亮度检查/自动暗化）→ 推送草稿箱（支持多图文）；需先按 SKILL.md 创建 config.json",
+      "description": "WeChat publishing pipeline: Markdown → styled HTML (7 themes) → cover image → draft box, multi-article; needs config.json with WeChat AppID/Secret. 公众号排版 → 封面 → 推送草稿箱",
       "version": "1.0.0",
-      "skills": ["./hkr-render"]
+      "skills": [
+        "./hkr-render"
+      ]
     }
   ]
 }

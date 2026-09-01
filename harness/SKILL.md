@@ -1,7 +1,7 @@
 ---
 name: harness
 description: |
-  Harness Engineering 最小实践 — 三角色 AI 自治循环（Inspector → Worker → Reviewer），通过 TODO.md 共享看板驱动持续改进。支持即时执行和定时调度。当用户提到"AI 自治循环"、"自动巡检修复"、"定时改进代码"、"harness engineering"、"启动 harness"时使用。触发词：/harness
+  Minimal Harness Engineering loop for a code repository: three roles — Inspector finds issues, Worker fixes them, Reviewer verifies — coordinated through a shared TODO.md board, runnable once or on a schedule. Use when the user wants an agent to continuously inspect, fix and review a codebase, or says /harness, harness engineering, 启动 harness, AI 自治循环, 自动巡检修复, 定时改进代码.
 trigger: /harness
 compatibility: Claude Code
 license: MIT

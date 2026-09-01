@@ -1,156 +1,124 @@
-# My Skill Market
+# agent-skills-zh
 
-一个轻量级 Agent Skills 仓库，收录可直接复制到 Claude Code、Codex 或其他兼容 Agent skill 目录使用的工作流。
+**Agent Skills for Claude Code, Codex and 20+ coding agents — built for Chinese-speaking developers.**
+Translate English docs into Chinese, archive WeChat / Xiaohongshu / X content as Markdown, keep multi-repo Git hygiene, direct GPT-image prompts, and run autonomous improvement loops — one `SKILL.md` per capability, install only what you need.
 
-![My Skill Market skill map](./assets/readme/skills-map.svg)
+**面向中文开发者的 Agent Skills 集合。** 英文技术文档精准翻译、公众号/小红书/X 内容存档、多仓库 Git 归位、GPT 生图提示词导演、AI 自治改进循环——每个能力一个 `SKILL.md`，按需安装，Claude Code 与 Codex 通用。
 
-## 当前 Skills
+[![GitHub stars](https://img.shields.io/github/stars/hanzhangzzz/agent-skills-zh?style=flat&logo=github)](https://github.com/hanzhangzzz/agent-skills-zh/stargazers)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+[![Skills](https://img.shields.io/badge/skills-11-blue)](#skills)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-compatible-8A2BE2)](#install)
+[![Codex](https://img.shields.io/badge/Codex-compatible-black)](#install)
+[![skills.sh](https://img.shields.io/badge/skills.sh-hanzhangzzz%2Fagent--skills--zh-orange)](https://skills.sh/hanzhangzzz/agent-skills-zh)
 
-| Skill | 一句话定位 | 适合什么时候用 | 触发词 |
+![agent-skills-zh skill map](./assets/readme/skills-map.svg)
+
+## Quick start · 快速开始
+
+```bash
+# Works with Claude Code, Codex, Cursor, Copilot, Windsurf, Gemini CLI and more
+npx skills add hanzhangzzz/agent-skills-zh            # pick skills interactively
+npx skills add hanzhangzzz/agent-skills-zh -s doc-reader -g   # install one skill globally
+```
+
+Then just talk to your agent — every skill lists its own trigger phrases (English and Chinese) in its `SKILL.md`, e.g. `/doc-reader <url>`, `排版`, `归位`, `做点什么`.
+
+<a id="skills"></a>
+## Skills · 技能一览
+
+| Skill | What it does · 做什么 | Use when · 何时用 | Trigger · 触发 |
 | --- | --- | --- | --- |
-| [gpt-image2-prompt-director](./gpt-image2-prompt-director/) | GPT image2 提示词导演，把弱点子升级成可生图、可评测的创意 brief | 做头像、表情包、信息图、平台封面、海报、产品图，或修复跑偏 prompt | `$gpt-image2-prompt-director` |
-| [harness](./harness/) | Harness Engineering 最小实践，用 Inspector、Worker、Reviewer 推动代码仓库持续改进 | 想让 Agent 自动巡检、拆任务、修复、复审并维护 TODO.md 看板 | `/harness` |
-| [repo-map](./repo-map/) | 本地仓库地图：扫描全部本地 git 仓库生成增量自愈索引，提到仓库名自动注入路径与读写角色，可选 macOS launchd 定时同步让新仓库自动进图 | 本地多仓库开发，跨仓库引用/修改时 AI 总要你手贴路径 | `仓库地图` / `repo-map` |
-| [repo-tidy](./repo-tidy/) | 仓库归位与并行任务底座：tidy 清理已合并分支/废弃 worktree 并切回最新 master，`--new` 一条命令归位+开任务分支（主检出被占用时自动建并行 worktree），SessionStart hook 开局注入仓库状态 | 本地多仓库 + AI 多任务并行，任务分支越积越乱，想让每个任务都从最新 master 出发 | `归位` / `repo tidy` / `开新任务` |
-| [wechat-article-md-local](./wechat-article-md-local/) | 微信公众号文章下载为本地 Markdown，图片自动本地化 | 收到公众号文章链接，需要存档、分析或引用 | (收到 mp.weixin.qq.com 链接自动触发) |
-| [x-article-download](./x-article-download/) | X/Twitter 内容下载，支持单条推文和整账号批量 | 收到 X 推文/账号链接，需要存档或分析 | (收到 x.com 链接自动触发) |
-| [xiaohongshu-downloader](./xiaohongshu-downloader/) | 小红书视频下载 + Whisper 口播转录为 Markdown 逐字稿 | 收到小红书视频链接，需要分析或翻译口播内容 | (收到 xiaohongshu.com/xhslink.com 链接自动触发) |
-| [md2view](./md2view/) | 把 Markdown 重编码成可溯源的人类视图（模型自由设计 + 锚点验证），输出左原文·右重组·锚定同步的单文件 HTML | 复盘/报告/规格/长文档要给人读、易吸收、可分享 | `/md2view` |
-| [doc-reader](./doc-reader/) | 英文技术文档/PDF 章节级精准翻译为中文，图片 100% 保留，生成原文·译文·AI 幻灯片三栏本地预览 HTML | 读长篇英文技术博客、论文、官方文档，想要可对照、可回看的中文版 | `/doc-reader <URL 或 PDF>` |
-| [git-push-guard](./git-push-guard/) | 纯 hook 插件（无 skill）：拦截直推默认分支 master/main，ask 确认放行，支持按仓库路径白名单永久放行 | AI 帮你提交代码时想守住共享分支纪律 | (git push 到 master/main 自动触发；仅 Plugin 安装方式可用) |
-| [do-something](./do-something/) | 自主推进当前项目：判断此刻杠杆最高的一件事并做完它——有待办做待办，有目的第一性推理，没目的勇敢找一个；所有运行在一条 do/main 分支上续做累积，人类合并即收割 | 订阅 token 用不完，想让 AI 在你睡觉/吃饭时自主推进项目（配合 cron/loop） | `/do-something` / `做点什么` / `自己看着办` |
-| [hkr-render](./hkr-render/) | 公众号完整管线：Markdown 排版（7 个精品主题）→ 封面（亮度检查/自动暗化）→ 推送草稿箱（支持多图文） | 公众号文章排版发布，多篇合一条草稿，深色模式与手机端字号已调优 | `排版` / `微信排版` / `/format` |
+| [doc-reader](./doc-reader/) | Translate an English article/PDF into Chinese section by section, keep 100% of images, build a 3-column preview (original · translation · AI slides). 英文技术文档/PDF 章节级精准翻译，图片全保留，三栏本地预览 | Reading long English blogs, papers, docs and wanting a faithful side-by-side Chinese version | `/doc-reader <URL or PDF>` · `翻译这篇文章` |
+| [wechat-article-md-local](./wechat-article-md-local/) | Save a WeChat Official Account article as local Markdown with images. 公众号文章下载为本地 Markdown，图片本地化 | You receive an `mp.weixin.qq.com` link and want to archive, quote or analyze it | auto on `mp.weixin.qq.com` links · `下载公众号文章` |
+| [xiaohongshu-downloader](./xiaohongshu-downloader/) | Download a Xiaohongshu (RedNote) video and transcribe the voice-over with Whisper into Markdown. 小红书视频下载 + 口播逐字稿 | You receive a Xiaohongshu video link and need the spoken content as text | auto on `xiaohongshu.com` / `xhslink.com` links · `小红书视频转文字` |
+| [x-article-download](./x-article-download/) | Download a tweet, a long-form X article or a whole account to Markdown. X/Twitter 单条或整账号批量下载 | You receive an `x.com` link and want to archive or analyze it | auto on `x.com` links · `下载推文` |
+| [hkr-render](./hkr-render/) | WeChat publishing pipeline: Markdown → styled HTML (7 themes) → cover image → draft box, multi-article supported. 公众号排版 → 封面 → 推送草稿箱 | Publishing WeChat articles; dark mode and mobile font sizes tuned | `排版` · `微信排版` · `/format` |
+| [md2view](./md2view/) | Re-encode Markdown into a traceable two-column reading view (diagrams, flows, matrices) with every element anchored to the source. Markdown 重编码为可溯源的双栏阅读视图 | Retrospectives, reports, specs and long docs that people need to absorb and share | `/md2view` · `信息重组` |
+| [gpt-image2-prompt-director](./gpt-image2-prompt-director/) | Turn a weak idea into a production-grade GPT image2 brief, with a built-in benchmark. GPT image2 提示词导演 + 评测门禁 | Avatars, sticker packs, infographics, covers, posters, product shots, or repairing a drifting prompt | `$gpt-image2-prompt-director` · `生图提示词` |
+| [repo-tidy](./repo-tidy/) | Git tidy-up + parallel-task base: back to latest master, prune merged branches/worktrees, `--new` opens a task branch (parallel worktree when busy); SessionStart hook injects repo status. 仓库归位与并行任务底座 | Multi-repo + multi-task AI work where task branches pile up | `归位` · `开新任务` · `repo tidy` |
+| [repo-map](./repo-map/) | Local repository map: self-healing index of all local git repos; a hook injects path + read/write role whenever a repo name is mentioned. 本地仓库地图，提到仓库名自动注入路径 | Cross-repo references where the AI keeps asking for paths | `仓库地图` · `repo-map` |
+| [harness](./harness/) | Minimal Harness Engineering: Inspector → Worker → Reviewer loop driven by a shared `TODO.md`. 三角色 AI 自治改进循环 | You want an agent to continuously inspect, fix and review a repo, on demand or on a schedule | `/harness` · `启动 harness` |
+| [do-something](./do-something/) | Autonomously pick and finish the highest-leverage task in the project; all runs continue on one `do/main` branch, humans merge to harvest. 自主推进项目，人类合并即收割 | Spare tokens and an idle project — let the agent work while you sleep (cron/loop) | `/do-something` · `做点什么` · `自己看着办` |
+| [git-push-guard](./git-push-guard/) | Hook-only plugin: intercepts direct pushes to `master`/`main`, asks for confirmation, per-repo allowlist. 纯 hook：直推默认分支拦截 | You let an agent commit and want shared-branch discipline enforced | auto on `git push` to master/main (plugin install only) |
 
-## 安装
+<a id="install"></a>
+## Install · 安装
 
-### Claude Code Plugin 安装（推荐，hook 自动生效）
-
-一个 plugin 只含一个 skill，按需安装、独立启停、跟随仓库更新：
-
-```bash
-# 在 Claude Code 中执行
-/plugin marketplace add hanzhangzzz/my-skill
-
-# 按需安装，装哪个用哪个
-/plugin install repo-tidy@my-skill        # 含 SessionStart 仓库状态注入 hook
-/plugin install repo-map@my-skill         # 含 UserPromptSubmit 仓库地图注入 hook
-/plugin install git-push-guard@my-skill   # 纯 hook：直推 master/main 拦截
-/plugin install do-something@my-skill
-/plugin install md2view@my-skill
-/plugin install doc-reader@my-skill
-/plugin install hkr-render@my-skill       # 需先按其 SKILL.md 创建 config.json（微信 AppID/Secret）
-/plugin install harness@my-skill
-/plugin install gpt-image2-prompt-director@my-skill
-/plugin install wechat-article-md-local@my-skill
-/plugin install x-article-download@my-skill
-/plugin install xiaohongshu-downloader@my-skill
-```
-
-带 hook 的 plugin（repo-tidy、repo-map、git-push-guard）装上即生效，**无需手动改 settings.json**；后续用 `/plugin update <name>@my-skill` 跟进更新，`/plugin uninstall` 干净卸载。
-
-### 复制到 Codex
+### 1. `npx skills` (any agent · 推荐)
 
 ```bash
-git clone https://github.com/hanzhangzzz/my-skill.git
-cd my-skill
-cp -r gpt-image2-prompt-director ~/.codex/skills/
-cp -r harness ~/.codex/skills/
-# repo-map 的自动注入依赖 Claude Code 的 UserPromptSubmit hook；Codex 侧仅 resolve 命令可用
-cp -r repo-map ~/.codex/skills/
-# repo-tidy 的开局状态注入依赖 Claude Code 的 SessionStart hook（注册方式见 repo-tidy/SKILL.md）；tidy/--new 命令两端可用
-cp -r repo-tidy ~/.codex/skills/
-cp -r wechat-article-md-local ~/.codex/skills/
-cp -r x-article-download ~/.codex/skills/
-cp -r xiaohongshu-downloader ~/.codex/skills/
-cp -r md2view ~/.codex/skills/
-cp -r doc-reader ~/.codex/skills/
-cp -r do-something ~/.codex/skills/
-# hkr-render 需要先按其 SKILL.md 创建 config.json（微信 AppID/Secret 等）
-cp -r hkr-render ~/.codex/skills/
+npx skills add hanzhangzzz/agent-skills-zh --list      # see what's inside
+npx skills add hanzhangzzz/agent-skills-zh              # choose interactively
+npx skills add hanzhangzzz/agent-skills-zh -s doc-reader -s md2view -g   # specific skills, user-level
+npx skills update                                      # keep them fresh
 ```
 
-### 复制到 Claude Code
+`npx skills` detects Claude Code, Codex, Cursor, Copilot, Windsurf, Gemini CLI, Cline and others, and installs to the right directories.
+
+### 2. Claude Code plugin marketplace (hooks auto-enabled · hook 自动生效)
+
+```text
+/plugin marketplace add hanzhangzzz/agent-skills-zh
+
+/plugin install repo-tidy@agent-skills-zh        # + SessionStart repo-status hook
+/plugin install repo-map@agent-skills-zh         # + UserPromptSubmit repo-map hook
+/plugin install git-push-guard@agent-skills-zh   # hook-only: guard master/main
+/plugin install doc-reader@agent-skills-zh
+/plugin install md2view@agent-skills-zh
+/plugin install hkr-render@agent-skills-zh       # needs config.json (WeChat AppID/Secret), see its SKILL.md
+/plugin install do-something@agent-skills-zh
+/plugin install harness@agent-skills-zh
+/plugin install gpt-image2-prompt-director@agent-skills-zh
+/plugin install wechat-article-md-local@agent-skills-zh
+/plugin install x-article-download@agent-skills-zh
+/plugin install xiaohongshu-downloader@agent-skills-zh
+```
+
+One plugin = one skill, so you can install, update (`/plugin update <name>@agent-skills-zh`) and uninstall each independently. Plugins with hooks (repo-tidy, repo-map, git-push-guard) work immediately — no `settings.json` edits.
+
+### 3. Copy manually · 手动复制
 
 ```bash
-git clone https://github.com/hanzhangzzz/my-skill.git
-cd my-skill
-cp -r gpt-image2-prompt-director ~/.claude/skills/
-cp -r harness ~/.claude/skills/
-cp -r repo-map ~/.claude/skills/
-cp -r repo-tidy ~/.claude/skills/
-cp -r wechat-article-md-local ~/.claude/skills/
-cp -r x-article-download ~/.claude/skills/
-cp -r xiaohongshu-downloader ~/.claude/skills/
-cp -r md2view ~/.claude/skills/
-cp -r doc-reader ~/.claude/skills/
-cp -r do-something ~/.claude/skills/
-# hkr-render 需要先按其 SKILL.md 创建 config.json（微信 AppID/Secret 等）
-cp -r hkr-render ~/.claude/skills/
+git clone https://github.com/hanzhangzzz/agent-skills-zh.git
+cd agent-skills-zh
+cp -r doc-reader ~/.claude/skills/     # Claude Code
+cp -r doc-reader ~/.codex/skills/      # Codex
+# same for any other skill directory
 ```
 
-### 让 Agent 帮你安装
+Notes · 说明:
+- `repo-map` auto-injection and `repo-tidy` session status rely on Claude Code hooks; on Codex the commands still work, the automatic injection does not.
+- `hkr-render` needs a `config.json` with your WeChat AppID/Secret before first use (see its `SKILL.md`).
+- `doc-reader` slide generation uses the local Codex CLI's built-in imagegen: `codex` must be on `PATH` and logged in. Use `--no-ppt` to skip slides.
 
-把下面这段发给你的 Agent：
+### 4. Let your agent install it · 让 Agent 帮你装
+
+Paste this to your agent:
 
 ```text
-安装 skill：gpt-image2-prompt-director
-描述：把普通点子升级成高质量 GPT image2 生图提示词，并提供头像、表情包、信息图、卡片、海报、产品图等任务的评测门禁
-安装源：https://github.com/hanzhangzzz/my-skill
+Install the skill "doc-reader" from https://github.com/hanzhangzzz/agent-skills-zh
+(English technical article/PDF → accurate Chinese, images kept, 3-column preview HTML)
 ```
-
-或：
 
 ```text
-安装 skill：doc-reader
-描述：英文技术文档/PDF 章节级精准翻译为中文，图片 100% 保留，生成原文·译文·AI 幻灯片三栏本地预览 HTML
-安装源：https://github.com/hanzhangzzz/my-skill
+安装 skill：hkr-render
+描述：公众号完整管线：Markdown 排版（7 个主题）→ 封面 → 推送草稿箱（支持多图文）
+安装源：https://github.com/hanzhangzzz/agent-skills-zh
 ```
 
-或：
+## Why these skills · 为什么是这些
 
-```text
-安装 skill：harness
-描述：三角色 AI 自治循环系统，包含 Inspector、Worker、Reviewer，通过 TODO.md 共享看板驱动持续改进
-安装源：https://github.com/hanzhangzzz/my-skill
-```
-
-或：
-
-```text
-安装 skill：repo-map
-描述：本地仓库地图（全局项目自动索引），扫描本地全部 git 仓库生成增量自愈索引，提到仓库名自动注入路径与读写角色；安装后 skill 会引导完成扫描根探测、身份选择与 hook 注册
-安装源：https://github.com/hanzhangzzz/my-skill
-```
-
-或：
-
-```text
-安装 skill：wechat-article-md-local
-描述：微信公众号文章下载为本地 Markdown，支持图片本地化，收到 mp.weixin.qq.com 链接自动触发
-安装源：https://github.com/hanzhangzzz/my-skill
-```
-
-或：
-
-```text
-安装 skill：x-article-download
-描述：X/Twitter 内容下载为 Markdown，支持单条推文和整账号批量下载，自动转录视频口播
-安装源：https://github.com/hanzhangzzz/my-skill
-```
-
-或：
-
-```text
-安装 skill：xiaohongshu-downloader
-描述：小红书视频下载 + Whisper 口播转录为 Markdown 逐字稿，中文直接保存，英文翻译后保存
-安装源：https://github.com/hanzhangzzz/my-skill
-```
+- **Content that lives on Chinese platforms** (WeChat, Xiaohongshu, plus X) is hard for agents to reach; the three downloaders turn links into local Markdown the agent can actually read, quote and translate.
+- **Reading English docs in Chinese** should not lose images, structure or terminology — `doc-reader` keeps all three and adds AI slides on top.
+- **Multi-repo, multi-task agent work** rots Git state fast; `repo-tidy` and `repo-map` keep every task on a clean branch with the right paths.
+- **Agents that improve things while you are away** — `harness` and `do-something` are two levels of autonomy, from a reviewed three-role loop to "just pick the best thing and ship it".
 
 ## GPT Image2 Prompt Director
 
 ![GPT Image2 Prompt Director overview](./assets/readme/gpt-image2-prompt-director-overview.svg)
 
-`gpt-image2-prompt-director` 不是普通“风格词生成器”。它更像一个会先做判断的图像创意总监：先识别你真正要交付的视觉资产，再把弱输入改写成能直接喂给 GPT image2 的完整 brief，并用内置 benchmark 检查 prompt 是否只是看起来完整、实际却导向错误。
+`gpt-image2-prompt-director` 不是普通"风格词生成器"。它更像一个会先做判断的图像创意总监：先识别你真正要交付的视觉资产，再把弱输入改写成能直接喂给 GPT image2 的完整 brief，并用内置 benchmark 检查 prompt 是否只是看起来完整、实际却导向错误。
 
 ### 真实出图示例
 
@@ -174,7 +142,7 @@ cp -r hkr-render ~/.claude/skills/
 - 想要表情包，却没有一致角色、独立单格和情绪清晰度。
 - 想修 prompt，却不知道它到底缺角色、内容策划、视觉系统还是反失败约束。
 
-这个 skill 会把“帮我做张高级图”拆成更可靠的结构：角色定位、反定义、输入契约、内部策划、内容策划、视觉系统、反失败约束、输出规格和自检。
+这个 skill 会把"帮我做张高级图"拆成更可靠的结构：角色定位、反定义、输入契约、内部策划、内容策划、视觉系统、反失败约束、输出规格和自检。
 
 ### 能力文案板
 
@@ -197,7 +165,7 @@ cp -r hkr-render ~/.claude/skills/
 **一句话触发**
 
 ```text
-$gpt-image2-prompt-director 帮我把“AI 时代的个人知识库”做成一张适合公众号头图的高级图片 prompt。
+$gpt-image2-prompt-director 帮我把"AI 时代的个人知识库"做成一张适合公众号头图的高级图片 prompt。
 ```
 
 **修复触发**
@@ -224,7 +192,7 @@ node scripts/eval_prompt_director.mjs \
 
 | Case | 输入 | 结果 |
 | --- | --- | --- |
-| 40 | “公众号个人头像，有个性，有辨识度，略男性化，AI 先锋，独立作者，酷酷的；我不想要写实真人头像。” | 总分 `100`，structure `100`，capability `100`，hard gates 通过 |
+| 40 | "公众号个人头像，有个性，有辨识度，略男性化，AI 先锋，独立作者，酷酷的；我不想要写实真人头像。" | 总分 `100`，structure `100`，capability `100`，hard gates 通过 |
 
 你也可以跑完整基准集，观察当前 prompt 框架和 archived expert prompts 的差距：
 
@@ -233,18 +201,18 @@ cd gpt-image2-prompt-director
 node scripts/eval_prompt_director.mjs --gold --report /tmp/gpt-image2-prompt-director-gold-report.md
 ```
 
-> 说明：顶部流程图是示意图；“真实出图示例”来自本地同批 `regenerated-*` GPT 输出。实际生成质量仍取决于最终模型、输入素材和提示词执行环境。
+> 说明：顶部流程图是示意图；"真实出图示例"来自本地同批 `regenerated-*` GPT 输出。实际生成质量仍取决于最终模型、输入素材和提示词执行环境。
 
 ## Harness
 
-`harness` 是一个轻量的 Agent 自治循环：Inspector 负责巡检和拆任务，Worker 负责领取并修改，Reviewer 负责复审和验证。三者通过项目里的 `TODO.md` 共享状态，避免 Agent 在复杂仓库里“想到哪改到哪”。
+`harness` 是一个轻量的 Agent 自治循环：Inspector 负责巡检和拆任务，Worker 负责领取并修改，Reviewer 负责复审和验证。三者通过项目里的 `TODO.md` 共享状态，避免 Agent 在复杂仓库里"想到哪改到哪"。
 
 ### 能力文案板
 
 **适合人群**
 
 - 想让 Agent 定期巡检代码质量和未完成工作的项目维护者。
-- 想把“发现问题 - 修复问题 - 复审验证”变成固定流程的工程团队。
+- 想把"发现问题 - 修复问题 - 复审验证"变成固定流程的工程团队。
 - 想让多个 Agent 通过 `TODO.md` 看板协作，而不是靠聊天上下文接力。
 
 **核心能力**
@@ -287,31 +255,47 @@ HARNESS_PROJECT_DIR=/abs/path/to/project bash ~/.codex/skills/harness/inspector.
 
 详见 [md2view/README.md](./md2view/README.md)。
 
-## 本地开发
+## Contributing · 贡献
+
+Each skill is a directory with a `SKILL.md` (YAML frontmatter: `name` = directory name, `description` = what + when to use, ≤1024 chars) plus optional `scripts/`, `references/`, `assets/`. No hard-coded paths. See [CLAUDE.md](./CLAUDE.md) for the full checklist, then open a PR — issues and skill requests are welcome.
+
+If a skill saved you time, a ⭐ helps other people find it.
+
+## Local development · 本地开发
 
 ```bash
-# 查看可用 skills
+# list available skills
 find . -maxdepth 2 -name SKILL.md
 
-# 跑 GPT image2 prompt director 的示例评测
+# validate the Claude Code plugin manifest
+claude plugin validate .
+
+# run the GPT image2 prompt director sample evaluation
 cd gpt-image2-prompt-director
 node scripts/eval_prompt_director.mjs --case-id 40 --prompt-file examples/readme-avatar-demo.md --fail-under 80 --strict
 ```
 
-## 目录
+## Layout · 目录
 
 ```text
 .
-├── gpt-image2-prompt-director/
-│   ├── SKILL.md
-│   ├── examples/
-│   ├── references/
-│   ├── evals/
-│   └── scripts/
-├── harness/
-│   ├── SKILL.md
-│   ├── prompts/
-│   ├── inspector.sh
-│   └── worker-reviewer.sh
+├── .claude-plugin/marketplace.json   # Claude Code plugin marketplace (one plugin per skill)
+├── MARKETPLACE.md                    # machine-readable registry for agents
+├── doc-reader/                       # SKILL.md + instructions.md + scripts/
+├── wechat-article-md-local/
+├── xiaohongshu-downloader/
+├── x-article-download/
+├── hkr-render/
+├── md2view/
+├── gpt-image2-prompt-director/       # SKILL.md + examples/ + references/ + evals/ + scripts/
+├── repo-tidy/
+├── repo-map/
+├── harness/                          # SKILL.md + prompts/ + inspector.sh + worker-reviewer.sh
+├── do-something/
+├── git-push-guard/                   # hook-only plugin
 └── assets/readme/
 ```
+
+## License
+
+[MIT](./LICENSE)

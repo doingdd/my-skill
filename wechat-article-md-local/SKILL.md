@@ -1,6 +1,8 @@
 ---
 name: wechat-article-md-local
-description: Download and read a single WeChat Official Account article (微信公众号单篇文章) from a public mp.weixin.qq.com article link, save it under the workspace as local Markdown with images downloaded locally, and fall back to HTML if Markdown conversion is not possible. ALWAYS use this skill first whenever the user sends a single WeChat/微信公众号 article link, even if they do not explicitly ask to download it, and especially before summarizing, extracting, analyzing, quoting, rewriting, or doing any follow-up task on that article.
+description: |
+  Download and read a single WeChat Official Account article (微信公众号文章) from a public mp.weixin.qq.com link, save it in the workspace as local Markdown with all images downloaded locally, falling back to HTML when Markdown conversion is impossible. ALWAYS use this skill first whenever the user sends a single WeChat article link — even without asking to download it — and especially before summarizing, extracting, analyzing, quoting, rewriting or translating that article. Triggers: mp.weixin.qq.com link, 下载公众号文章, 公众号文章转 Markdown, 保存这篇公众号, wechat article to markdown.
+
 ---
 
 # WeChat article → local Markdown

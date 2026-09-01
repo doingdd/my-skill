@@ -1,10 +1,7 @@
 ---
 name: do-something
 description: |
-  自主推进当前项目：读懂项目此刻的状态，判断最值得做的一件事，然后做完它。
-  三层判断：有明确待办就做待办；有目的没待办就从目的第一性推理；连目的都没有就勇敢地替项目找一个。
-  所有运行共用一条 do/main 分支续做，DO.md 是跨运行的记忆与方向盘；人类合并分支即收割，删除即否决。
-  适合 cron/loop 无人值守运行，也可手动触发。触发词：/do-something、"做点什么"、"自己看着办"、"推进一下"。
+  Autonomously push the current project forward: read its present state, pick the single highest-leverage thing to do, and finish it — work the backlog if there is one, reason from the project's purpose if there is no backlog, and boldly pick a purpose if there is none. Every run continues on one do/main branch with DO.md as cross-run memory and steering; humans merge to harvest, delete to veto. Built for unattended cron/loop runs and manual triggers. Use when the user says /do-something, 做点什么, 自己看着办, 推进一下, do something useful, keep improving this project.
 trigger: /do-something
 compatibility: Claude Code, Codex
 license: MIT

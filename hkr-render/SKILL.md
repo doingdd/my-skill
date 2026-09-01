@@ -1,9 +1,7 @@
 ---
 name: hkr-render
 description: |
-  公众号完整管线：Markdown 排版（7 个精品主题）→ 封面（可选，亮度检查/自动暗化）→ 推送草稿箱（可选，支持多图文）。
-  把 Markdown 或纯文本转为微信公众号兼容的内联样式 HTML，AI 自动补充结构与排版增强。
-  当用户说"排版""微信排版""格式化文章""format""公众号发布"时使用。需先按 SKILL.md 创建 config.json（微信 AppID/Secret）。
+  WeChat Official Account (微信公众号) publishing pipeline: format Markdown or plain text into WeChat-compatible inline-style HTML with 7 polished themes (dark mode and mobile font sizes tuned), optionally generate a cover image with brightness check and auto-darkening, and push one or many articles to the WeChat draft box (多图文). Use when the user wants to format, typeset or publish a WeChat article, or says 排版, 微信排版, 公众号排版, 公众号发布, 格式化文章, format, /format. Requires a config.json with WeChat AppID/Secret (see SKILL.md).
 trigger: /format
 compatibility: Claude Code, Codex
 license: MIT

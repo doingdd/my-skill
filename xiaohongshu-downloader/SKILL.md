@@ -1,6 +1,7 @@
 ---
 name: xiaohongshu-downloader
-description: 下载小红书视频，自动转录口播文案保存为本地 Markdown。中文视频直接保存中文逐字稿，英文视频翻译后保存。从 xiaohongshu.com / xhslink.com 链接提取视频，生成完整文件夹结构。
+description: |
+  Download a Xiaohongshu (小红书 / RedNote) video from a xiaohongshu.com or xhslink.com link and transcribe its voice-over with Whisper into a local Markdown transcript (Chinese kept verbatim, English translated to Chinese), saved in a complete folder structure. Use when the user shares a Xiaohongshu video link and wants the spoken content as text for analysis, summary or translation, or says 下载小红书, 小红书视频转文字, 小红书口播稿, 提取口播, xiaohongshu transcript, RedNote video to text.
 version: 2.0.0
 author: doing
 metadata:

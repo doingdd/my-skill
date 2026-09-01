@@ -1,6 +1,8 @@
 ---
 name: repo-tidy
-description: 仓库归位与清理：切回最新 master、删除已合并/upstream 消亡的分支、移除废弃 worktree；--new 一条命令完成归位+开新任务分支（主检出被占用时自动建并行 worktree）。触发词：归位、整理仓库、清理分支、清理 worktree、repo tidy、开新任务。新任务开工时若 [repo-status] 显示不在 master 或有可清理项，也应触发。
+description: |
+  Git repository tidy-up and parallel-task base: switch back to the latest master/main, delete merged or upstream-gone branches, remove stale worktrees; `--new <task>` does tidy + create a task branch in one command and auto-creates a parallel worktree when the main checkout is busy; a SessionStart hook injects repo status when a session starts. Use when starting a new task, when [repo-status] shows the repo is off master or has cleanable items, or when the user says 归位, 整理仓库, 清理分支, 清理 worktree, 开新任务, repo tidy, tidy repo, clean branches.
+
 ---
 
 # repo-tidy
