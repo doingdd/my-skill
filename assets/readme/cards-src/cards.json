@@ -1,0 +1,70 @@
+[
+  {
+    "name": "wechat-article-md-local",
+    "tag": "公众号 → Markdown",
+    "one": "收到 mp.weixin.qq.com 链接自动触发：整篇文章、元信息、图片全部落到本地",
+    "input": "https://mp.weixin.qq.com/s/M-K8cDwLhpID1gkcZOdUkQ\n\n（收到公众号链接即自动触发，\n 也可说：下载这篇公众号文章）",
+    "output": "Claude-Code-Skills-完全指南-从零打造…/\n├── Claude Code Skills 完全指南….md    <ok>11,026 字</ok>\n├── Claude Code Skills 完全指南….html  （备份）\n├── source.json\n└── images/  001.png  002.png\n\n---\ntitle: \"Claude Code Skills 完全指南：从零打造你的生产级别 AI 编程助理工作流\"\naccount: \"码哥跳动\"      author: \"码哥字节\"\npublish_time: \"2026年3月30日 09:00\"\nsource_url: \"https://mp.weixin.qq.com/s/M-K8…\"\n---\n你好，我是《Redis 高手心法》畅销书作者码哥，可以叫我靓仔。\n我用了三个月的 Claude Code，有一个时期非常难受…",
+    "src": "真实运行 · 2026-09-01 · 公开文章"
+  },
+  {
+    "name": "x-article-download",
+    "tag": "X / Twitter → Markdown",
+    "one": "单条推文、X 长文或整个账号批量下载；自动识别纯文字帖 / 视频帖 / GitHub 推荐帖",
+    "input": "https://x.com/<user>/status/<id>\n\n自动判型：\n• 纯文字 + 图片 → 路径 A\n• 视频帖 → yt-dlp + Whisper\n• GitHub 推荐帖 → 逐仓库抓 README",
+    "out_label": "输出结构",
+    "output": "<OUTPUT_DIR>/{清理后的标题}/\n├── {清理后的标题}.md\n│     元信息（作者 / 日期 / 原文链接）\n│     正文；英文自动译中，文末附英文原文\n└── images/\n    ├── 01-xxx.jpg        ?format=jpg&name=large 原图\n    └── ...\n\n整账号：遍历全部推文，跳过需登录的 X Article，\n靠含代码块的推文拿到真实提示词",
+    "src": "输出结构来自 x-article-download/SKILL.md（视频路径需 yt-dlp / whisper）"
+  },
+  {
+    "name": "xiaohongshu-downloader",
+    "tag": "小红书视频 → 逐字稿",
+    "one": "收到小红书链接自动触发：下载视频，Whisper 转录口播为 Markdown，英文自动译中",
+    "input": "https://xhslink.com/…\nhttps://www.xiaohongshu.com/explore/…\n\n（收到小红书链接即自动触发，\n 也可说：小红书视频转文字）",
+    "out_label": "输出结构",
+    "output": "<OUTPUT_DIR>/小红书-Obsidian加CloudCode打造个人生活操作系统/\n├── transcript.md          口播逐字稿（Markdown）\n├── videos/\n│   └── video.mp4\n└── transcripts/\n    ├── audio.srt          带时间轴\n    ├── audio.txt\n    └── audio-zh.md        英文视频附中文翻译\n\n中文口播直接保存；英文口播翻译后保存",
+    "src": "输出结构来自 xiaohongshu-downloader/SKILL.md（需 yt-dlp + whisper）"
+  },
+  {
+    "name": "repo-tidy",
+    "tag": "Git 归位 · 并行任务",
+    "one": "一条命令：清掉已合并分支和废弃 worktree，切回最新主分支，再开任务分支",
+    "input": "python3 repo_tidy.py . --new imagegen-text-budget\n\n或直接说：\n归位 / 开新任务 / 清理分支",
+    "output": "<ok>✅</ok> ~/Desktop/Works/code/doc-reader\n  🧹 已移除 worktree doc-reader--doc-reader-codex-imagegen-no-upload\n     (分支 task/doc-reader-codex-imagegen-no-upload)\n  🗑️ 已删分支 task/doc-reader-codex-imagegen-no-upload —— 已合并进 origin/main\n<ok>✅</ok> 主检出被占用（main），已建并行 worktree\n   （分支 task/imagegen-text-budget，基于 origin/main）\ncd ~/Desktop/Works/code/doc-reader--imagegen-text-budget\n\nSessionStart hook 每次开局自动注入：\n<hl>[repo-status] my-skill | 分支: main | 工作区改动: 0 | vs origin/main: ahead 0 / behind 0</hl>",
+    "src": "真实输出 · 2026-09-01 本机（路径已缩写）"
+  },
+  {
+    "name": "repo-map",
+    "tag": "本地仓库地图 · 自动注入",
+    "one": "扫描全部本地 git 仓库建索引；提到仓库名，hook 自动把路径和读写角色注入给 Agent",
+    "input": "你只需要说仓库名：\n\n「把这个改动同步到 doc-reader」\n\n不用再贴路径",
+    "output": "UserPromptSubmit hook 自动注入：\n\n<hl>本地仓库地图命中（repo-map 自动注入）:</hl>\n- doc-reader → ~/Desktop/Works/code/doc-reader（自研·可写） —— Doc Reader 📖\n\n约定: 引用时优先读该仓库 README/知识入口而非全库遍历；\n\"第三方·只读\"仓库禁止写入；为当前项目任务修改其他仓库时，\n改动在对方仓库独立成 commit、独立授权，不与当前仓库改动混杂……\n\n索引增量自愈；可选 launchd 定时同步，新仓库自动进图",
+    "src": "真实注入文本 · 2026-09-01 本机（路径已缩写）"
+  },
+  {
+    "name": "git-push-guard",
+    "tag": "纯 hook · 分支保护",
+    "one": "Agent 想直推 master/main 时拦下来问一句；可按仓库路径永久放行",
+    "input": "Agent 执行：\n\ngit push origin main\n\n（PreToolUse hook 匹配 Bash）",
+    "output": "permissionDecision: <warn>\"ask\"</warn>\n\n<warn>⚠</warn> 即将直推默认分支 master/main。\n  共享项目请走分支+MR；个人/小型项目确认后放行。\n  （永久放行本仓库：将仓库根路径加入\n   ~/.claude/hooks/push-default-branch-allowlist.txt）\n\n        [ 允许 ]        [ 拒绝 ]\n\n覆盖：git push origin main · git push origin HEAD:main · 设了 upstream 的裸 git push",
+    "src": "hook 真实文案 · git-push-guard/block-push-default-branch.sh"
+  },
+  {
+    "name": "harness",
+    "tag": "Inspector → Worker → Reviewer",
+    "one": "三角色通过一份 TODO.md 看板协作：巡检拆任务、领取修复、复审验证，可单次可循环可定时",
+    "input": "/harness 这轮重点关注静默数据丢失\n和缺少验证的代码路径\n\nbash inspector.sh\nbash worker-reviewer.sh --loop",
+    "out_label": "TODO.md 看板格式",
+    "output": "- [ ] <hl>[待领取]</hl> 任务标题\n      inspector-note: 补充信息\n- [ ] <hl>[进行中]</hl> 任务标题\n      started: YYYY-MM-DD HH:MM by worker\n- [ ] <hl>[待审查]</hl> 任务标题\n- [ ] <warn>[被拒绝]</warn> 任务标题\n      reviewer-note: 打回原因\n\n[待领取] → 未领取（你可以领取）\n[进行中] → 你正在做（别人不要动）\n[待审查] → 你完成了，交给 Reviewer\n[被拒绝] → Reviewer 打回来了，你需要重新修\n\n领取顺序：Priority 0 > 1 > 2 > 3；先 [被拒绝] 再 [待领取]",
+    "src": "看板格式与状态机来自 harness/prompts/worker.md"
+  },
+  {
+    "name": "do-something",
+    "tag": "无人值守 · 自主推进",
+    "one": "判断此刻杠杆最高的一件事并做完；所有运行续在 do/main 分支上，人类合并即收割",
+    "input": "/do-something\n\n/loop 1h /do-something   # 每小时推进一次\n\n做点什么 / 自己看着办",
+    "out_label": "do/main 分支上的 DO.md",
+    "output": "# 目的\n<一句话：这个项目为什么存在。人类可随时改写>\n\n# 约束\n<人类留下的边界，如\"不要动 src/legacy\"、\"本周聚焦 X\">\n\n# 日志\n- 2026-08-24 09:00：<做了什么、如何验证的、遗留的疑虑或下一步>\n\n三层判断：有待办做待办 → 有目的第一性推理 → 没目的勇敢找一个\n禁止：不可逆动作（push、付款、删数据、调生产 API）\n结束自检：验证过了吗？产出在 do/main 上吗？日志写了吗？\n人类：<ok>合并 = 收割</ok>　<warn>删分支 = 否决</warn>",
+    "src": "DO.md 模板与规则来自 do-something/SKILL.md"
+  }
+]
