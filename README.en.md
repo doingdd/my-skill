@@ -42,6 +42,37 @@ Then just talk to your agent. Every skill lists its trigger phrases (English and
 | [do-something](./do-something/) | Autonomously pick and finish the highest-leverage task in the project; all runs continue on one `do/main` branch, humans merge to harvest | Spare tokens and an idle project — let the agent work while you sleep (cron/loop) | `/do-something` |
 | [git-push-guard](./git-push-guard/) | Hook-only plugin: intercepts direct pushes to `master`/`main`, asks for confirmation, per-repo allowlist | You let an agent commit and want shared-branch discipline enforced | auto on `git push` (plugin install only) |
 
+## Gallery
+
+Every image is a real output, or the skill's own real prompt text / board format — no mock-ups. Cards are in Chinese (the skills' native language); the layout is input on the left, output on the right.
+
+<table>
+<tr>
+<td width="50%"><a href="./doc-reader/"><img src="./assets/readme/doc-reader-preview.jpg" alt="doc-reader three-column preview"></a><br><b>doc-reader</b> · English article → side-by-side Chinese + AI slides</td>
+<td width="50%"><a href="./wechat-article-md-local/"><img src="./assets/readme/cards/wechat-article-md-local.png" alt="wechat-article-md-local real output"></a><br><b>wechat-article-md-local</b> · WeChat article → local Markdown</td>
+</tr>
+<tr>
+<td><a href="./xiaohongshu-downloader/"><img src="./assets/readme/cards/xiaohongshu-downloader.png" alt="xiaohongshu-downloader output layout"></a><br><b>xiaohongshu-downloader</b> · Xiaohongshu video → transcript</td>
+<td><a href="./x-article-download/"><img src="./assets/readme/cards/x-article-download.png" alt="x-article-download output layout"></a><br><b>x-article-download</b> · tweet / X article / whole account → Markdown</td>
+</tr>
+<tr>
+<td><a href="./hkr-render/"><img src="./hkr-render/docs/gallery-preview.png" alt="hkr-render theme gallery"></a><br><b>hkr-render</b> · Markdown → WeChat layout (7 themes) → draft box</td>
+<td><a href="./md2view/"><img src="./md2view/assets/demo-split.png" alt="md2view split reader"></a><br><b>md2view</b> · Markdown → traceable two-column reading view</td>
+</tr>
+<tr>
+<td><a href="./gpt-image2-prompt-director/"><img src="./assets/readme/gpt-output-xhs-card.png" alt="gpt-image2-prompt-director real generation"></a><br><b>gpt-image2-prompt-director</b> · weak idea → production brief (real generation)</td>
+<td><a href="./repo-tidy/"><img src="./assets/readme/cards/repo-tidy.png" alt="repo-tidy real output"></a><br><b>repo-tidy</b> · tidy up + open a task branch in one command</td>
+</tr>
+<tr>
+<td><a href="./repo-map/"><img src="./assets/readme/cards/repo-map.png" alt="repo-map real injection"></a><br><b>repo-map</b> · mention a repo name, get its path and role injected</td>
+<td><a href="./git-push-guard/"><img src="./assets/readme/cards/git-push-guard.png" alt="git-push-guard hook message"></a><br><b>git-push-guard</b> · asks before any direct push to master/main</td>
+</tr>
+<tr>
+<td><a href="./harness/"><img src="./assets/readme/cards/harness.png" alt="harness TODO.md board"></a><br><b>harness</b> · Inspector → Worker → Reviewer board loop</td>
+<td><a href="./do-something/"><img src="./assets/readme/cards/do-something.png" alt="do-something DO.md"></a><br><b>do-something</b> · unattended autonomous progress, merge to harvest</td>
+</tr>
+</table>
+
 <a id="install"></a>
 ## Install
 

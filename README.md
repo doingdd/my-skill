@@ -44,6 +44,37 @@ Then just talk to your agent — every skill lists its own trigger phrases (Engl
 | [do-something](./do-something/) | Autonomously pick and finish the highest-leverage task in the project; all runs continue on one `do/main` branch, humans merge to harvest. 自主推进项目，人类合并即收割 | Spare tokens and an idle project — let the agent work while you sleep (cron/loop) | `/do-something` · `做点什么` · `自己看着办` |
 | [git-push-guard](./git-push-guard/) | Hook-only plugin: intercepts direct pushes to `master`/`main`, asks for confirmation, per-repo allowlist. 纯 hook：直推默认分支拦截 | You let an agent commit and want shared-branch discipline enforced | auto on `git push` to master/main (plugin install only) |
 
+## 效果一览 · Gallery
+
+每张图都是真实产出或 skill 自带的真实文案/看板，不是示意图。
+
+<table>
+<tr>
+<td width="50%"><a href="./doc-reader/"><img src="./assets/readme/doc-reader-preview.jpg" alt="doc-reader：原文 · 译文 · AI 幻灯片三栏预览"></a><br><b>doc-reader</b> · 英文文章 → 三栏中文预览 + AI 幻灯片</td>
+<td width="50%"><a href="./wechat-article-md-local/"><img src="./assets/readme/cards/wechat-article-md-local.png" alt="wechat-article-md-local 真实产出"></a><br><b>wechat-article-md-local</b> · 公众号文章 → 本地 Markdown</td>
+</tr>
+<tr>
+<td><a href="./xiaohongshu-downloader/"><img src="./assets/readme/cards/xiaohongshu-downloader.png" alt="xiaohongshu-downloader 输出结构"></a><br><b>xiaohongshu-downloader</b> · 小红书视频 → 口播逐字稿</td>
+<td><a href="./x-article-download/"><img src="./assets/readme/cards/x-article-download.png" alt="x-article-download 输出结构"></a><br><b>x-article-download</b> · 推文 / X 长文 / 整账号 → Markdown</td>
+</tr>
+<tr>
+<td><a href="./hkr-render/"><img src="./hkr-render/docs/gallery-preview.png" alt="hkr-render 7 个主题画廊"></a><br><b>hkr-render</b> · Markdown → 公众号排版（7 主题）→ 草稿箱</td>
+<td><a href="./md2view/"><img src="./md2view/assets/demo-split.png" alt="md2view 双栏溯源阅读视图"></a><br><b>md2view</b> · Markdown → 可溯源的双栏阅读视图</td>
+</tr>
+<tr>
+<td><a href="./gpt-image2-prompt-director/"><img src="./assets/readme/gpt-output-xhs-card.png" alt="gpt-image2-prompt-director 真实出图"></a><br><b>gpt-image2-prompt-director</b> · 一句话点子 → 可出图的完整 brief（真实出图）</td>
+<td><a href="./repo-tidy/"><img src="./assets/readme/cards/repo-tidy.png" alt="repo-tidy 真实输出"></a><br><b>repo-tidy</b> · 归位 + 一条命令开任务分支</td>
+</tr>
+<tr>
+<td><a href="./repo-map/"><img src="./assets/readme/cards/repo-map.png" alt="repo-map 真实注入文本"></a><br><b>repo-map</b> · 提到仓库名，自动注入路径与角色</td>
+<td><a href="./git-push-guard/"><img src="./assets/readme/cards/git-push-guard.png" alt="git-push-guard hook 文案"></a><br><b>git-push-guard</b> · 直推 master/main 时拦下来问一句</td>
+</tr>
+<tr>
+<td><a href="./harness/"><img src="./assets/readme/cards/harness.png" alt="harness TODO.md 看板"></a><br><b>harness</b> · Inspector → Worker → Reviewer 看板循环</td>
+<td><a href="./do-something/"><img src="./assets/readme/cards/do-something.png" alt="do-something DO.md"></a><br><b>do-something</b> · 无人值守自主推进，合并即收割</td>
+</tr>
+</table>
+
 <a id="install"></a>
 ## Install · 安装
 
