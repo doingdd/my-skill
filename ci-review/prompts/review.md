@@ -13,7 +13,7 @@ CI 已在提示词开头注入 `REPO`、`PR`（GitLab 为 `MR` + `PROJECT_ID`）
 
 1. **定范围。** 找 sticky 总结评论：正文含 `<!-- ci-review last=<sha> -->` 的那条。
    有且该 sha 在当前历史里 → 本次范围是 `git diff <sha>..HEAD_SHA`；否则全量 `git diff <base>...HEAD_SHA`。
-   范围为空（例如只改了 DO.md）→ 只更新 sticky，写"无代码改动"，结束。
+   范围内没有任何代码文件（diff 为空，或只改了 DO.md 及其他 *.md 文档）→ 只更新 sticky，写"无代码改动"，结束。
 2. **读上下文。** 读 PR/MR 正文、范围内的 commit message、仓库里的 DO.md（若存在）。
    读已有的未解决评审线程：已经被提过且未解决的问题不再提。
 3. **验证声明。** 正文、commit message、DO.md 日志里每一句"验证过了""测试通过""已支持 X""跑过 Y"都是声明。
