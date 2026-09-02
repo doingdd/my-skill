@@ -1,8 +1,10 @@
 # ci-review：MR 每次 push 做一次验证型代码审查，只验证"做对了没、做成了没"。
 # 用法：在 .gitlab-ci.yml 里 `include: - local: .gitlab/ci-review.yml`。审查规范在 .gitlab/ci-review.md。
-# CI/CD Variables（masked）：
-#   ANTHROPIC_API_KEY 或 CLAUDE_CODE_OAUTH_TOKEN   Claude 认证
-#   GITLAB_TOKEN   项目访问令牌，api scope，Reporter 以上（CI_JOB_TOKEN 不能发 MR 评论）
+# CI/CD Variables：
+#   ANTHROPIC_AUTH_TOKEN  网关或 Anthropic 的 API key（masked）；用订阅额度则改设 CLAUDE_CODE_OAUTH_TOKEN
+#   ANTHROPIC_BASE_URL    Anthropic 兼容网关地址，如 https://open.bigmodel.cn/api/anthropic；不设 = 官方 Anthropic
+#   ANTHROPIC_MODEL       网关上的模型名，如 glm-5.3；不设 = CLI 默认
+#   GITLAB_TOKEN          项目访问令牌，api scope，Reporter 以上（CI_JOB_TOKEN 不能发 MR 评论，masked）
 ci-review:
   stage: test
   image: node:22

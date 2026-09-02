@@ -38,9 +38,12 @@ bash <本 SKILL.md 所在目录>/scripts/install.sh [仓库路径] [--force]
 
 审查规范就是 `prompts/review.md` 的副本，落在仓库里供按口味修改；CI 里的 Claude 读它执行。
 
-**Secrets 由人设置，脚本只打印清单，不代替。** Pro/Max 订阅用 `claude setup-token` 生成 OAuth token；
-API 计费用 `ANTHROPIC_API_KEY`。GitLab 额外需要 `GITLAB_TOKEN`（项目访问令牌，api scope），
-因为 `CI_JOB_TOKEN` 不能发 MR 评论。
+**Secrets 由人设置，脚本只打印清单，不代替。** 模型接入默认走"Anthropic 兼容网关 + API key"，
+不占 Claude 订阅额度：GitHub 用 secret `CI_REVIEW_API_KEY` + 变量 `CI_REVIEW_BASE_URL`、`CI_REVIEW_MODEL`；
+GitLab 用 CI 变量 `ANTHROPIC_AUTH_TOKEN`、`ANTHROPIC_BASE_URL`、`ANTHROPIC_MODEL`。
+base URL 留空即官方 Anthropic；想烧 Pro/Max 额度改用 `claude setup-token` 生成的 `CLAUDE_CODE_OAUTH_TOKEN`。
+GitLab 额外需要 `GITLAB_TOKEN`（项目访问令牌，api scope），因为 `CI_JOB_TOKEN` 不能发 MR 评论。
+审查是工具调用密集型任务，网关上选支持 tool use、上下文够大的模型。
 
 安装完成后必须告诉用户：还差哪些 secret、怎么设、开一个 PR/MR 才能看到第一次运行。
 
@@ -48,7 +51,8 @@ API 计费用 `ANTHROPIC_API_KEY`。GitLab 额外需要 `GITLAB_TOKEN`（项目�
 
 ```bash
 ls .github/workflows/ci-review.yml .github/ci-review.md 2>/dev/null || ls .gitlab/ci-review.yml .gitlab/ci-review.md
-gh secret list 2>/dev/null | grep -E 'CLAUDE_CODE_OAUTH_TOKEN|ANTHROPIC_API_KEY' || echo "缺认证 secret"
+gh secret list 2>/dev/null | grep -E 'CI_REVIEW_API_KEY|CLAUDE_CODE_OAUTH_TOKEN' || echo "缺认证 secret"
+gh variable list 2>/dev/null | grep -E 'CI_REVIEW_BASE_URL|CI_REVIEW_MODEL' || echo "未设网关变量，将走官方 Anthropic"
 gh run list --workflow ci-review --limit 3 2>/dev/null   # 最近三次运行
 ```
 
@@ -63,12 +67,14 @@ gh run list --workflow ci-review --limit 3 2>/dev/null   # 最近三次运行
 ## 调口味
 
 - 改审查规范：直接编辑仓库里的 `.github/ci-review.md` 或 `.gitlab/ci-review.md`，下次 push 生效。
-- 换模型：GitHub 在 `claude_args` 加 `--model <id>`；GitLab 在 `claude -p` 后加。默认用 action/CLI 的默认模型。
+- 换模型或换网关：改仓库变量 `CI_REVIEW_MODEL` / `CI_REVIEW_BASE_URL`（GitLab 改 CI 变量），不用动 workflow。
 - 降成本：`concurrency.cancel-in-progress` 已开，连续 push 只审最后一次。
 
 ## 错误处理
 
 - Action 报认证失败 → secret 名与 workflow 里 `with:` 字段不匹配，二选一改齐。
+- 网关返回 401 → 该网关只认 Bearer 头或只认 x-api-key；模板两种都发，检查 key 是否属于该网关。
+- 网关返回 model not found → `CI_REVIEW_MODEL` 写的是官方 ID 而非网关上的名字。
 - 报 "Claude Code is not installed on this repository" → workflow 里的 `github_token` 行被删了却没装 Claude GitHub App，二者留一个。
 - 评论没出现但 job 成功 → 看 job 日志里 Claude 的输出；常见是 `--allowedTools` 缺 `mcp__github_inline_comment__create_inline_comment`。
 - GitLab 发评论 401/403 → `GITLAB_TOKEN` 权限不够，需要 api scope 且 Reporter 以上。

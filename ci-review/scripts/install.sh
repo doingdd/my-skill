@@ -21,10 +21,11 @@ if [[ "$REMOTE" == *github.com* ]]; then
   cat <<'MSG'
 
 下一步（GitHub）：
-  1. 认证 secret 二选一：
-     claude setup-token                      # Pro/Max 订阅，得到 OAuth token
-     gh secret set CLAUDE_CODE_OAUTH_TOKEN   # 粘贴上一步的 token
-     —— 或 API 计费：gh secret set ANTHROPIC_API_KEY，并把 workflow 里的认证字段换成 anthropic_api_key
+  1. 模型接入（不占 Claude 订阅额度）：
+     gh secret set CI_REVIEW_API_KEY                                    # 网关或 Anthropic 的 key
+     gh variable set CI_REVIEW_BASE_URL --body https://open.bigmodel.cn/api/anthropic   # 留空/不设 = 官方 Anthropic
+     gh variable set CI_REVIEW_MODEL --body glm-5.3                    # 网关上的模型名
+     —— 想用 Pro/Max 订阅额度：`claude setup-token` 后 gh secret set CLAUDE_CODE_OAUTH_TOKEN，并按 workflow 顶部注释改认证字段
   2. 提交 .github/workflows/ci-review.yml 与 .github/ci-review.md，开一个 PR 看它跑
 MSG
 else
@@ -38,7 +39,7 @@ else
          - local: .gitlab/ci-review.yml
      并确认 stages 里有 test
   2. Settings → CI/CD → Variables（masked）：
-       ANTHROPIC_API_KEY 或 CLAUDE_CODE_OAUTH_TOKEN
+       ANTHROPIC_AUTH_TOKEN（网关或 Anthropic 的 key）、ANTHROPIC_BASE_URL、ANTHROPIC_MODEL
        GITLAB_TOKEN  （项目访问令牌，api scope，Reporter 以上）
   3. 提交后开一个 MR 看它跑
 MSG
