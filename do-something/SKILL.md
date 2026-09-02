@@ -1,7 +1,7 @@
 ---
 name: do-something
 description: |
-  Autonomously push the current project forward: read its present state, pick the single highest-leverage thing to do, and finish it — work the backlog if there is one, reason from the project's purpose if there is no backlog, and boldly pick a purpose if there is none. Every run continues on one do/main branch with DO.md as cross-run memory and steering; humans merge to harvest, delete to veto. Built for unattended cron/loop runs and manual triggers. Use when the user says /do-something, 做点什么, 自己看着办, 推进一下, do something useful, keep improving this project.
+  Autonomously push the current project forward: read its present state, pick the single highest-leverage thing to do, and finish it — work the backlog if there is one, reason from the project's purpose if there is no backlog, and boldly pick a purpose if there is none. Every run continues on one do/main branch with DO.md as cross-run memory and steering; humans merge to harvest, delete to veto. Optional MR mode (DO.md `MR: on`) pushes do/main, keeps one living draft MR open, and makes every run first answer CI failures and review threads — pairs with ci-review for an unattended build→review→fix flywheel. Built for unattended cron/loop runs and manual triggers. Use when the user says /do-something, 做点什么, 自己看着办, 推进一下, do something useful, keep improving this project.
 trigger: /do-something
 compatibility: Claude Code, Codex
 license: MIT
@@ -36,7 +36,8 @@ license: MIT
 "如果 DO.md 的目的是错的，最可能错在哪？有没有反对它的新证据？"
 把结论写进日志再干活——哪怕结论只是"目的仍然成立"。续做的惯性不能替代判断。
 
-绝不 push、绝不合并、绝不改写历史。人类合并 `do/main` 即收割，删除即否决——这是收尾的唯一方式。
+绝不合并、绝不改写历史；默认也绝不 push（MR 模式见下节，只推 `do/main`）。
+人类合并 `do/main` 即收割，删除即否决——这是收尾的唯一方式。
 仅当用户以 `/do-something direct` 触发、或 DO.md 约束写明"允许直改"时，才在当前分支直接修改（仍独立 commit）。
 
 ## 三层判断
@@ -64,8 +65,35 @@ README、CLAUDE.md、代码本身透露了这个项目为什么存在。从那�
 ## 禁止
 
 - **避重就轻**：因为怕错而选安慰剂工作（重排文档、加注释、改格式），除非它真是当前最高杠杆。
-- **不可逆动作**：对外发消息、付款、删数据、调生产 API、开云资源、push、改写 git 历史——一律不做，再高的杠杆也不做。
+- **不可逆动作**：对外发消息、付款、删数据、调生产 API、开云资源、改写 git 历史、push（MR 模式下只推 `do/main` 除外）——一律不做，再高的杠杆也不做。
 - **等待**：没有人在。不提问、不请求确认，用判断代替提问，把疑虑写进日志。
+
+## MR 模式——让人类在远端收割
+
+默认关闭。DO.md 约束写 `MR: on`，或以 `/do-something mr` 触发单次启用。
+未启用时上文"绝不 push"原样生效。启用后，`do/main` 对应**一个活的 draft MR**：
+每次运行结束都 push，MR 随之生长；人类合并即收割，关闭 MR 并删远端分支即否决。
+不等"方向完成"才提 MR——每次运行的产出都已验证，每次 push 都是可合并的增量；
+人类想什么时候收就什么时候收，机器不因等待而停下。
+
+具体命令（GitHub `gh` / GitLab `glab`、评审线程的 resolve 写法）见 `references/mr-ops.md`。
+
+**第 0 步：先回应反馈，再选新事。** 位于"续做优先于新开"之前：
+
+1. `git fetch`。`do/main` 已进默认分支 → 视为收割，按"首次运行"重建分支；MR 已关闭且远端分支已删 → 视为否决，同样重建。
+2. 查 MR 的 CI 状态与未解决的评审线程：
+   - **CI 红**：修到绿就是本次唯一的事。没验证过的分支上不叠新产出。
+   - **未解决线程**（人类和 CR 机器人一视同仁）：逐条判断。认可就改、回复"已修：<commit>"并 resolve；
+     不认可就回复理由，不 resolve，留给人裁决。同一线程与机器人最多来回 3 轮，超过就回复"留人裁决"停手；
+     人类的线程不设上限。
+   - 反馈处理预计不到半次运行 → 处理完继续选新的一件事；否则它就是本次唯一的事。
+3. 全绿且无未解决线程 → 正常走三层判断。
+
+**结束时**：commit 后 `git push origin do/main`；无 MR 则新建 draft MR，标题 `do: <目的一句话>`，
+正文 = DO.md 的目的 + 日志；已有 MR 则用同样内容更新正文。日志里记下 MR 链接与本轮回应了哪些线程。
+
+**与 ci-review 配对**：`ci-review` 装进仓库后，每次 push 触发一次机器代码审查，只验证"做对了没、做成了没"，不评判方向；
+你下一轮的第 0 步读它的评论。方向由你定，质量由它盯，人类只在想收割时出现。
 
 ## DO.md——记忆与方向盘
 
@@ -76,7 +104,7 @@ README、CLAUDE.md、代码本身透露了这个项目为什么存在。从那�
 <一句话：这个项目为什么存在。第三层推断出的目的写在这里，人类可随时改写>
 
 # 约束
-<人类留下的边界，如"不要动 src/legacy"、"允许直改"、"本周聚焦 X"。没有就留空>
+<人类留下的边界，如"不要动 src/legacy"、"允许直改"、"MR: on"、"本周聚焦 X"。没有就留空>
 
 # 日志
 - 2026-08-24 09:00：<做了什么、如何验证的、遗留的疑虑或下一步>
@@ -88,7 +116,7 @@ README、CLAUDE.md、代码本身透露了这个项目为什么存在。从那�
 ## 结束一次运行
 
 自检三问：这件事验证过了吗（跑过测试、执行过脚本、看过产物）？产出在 `do/main` 上吗？日志写了吗？
-三个都是，就停。下一个循环从这里继续。
+三个都是，就停（MR 模式再加一步：push 了、MR 正文更新了）。下一个循环从这里继续。
 
 ## 无人值守
 

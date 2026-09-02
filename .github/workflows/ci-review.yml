@@ -1,0 +1,35 @@
+# ci-review：每次 push 到 PR 时做一次验证型代码审查，只验证"做对了没、做成了没"。
+# 安装：/ci-review（或 scripts/install.sh）。审查规范在 .github/ci-review.md，按仓库口味改它。
+# 认证二选一，写进仓库 Secrets：
+#   CLAUDE_CODE_OAUTH_TOKEN  Pro/Max 订阅，本地 `claude setup-token` 生成
+#   ANTHROPIC_API_KEY        API 计费，改下面 with 里的字段名即可
+name: ci-review
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+concurrency:
+  group: ci-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR: ${{ github.event.pull_request.number }}
+            HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+            BASE_REF: ${{ github.event.pull_request.base.ref }}
+            读取仓库里的 .github/ci-review.md，严格按它执行。
+          claude_args: |
+            --allowedTools "Bash,Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment"

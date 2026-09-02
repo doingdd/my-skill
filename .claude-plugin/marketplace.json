@@ -91,10 +91,20 @@
       "name": "do-something",
       "source": "./",
       "strict": false,
-      "description": "Autonomously pick and finish the highest-leverage task in the project; all runs continue on one do/main branch with DO.md as memory, humans merge to harvest. 自主推进项目，适合 cron/loop 无人值守",
-      "version": "1.2.0",
+      "description": "Autonomously pick and finish the highest-leverage task in the project; all runs continue on one do/main branch with DO.md as memory, humans merge to harvest. Optional MR mode keeps a living draft MR and answers CI/review feedback first. 自主推进项目，适合 cron/loop 无人值守；MR 模式与 ci-review 组成飞轮",
+      "version": "1.3.0",
       "skills": [
         "./do-something"
+      ]
+    },
+    {
+      "name": "ci-review",
+      "source": "./",
+      "strict": false,
+      "description": "Install a CI-triggered LLM reviewer: on every PR/MR push Claude reproduces the change's claims, hunts correctness bugs with failure scenarios, posts inline comments + one sticky summary. Judges execution, not direction — pairs with do-something. CI 里的验证型代码审查机器人",
+      "version": "1.0.0",
+      "skills": [
+        "./ci-review"
       ]
     },
     {

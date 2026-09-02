@@ -179,12 +179,28 @@ Machine-readable index of every skill in this repository. Agents can parse this 
 ```json
 {
   "name": "do-something",
-  "version": "1.2.0",
-  "description": "Autonomously pick and finish the highest-leverage task in the current project: backlog first, then purpose-driven reasoning, then choose a purpose; all runs continue on one do/main branch with DO.md as memory, humans merge to harvest or delete to veto. 自主推进项目，适合 cron/loop 无人值守",
+  "version": "1.3.0",
+  "description": "Autonomously pick and finish the highest-leverage task in the current project: backlog first, then purpose-driven reasoning, then choose a purpose; all runs continue on one do/main branch with DO.md as memory, humans merge to harvest or delete to veto. Optional MR mode (DO.md `MR: on`) keeps a living draft MR and answers CI failures and review threads first — pairs with ci-review. 自主推进项目，适合 cron/loop 无人值守；MR 模式与 ci-review 组成飞轮",
   "trigger": "/do-something",
-  "keywords": ["autonomous", "agent", "cron", "loop", "unattended", "project improvement", "backlog", "做点什么", "自己看着办", "推进一下"],
+  "keywords": ["autonomous", "agent", "cron", "loop", "unattended", "project improvement", "backlog", "merge request", "flywheel", "做点什么", "自己看着办", "推进一下"],
   "compatibility": "Claude Code, Codex",
   "install_path": "do-something/",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
+  "license": "MIT"
+}
+```
+
+### ci-review
+
+```json
+{
+  "name": "ci-review",
+  "version": "1.0.0",
+  "description": "Install a CI-triggered LLM code reviewer into a repo: on every PR/MR push, Claude Code runs headless, reproduces every claim the change makes, hunts correctness bugs with concrete failure scenarios, and posts inline comments plus one sticky summary. Judges execution, not direction — the other half of the do-something flywheel. GitHub and GitLab templates. CI 里的验证型代码审查机器人",
+  "trigger": "/ci-review",
+  "keywords": ["code review", "ci", "github actions", "gitlab ci", "claude-code-action", "pull request", "merge request", "flywheel", "代码审查", "自动 review"],
+  "compatibility": "Claude Code",
+  "install_path": "ci-review/",
   "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
   "license": "MIT"
 }
