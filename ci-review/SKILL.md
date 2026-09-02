@@ -69,5 +69,6 @@ gh run list --workflow ci-review --limit 3 2>/dev/null   # 最近三次运行
 ## 错误处理
 
 - Action 报认证失败 → secret 名与 workflow 里 `with:` 字段不匹配，二选一改齐。
+- 报 "Claude Code is not installed on this repository" → workflow 里的 `github_token` 行被删了却没装 Claude GitHub App，二者留一个。
 - 评论没出现但 job 成功 → 看 job 日志里 Claude 的输出；常见是 `--allowedTools` 缺 `mcp__github_inline_comment__create_inline_comment`。
 - GitLab 发评论 401/403 → `GITLAB_TOKEN` 权限不够，需要 api scope 且 Reporter 以上。

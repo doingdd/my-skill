@@ -23,6 +23,9 @@ jobs:
           fetch-depth: 0
       - uses: anthropics/claude-code-action@v1
         with:
+          # 用仓库自带 token，评论以 github-actions[bot] 身份发，免装 Claude GitHub App；
+          # 想以 Claude 身份发评论就删掉这行并安装 https://github.com/apps/claude
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
