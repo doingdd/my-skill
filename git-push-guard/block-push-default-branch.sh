@@ -30,9 +30,10 @@ is_default_spec() { # $1=norm 后的 token；逐 glob 判定是否指向默认�
   return 1
 }
 
-norm() { # 删全部引号字符（合法 refspec 不含引号）并迭代剥 + 强推前缀
-  local t=$1 prev
-  t=${t//\"/}; t=${t//\'/}
+norm() { # 白名单保留法：只留合法 refspec 字符（引号/转义/展开符号在真实 ref 中不存在，shell 引用形态无界，
+         #  枚举不完就反向只认白名单），再迭代剥 + 强推前缀
+  local t prev
+  t=$(printf '%s' "$1" | tr -cd '[:alnum:]_/.:+-')
   while :; do
     prev=$t
     t=${t#+}

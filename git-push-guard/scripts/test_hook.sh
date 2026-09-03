@@ -149,5 +149,13 @@ run "引号在中段 HEAD:\"main\" 拦截"          ask   feature 'git push orig
 run "引号 :refs/heads/main 拦截"            ask   feature "git push origin \":refs/heads/main\""
 run "非默认 refspec 不误拦"                 allow feature "git push origin feature:dev"
 
+# ── 第七轮复审：ANSI-C 引号与反斜杠转义（白名单 norm 收类）──
+run "ANSI-C 引号 \$'master' 拦截"           ask   feature "git push origin \$'master'"
+run "ANSI-C 引号 \$'+main' 拦截"            ask   feature "git push origin \$'+main'"
+run "反斜杠转义 m\\aster 拦截"              ask   feature "git push origin m\\aster"
+run "反斜杠转义删除 :m\\aster 拦截"          ask   feature "git push origin :m\\aster"
+run "ANSI-C --delete \$'main' 拦截"         ask   feature "git push origin --delete \$'main'"
+run "连字符分支名不被白名单误伤"              allow feature "git push origin m-aster"
+
 echo "── 通过 $pass / 失败 $fail"
 [ "$fail" -eq 0 ]
