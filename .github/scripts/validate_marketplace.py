@@ -52,22 +52,25 @@ def parse_frontmatter(text):
 
 
 def field_value(fm, key):
-    """取 frontmatter 字段值。块标量（|、|-、> 等）读后续缩进行；单行值去引号。"""
+    """取 frontmatter 字段值：块标量（| 系按行、> 系按空格折叠）、
+    空内联的 plain 多行（YAML 折叠为空格）、单行值去引号。"""
     m = re.search(rf"^{key}:(.*)$", fm, re.M)
     if not m:
         return None
     inline = m.group(1).strip()
     if inline in ("|", "|-", "|+", ">", ">-", ">+"):
-        lines = []
-        for line in fm[m.end():].split("\n"):
-            if line.startswith((" ", "\t")):
-                lines.append(line.strip())
-            elif line.strip():
-                break
-        return ("\n" if inline.startswith("|") else " ").join(lines)
-    if inline:
+        joiner = "\n" if inline.startswith("|") else " "
+    elif inline:
         return inline.strip("'\"")
-    return None
+    else:
+        joiner = " "  # plain 多行续行
+    lines = []
+    for line in fm[m.end():].split("\n"):
+        if line.startswith((" ", "\t")):
+            lines.append(line.strip())
+        elif line.strip():
+            break  # 续行块结束，防止捡到后文缩进行
+    return joiner.join(lines) if lines else None
 
 
 # ── marketplace.json ──────────────────────────────────────────────
