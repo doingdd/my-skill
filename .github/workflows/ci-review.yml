@@ -13,11 +13,17 @@ on:
 concurrency:
   group: ci-review-${{ github.event.pull_request.number }}
   cancel-in-progress: true
+env:
+  # 合并档位（/ci-review merge on|off 改这里）：
+  #   "false" = 仅审查；"true" = 审查通过即合并，仅限 CI_REVIEW_MERGE_BRANCHES 匹配的来源分支
+  CI_REVIEW_MERGE: "false"
+  CI_REVIEW_MERGE_BRANCHES: "do/*"   # 空格分隔的 glob，默认只合 do-something 的分支
+  CI_REVIEW_MERGE_METHOD: "squash"   # squash | merge | rebase，须是仓库允许的方式
 jobs:
   review:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write        # 合并需要；仅审查模式可降为 read
       pull-requests: write
       id-token: write
     steps:
@@ -45,3 +51,31 @@ jobs:
           claude_args: |
             --allowedTools "Bash,Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment"
             ${{ vars.CI_REVIEW_MODEL != '' && format('--model {0}', vars.CI_REVIEW_MODEL) || '' }}
+      # 合并由这一步的脚本决定，不经模型：模型只在 sticky 里写 verdict，脚本核对四个条件后才合并。
+      - name: merge when verdict=pass
+        if: env.CI_REVIEW_MERGE == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          hit=0; for g in $CI_REVIEW_MERGE_BRANCHES; do case "$HEAD_REF" in $g) hit=1;; esac; done
+          [ "$hit" = 1 ] || { echo "跳过：$HEAD_REF 不在自动合并范围（${CI_REVIEW_MERGE_BRANCHES}）"; exit 0; }
+          sticky="$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq '[.[] | select(.body | startswith("<!-- ci-review last="))] | last | .body // ""')"
+          grep -q "<!-- ci-review last=$HEAD_SHA verdict=pass -->" <<<"$sticky" \
+            || { echo "跳过：sticky 不是本 sha 的 verdict=pass"; exit 0; }
+          unresolved="$(gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){nodes{isResolved}}}}}' \
+            -f o="${REPO%/*}" -f r="${REPO#*/}" -F n="$PR" \
+            --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false)] | length')"
+          [ "$unresolved" = 0 ] || { echo "跳过：$unresolved 条未解决线程，留人裁决"; exit 0; }
+          # GITHUB_TOKEN 触发的 ready_for_review 不会再起一次 workflow；换成 PAT 就会，这一关防第二次运行重复合并
+          [ "$(gh pr view "$PR" --json state --jq .state)" = OPEN ] || { echo "跳过：PR 已不是 OPEN"; exit 0; }
+          gh pr ready "$PR" 2>/dev/null || true
+          # 分支保护把本 workflow 设为必需检查时，此刻检查尚未完成，直接合并会被拒；退回 --auto（需仓库开启 allow auto-merge）
+          gh pr merge "$PR" "--$CI_REVIEW_MERGE_METHOD" --delete-branch \
+            || gh pr merge "$PR" --auto "--$CI_REVIEW_MERGE_METHOD" --delete-branch
+          echo "已合并 PR #${PR}（${HEAD_SHA}）"

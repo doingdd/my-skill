@@ -101,8 +101,8 @@
       "name": "ci-review",
       "source": "./",
       "strict": false,
-      "description": "Install a CI-triggered LLM reviewer: on every PR/MR push Claude reproduces the change's claims, hunts correctness bugs with failure scenarios, posts inline comments + one sticky summary. Judges execution, not direction — pairs with do-something. CI 里的验证型代码审查机器人",
-      "version": "1.0.0",
+      "description": "Install a CI-triggered LLM reviewer: on every PR/MR push Claude reproduces the change's claims, hunts correctness bugs with failure scenarios, posts inline comments + one sticky summary with a machine-readable verdict. Optional auto-merge tier for do/* branches, remembered in the repo. Judges execution, not direction — pairs with do-something. CI 里的验证型代码审查机器人，可选审查通过自动合并",
+      "version": "1.1.0",
       "skills": [
         "./ci-review"
       ]
