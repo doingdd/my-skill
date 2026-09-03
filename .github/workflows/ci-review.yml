@@ -16,7 +16,7 @@ concurrency:
 env:
   # 合并档位（/ci-review merge on|off 改这里）：
   #   "false" = 仅审查；"true" = 审查通过即合并，仅限 CI_REVIEW_MERGE_BRANCHES 匹配的来源分支
-  CI_REVIEW_MERGE: "false"
+  CI_REVIEW_MERGE: "true"
   CI_REVIEW_MERGE_BRANCHES: "do/*"   # 空格分隔的 glob，默认只合 do-something 的分支
   CI_REVIEW_MERGE_METHOD: "squash"   # squash | merge | rebase，须是仓库允许的方式
 jobs:
