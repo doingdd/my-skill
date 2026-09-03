@@ -91,13 +91,12 @@ grep "^name:" <skill-name>/SKILL.md | sed 's/name: //'
 #### 6.2 内容检查
 
 ```bash
-# 检查是否超过 500 行
-wc -l <skill-name>/SKILL.md
-
-# 检查是否有硬编码路径
-grep -r "~/.claude" <skill-name>/ || echo "无硬编码路径 ✓"
-grep -r "/Users/" <skill-name>/ || echo "无用户路径 ✓"
+# 全部机械检查走市场门禁（行数、frontmatter、硬编码安装路径、索引一致性、脚本可执行位）
+python3 .github/scripts/validate_marketplace.py .
 ```
+
+注意：`~/.claude/settings.json` 这类用户级配置文件本来就在 `~/.claude`，属合法引用；
+只有「假设 skill 装在固定位置」的路径（如 `~/.claude/skills/<name>/...`）才算硬编码，门禁已内置该裁决。
 
 #### 6.3 功能验证（Claude Code 环境）
 
