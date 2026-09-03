@@ -11,8 +11,9 @@ input=$(cat)
 cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // ""')
 
 # -C 路径：双引号/单引号/裸词（引号内可含空格）
+# git 前边界是非名字字符：兼容 &&git、$(git、`git` 等非行首形态，又不误吞 gitx 之类同名二进制
 path_alt="(\"[^\"]*\"|'[^']*'|[^[:space:]]+)"
-prefix="(^|[[:space:]])git([[:space:]]+-C[[:space:]]+${path_alt})?[[:space:]]+push"
+prefix="(^|[^[:alnum:]_-])git([[:space:]]+-C[[:space:]]+${path_alt})?[[:space:]]+push"
 
 sites=$(printf '%s' "$cmd" | grep -oE "${prefix}" 2>/dev/null)
 [ -z "$sites" ] && exit 0
@@ -43,11 +44,19 @@ allowlisted() { # $1=仓库 toplevel；条目原文或 pwd -P 解析后命中皆
 nsites=$(printf '%s\n' "$sites" | wc -l | tr -d ' ')
 [ "$nsites" -gt 1 ] && deny "一条命令包含 ${nsites} 个 git push 位点，无法逐位点判定目标，请人工确认。"
 
-# 定位位点与其目标仓库：去掉前导空白后剥 git/-C/push
+# 定位位点与其目标仓库：边界字符剥离后重建 git 前缀，仅当位点含 -C 才提取路径
 site=$(printf '%s\n' "$sites" | head -1)
-site="${site#"${site%%[![:space:]]*}"}"
-cpath=$(printf '%s' "$site" | sed -E "s/^git[[:space:]]+(-C[[:space:]]+)?//; s/[[:space:]]+push\$//")
-cpath=${cpath#\"}; cpath=${cpath%\"}; cpath=${cpath#\'}; cpath=${cpath%\'}
+case $site in
+  git*) : ;;
+  *) site="git${site#*git}" ;;   # 边界字符是一个非名字字符，不可能含字母 g/i/t
+esac
+cpath=""
+case $site in
+  *"-C "*)
+    cpath=$(printf '%s' "$site" | sed -E "s/^git[[:space:]]+-C[[:space:]]+//; s/[[:space:]]+push\$//")
+    cpath=${cpath#\"}; cpath=${cpath%\"}; cpath=${cpath#\'}; cpath=${cpath%\'}
+    ;;
+esac
 cwd=$(printf '%s' "$input" | jq -r '.cwd // "."')
 target=$cwd
 [ -n "$cpath" ] && [ -e "$cpath" ] && target=$cpath
@@ -65,8 +74,10 @@ if printf '%s' "$cmd" | grep -qE "${prefix}[^|&;]*:(refs/heads/)?(master|main)([
   deny "即将通过 refspec 写入/删除远端默认分支 master/main。共享项目请走分支+MR；个人/小型项目确认后放行。"
 fi
 
-# push 之后的参数区：位点匹配文本之后的子串（位点前的命令与本位点无关）
+# push 之后的参数区：位点之后的子串，并在首个命令分隔符处截断
+#   （多位点已整体 ask，位点之后的命令段不可能是 push，规则 3/5 不应看见它们）
 args_after_push=${cmd#*"$site"}
+args_after_push=${args_after_push%%[|&;]*}
 
 # 规则 3：--all/--mirror 推全部本地分支——仓库存在本地 master/main 就拦（与当前分支无关）
 for tok in $args_after_push; do

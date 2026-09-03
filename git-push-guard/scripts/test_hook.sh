@@ -21,8 +21,9 @@ mkrepo() { # mkrepo <路径> <初始分支> ；返回后当前在初始分支，
   git -C "$1" remote add origin "$1.git"
 }
 
-# 主仓库：master + feature
+# 主仓库：master + feature（根目录放同名文件 push，回归条件常驻）
 mkrepo "$WORK/repo" master
+touch "$WORK/repo/push"
 git -C "$WORK/repo" checkout -q -b feature
 mkgit "$WORK/repo" commit -q --allow-empty -m f
 git -C "$WORK/repo" checkout -q master
@@ -116,6 +117,17 @@ run "master 上 HEAD 形态拦截"              ask   master "git push origin HE
 run "master 上推功能分支也 ask（语义收紧）"  ask   master "git push origin feature"
 run "feature 上删远端非默认分支放行"        allow feature "git push origin :refs/heads/feature"
 run "feature 上 feature:dev2 放行"         allow feature "git push origin feature:dev2"
+
+# ── 第五轮复审：检测层逃逸、cpath 残留、跨命令段误报 ──
+run "cwd 有同名 push 文件时裸 push 仍拦（cpath 残留回归）"  ask   master "git push"
+run "命令替换形态 \$(git push) 拦截"              ask   master 'echo $(git push)'
+run "无空格 &&git push 拦截"                      ask   master 'true &&git push'
+run "反引号包裹 git push 拦截"                    ask   master 'echo `git push`'
+run "链式后段 git checkout master 不误拦"          allow feature "git push origin feature && git checkout master"
+run "链式后段 ls --all 不触发规则 3"               allow feature "git push origin feature && ls --all"
+run "-d 删远端默认分支拦截"                        ask   feature "git push origin -d refs/heads/main"
+run "-d 删远端非默认分支放行"                      allow feature "git push origin -d feature"
+raw  "删默认分支+链式 checkout 仍拦（规则 2 不受截断影响）"  ask "$WORK/repo" "git push origin :refs/heads/main && git checkout master"
 
 echo "── 通过 $pass / 失败 $fail"
 [ "$fail" -eq 0 ]
