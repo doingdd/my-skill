@@ -4,6 +4,10 @@
 用法：python3 .github/scripts/validate_marketplace.py [仓库根目录，默认 .]
 全部通过退出码 0；任何违规打印 "✗" 行并退出码 1。
 
+frontmatter 解析优先用 PyYAML（workflow 里 pip install；能识别全部合法 YAML 格式，
+包括 |2 显式缩进、非空内联 plain 多行），并顺带拦截不合法的 frontmatter；
+环境无 PyYAML 时退回内置简化解析器（覆盖常用格式）。
+
 检查范围（对应 CLAUDE.md「Skill 质量检查清单」）：
 - marketplace.json 可解析、entry name 唯一、skills 路径存在且 name 与目录一致
 - SKILL.md：frontmatter name 与目录一致、description 存在且 ≤1024 字符、不超过 500 行
@@ -18,6 +22,11 @@ import json
 import os
 import re
 import sys
+
+try:
+    import yaml as _pyyaml
+except ImportError:  # 兜底解析器路径
+    _pyyaml = None
 
 MAX_SKILL_LINES = 500
 MAX_DESC_CHARS = 1024
@@ -52,25 +61,25 @@ def parse_frontmatter(text):
 
 
 def field_value(fm, key):
-    """取 frontmatter 字段值：块标量（| 系按行、> 系按空格折叠）、
-    空内联的 plain 多行（YAML 折叠为空格）、单行值去引号。"""
+    """兜底 frontmatter 字段解析（无 PyYAML 时）：块标量（|/> 系含 |2 等显式缩进）、
+    plain 多行（含非空内联首行，YAML 折叠为空格）、单行值去引号。"""
     m = re.search(rf"^{key}:(.*)$", fm, re.M)
     if not m:
         return None
     inline = m.group(1).strip()
-    if inline in ("|", "|-", "|+", ">", ">-", ">+"):
+    if re.fullmatch(r"[|>][+-]?[0-9]*", inline):
         joiner = "\n" if inline.startswith("|") else " "
-    elif inline:
-        return inline.strip("'\"")
+        parts = []
     else:
-        joiner = " "  # plain 多行续行
-    lines = []
+        joiner = " "
+        parts = [inline.strip("'\"")]
     for line in fm[m.end():].split("\n"):
         if line.startswith((" ", "\t")):
-            lines.append(line.strip())
+            parts.append(line.strip())
         elif line.strip():
             break  # 续行块结束，防止捡到后文缩进行
-    return joiner.join(lines) if lines else None
+    value = joiner.join(parts)
+    return value if value else None
 
 
 # ── marketplace.json ──────────────────────────────────────────────
@@ -111,11 +120,23 @@ for name in sorted(os.listdir(root)):
     lines = text.split("\n")
 
     fm, _ = parse_frontmatter(text)
-    fm_name = field_value(fm, "name")
+    if _pyyaml is not None:
+        try:
+            meta = _pyyaml.safe_load(fm) or {}
+        except _pyyaml.YAMLError as e:
+            fail(f"{name}/SKILL.md：frontmatter 不是合法 YAML（{type(e).__name__}）")
+            meta = {}
+        fm_name = meta.get("name")
+        fm_name = fm_name.strip() if isinstance(fm_name, str) else fm_name
+        desc = meta.get("description")
+        if desc is not None and not isinstance(desc, str):
+            desc = None  # description 非字符串（如误写成 map），按缺失处理
+    else:
+        fm_name = field_value(fm, "name")
+        desc = field_value(fm, "description")
     if fm_name != name:
         fail(f"{name}/SKILL.md：frontmatter name=({fm_name}) 与目录名不一致")
 
-    desc = field_value(fm, "description")
     if not desc:
         fail(f"{name}/SKILL.md：缺 description")
     elif len(desc) > MAX_DESC_CHARS:
