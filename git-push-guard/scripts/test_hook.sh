@@ -129,5 +129,14 @@ run "-d 删远端默认分支拦截"                        ask   feature "git p
 run "-d 删远端非默认分支放行"                      allow feature "git push origin -d feature"
 raw  "删默认分支+链式 checkout 仍拦（规则 2 不受截断影响）"  ask "$WORK/repo" "git push origin :refs/heads/main && git checkout master"
 
+# ── 收割后遗留洞族（verdict 移交清单）：引号 refspec 与 -C 粘连形态 ──
+run "引号 refs/heads/main 拦截"            ask   feature "git push origin \"refs/heads/main\""
+run "引号 main 拦截"                       ask   feature "git push origin 'main'"
+run "引号 --delete refs/heads/main 拦截"   ask   feature "git push origin --delete \"refs/heads/main\""
+run "+引号 refs/heads/main 拦截"           ask   feature "git push origin +\"refs/heads/main\""
+raw  "-C 粘连路径 --all 拦截"               ask   "$WORK/repoTrunk" "git -C$WORK/repoB push --all"
+raw  "-C 粘连路径显式推 main 拦截"           ask   "$WORK/repoTrunk" "git -C$WORK/repoB push origin main"
+run "-C 空格形态不回归"                    ask   master "git -C $WORK/repoB push origin main"
+
 echo "── 通过 $pass / 失败 $fail"
 [ "$fail" -eq 0 ]

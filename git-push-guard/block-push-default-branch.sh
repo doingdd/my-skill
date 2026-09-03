@@ -13,12 +13,20 @@ cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // ""')
 # -C 路径：双引号/单引号/裸词（引号内可含空格）
 # git 前边界是非名字字符：兼容 &&git、$(git、`git` 等非行首形态，又不误吞 gitx 之类同名二进制
 path_alt="(\"[^\"]*\"|'[^']*'|[^[:space:]]+)"
-prefix="(^|[^[:alnum:]_-])git([[:space:]]+-C[[:space:]]+${path_alt})?[[:space:]]+push"
+prefix="(^|[^[:alnum:]_-])git([[:space:]]+-C[[:space:]]*${path_alt})?[[:space:]]+push"
 
 sites=$(printf '%s' "$cmd" | grep -oE "${prefix}" 2>/dev/null)
 [ -z "$sites" ] && exit 0
 
 allowlist="$HOME/.claude/hooks/push-default-branch-allowlist.txt"
+
+norm() { # 去引号与 + 强推前缀，返回规范化 token
+  local t=$1
+  t=${t#+}
+  t=${t#\"}; t=${t%\"}
+  t=${t#\'}; t=${t%\'}
+  printf '%s' "$t"
+}
 
 deny() {
   jq -rn --arg reason "$1（永久放行本仓库：将仓库根路径加入 ~/.claude/hooks/push-default-branch-allowlist.txt）" \
@@ -52,8 +60,8 @@ case $site in
 esac
 cpath=""
 case $site in
-  *"-C "*)
-    cpath=$(printf '%s' "$site" | sed -E "s/^git[[:space:]]+-C[[:space:]]+//; s/[[:space:]]+push\$//")
+  *-C*)
+    cpath=$(printf '%s' "$site" | sed -E "s/^git[[:space:]]+-C[[:space:]]*//; s/[[:space:]]+push\$//")
     cpath=${cpath#\"}; cpath=${cpath%\"}; cpath=${cpath#\'}; cpath=${cpath%\'}
     ;;
 esac
@@ -102,7 +110,7 @@ prev_delete=0
 for tok in $args_after_push; do
   if [ "$prev_delete" = 1 ]; then
     prev_delete=0
-    case ${tok#+} in
+    case $(norm "$tok") in
       master|main|refs/heads/master|refs/heads/main|*/master|*/main)
         deny "即将删除远端默认分支（${tok}）。共享项目请走分支+MR；确认属正常操作后放行。"
         ;;
@@ -112,7 +120,7 @@ for tok in $args_after_push; do
   case $tok in
     --delete|-d) prev_delete=1; continue ;;
     --delete=*)
-      case ${tok#--delete=} in
+      case $(norm "${tok#--delete=}") in
         master|main|refs/heads/master|refs/heads/main|*/master|*/main)
           deny "即将删除远端默认分支。共享项目请走分支+MR；确认属正常操作后放行。"
           ;;
@@ -121,7 +129,7 @@ for tok in $args_after_push; do
       ;;
   esac
   case $tok in -*) continue ;; esac
-  case ${tok#+} in
+  case $(norm "$tok") in
     master|main|refs/heads/master|refs/heads/main|*/master|*/main)
       deny "refspec 显式指向默认分支（${tok}）。共享项目请走分支+MR；个人/小型项目确认后放行。"
       ;;
