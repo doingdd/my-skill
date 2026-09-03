@@ -16,7 +16,7 @@
 缓存: ~/.claude/repo-map-cache.json —— 纯产物，勿手工编辑，删除后自动重建。
 
 角色判定（读写边界的证据链）:
-  有本人 commit → 自研·可写；无 remote → 本地·可写（不存在上游，谈不上第三方）；
+  按顺序首中即停：有本人 commit → 自研·可写；无 remote（且无本人 commit）→ 本地·可写（不存在上游，谈不上第三方）；
   remote host 在 trusted_hosts → 协作·可写；其余 → 第三方·只读。
 
 一致性维护：resolve/list/sync 都先做低成本检查（find .git 清单 vs 缓存路径集合），
