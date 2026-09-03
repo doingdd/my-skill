@@ -1,0 +1,43 @@
+<!doctype html><meta charset="utf-8"><style>
+*{box-sizing:border-box} body{margin:0;background:#F5F0E6;font-family:-apple-system,"PingFang SC","Hiragino Sans GB","Noto Sans CJK SC",sans-serif;color:#2B2622}
+.card{width:1200px;height:675px;padding:44px 52px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.top{display:flex;align-items:baseline;gap:18px;margin-bottom:8px}
+.name{font:700 40px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#5D4037}
+.tag{font-size:16px;color:#fff;background:#5D4037;border-radius:999px;padding:5px 14px}
+.one{font-size:22px;color:#6B5E52;margin:4px 0 22px}
+.grid{display:grid;grid-template-columns:5fr 7fr;gap:22px;flex:1;min-height:0}
+.pane{background:#fff;border:2px solid #5D4037;border-radius:18px;padding:18px 22px;box-shadow:0 6px 0 rgba(93,64,55,.12);display:flex;flex-direction:column;min-height:0}
+.pane h4{margin:0 0 10px;font-size:15px;letter-spacing:.12em;color:#8C7B6E;text-transform:uppercase}
+pre{margin:0;white-space:pre-wrap;word-break:break-all;font:16px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#2B2622;overflow:hidden}
+.pane.in pre{font-size:20px;line-height:1.6}
+.hl{color:#2F6FB3;font-weight:700}
+.ok{color:#2E7D32}.warn{color:#C62828}
+.foot{position:absolute;right:52px;bottom:26px;font-size:15px;color:#9A8B7E}
+.arrow{position:absolute;left:calc(5fr);}
+.src{font-size:13px;color:#9A8B7E;margin-top:auto;padding-top:8px}
+</style>
+<div class="card">
+  <div class="top"><span class="name">wechat-article-md-local</span><span class="tag">公众号 → Markdown</span></div>
+  <div class="one">收到 mp.weixin.qq.com 链接自动触发：整篇文章、元信息、图片全部落到本地</div>
+  <div class="grid">
+    <div class="pane in"><h4>输入 · 触发</h4><pre>https://mp.weixin.qq.com/s/M-K8cDwLhpID1gkcZOdUkQ
+
+（收到公众号链接即自动触发，
+ 也可说：下载这篇公众号文章）</pre></div>
+    <div class="pane"><h4>真实产出</h4><pre>Claude-Code-Skills-完全指南-从零打造…/
+├── Claude Code Skills 完全指南….md    <span class="ok">11,026 字</span>
+├── Claude Code Skills 完全指南….html  （备份）
+├── source.json
+└── images/  001.png  002.png
+
+---
+title: &quot;Claude Code Skills 完全指南：从零打造你的生产级别 AI 编程助理工作流&quot;
+account: &quot;码哥跳动&quot;      author: &quot;码哥字节&quot;
+publish_time: &quot;2026年3月30日 09:00&quot;
+source_url: &quot;https://mp.weixin.qq.com/s/M-K8…&quot;
+---
+你好，我是《Redis 高手心法》畅销书作者码哥，可以叫我靓仔。
+我用了三个月的 Claude Code，有一个时期非常难受…</pre><div class="src">真实运行 · 2026-09-01 · 公开文章</div></div>
+  </div>
+  <div class="foot">agent-skills-zh · npx skills add hanzhangzzz/agent-skills-zh</div>
+</div>
