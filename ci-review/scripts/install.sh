@@ -38,12 +38,16 @@ case "$PLATFORM" in
   *) echo "✗ 平台只能是 github|gitlab"; exit 1;;
 esac
 
-merge_mode() { grep -E '^[[:space:]]*CI_REVIEW_MERGE:' "$CI_FILE" 2>/dev/null | grep -q '"true"' && echo on || echo off; }
+merge_val() { # CI 文件里 CI_REVIEW_MERGE 的值：去引号、小写；没有该行输出空
+  grep -E '^[[:space:]]*CI_REVIEW_MERGE:' "$CI_FILE" 2>/dev/null | head -1 | sed -E 's/^[^:]*:[[:space:]]*"?([^" #]*)"?.*/\1/' | tr 'A-Z' 'a-z'
+}
+merge_mode() { [ "$(merge_val)" = true ] && echo on || echo off; }
 set_merge() { # on|off
   local v=false; [ "$1" = on ] && v=true
-  grep -qE '^[[:space:]]*CI_REVIEW_MERGE:' "$CI_FILE" || { echo "✗ ${CI_FILE} 里没有 CI_REVIEW_MERGE 行，手动加"; exit 1; }
-  sed -i.bak -E "s/^([[:space:]]*CI_REVIEW_MERGE:) *\"?(true|false)\"?/\1 \"$v\"/" "$CI_FILE" && rm -f "$CI_FILE.bak"
-  [ "$(merge_mode)" = "$1" ] || { echo "✗ 没改成：${CI_FILE} 的 CI_REVIEW_MERGE 值不是 true/false，手动改"; exit 1; }
+  [ -n "$(merge_val)" ] || { echo "✗ ${CI_FILE} 里没有 CI_REVIEW_MERGE 行，手动加"; exit 1; }
+  # 不管原值怎么写（True/yes/无引号），整个值替换成带引号的小写
+  sed -i.bak -E "s/^([[:space:]]*CI_REVIEW_MERGE:)[[:space:]]*\"?[^\" #]*\"?/\1 \"$v\"/" "$CI_FILE" && rm -f "$CI_FILE.bak"
+  [ "$(merge_val)" = "$v" ] || { echo "✗ 没改成：${CI_FILE} 的 CI_REVIEW_MERGE 行格式认不出，手动改"; exit 1; }
   echo "✓ 合并档位 = ${1}（${CI_FILE}）"
 }
 copy() { # src dst
