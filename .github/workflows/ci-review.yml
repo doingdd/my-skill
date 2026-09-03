@@ -72,6 +72,8 @@ jobs:
             -f o="${REPO%/*}" -f r="${REPO#*/}" -F n="$PR" \
             --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false)] | length')"
           [ "$unresolved" = 0 ] || { echo "跳过：$unresolved 条未解决线程，留人裁决"; exit 0; }
+          # GITHUB_TOKEN 触发的 ready_for_review 不会再起一次 workflow；换成 PAT 就会，这一关防第二次运行重复合并
+          [ "$(gh pr view "$PR" --json state --jq .state)" = OPEN ] || { echo "跳过：PR 已不是 OPEN"; exit 0; }
           gh pr ready "$PR" 2>/dev/null || true
           # 分支保护把本 workflow 设为必需检查时，此刻检查尚未完成，直接合并会被拒；退回 --auto（需仓库开启 allow auto-merge）
           gh pr merge "$PR" "--$CI_REVIEW_MERGE_METHOD" --delete-branch \

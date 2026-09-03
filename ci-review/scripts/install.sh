@@ -41,7 +41,9 @@ esac
 merge_mode() { grep -E '^[[:space:]]*CI_REVIEW_MERGE:' "$CI_FILE" 2>/dev/null | grep -q '"true"' && echo on || echo off; }
 set_merge() { # on|off
   local v=false; [ "$1" = on ] && v=true
-  sed -i.bak -E "s/^([[:space:]]*CI_REVIEW_MERGE:) *\"(true|false)\"/\1 \"$v\"/" "$CI_FILE" && rm -f "$CI_FILE.bak"
+  grep -qE '^[[:space:]]*CI_REVIEW_MERGE:' "$CI_FILE" || { echo "✗ ${CI_FILE} 里没有 CI_REVIEW_MERGE 行，手动加"; exit 1; }
+  sed -i.bak -E "s/^([[:space:]]*CI_REVIEW_MERGE:) *\"?(true|false)\"?/\1 \"$v\"/" "$CI_FILE" && rm -f "$CI_FILE.bak"
+  [ "$(merge_mode)" = "$1" ] || { echo "✗ 没改成：${CI_FILE} 的 CI_REVIEW_MERGE 值不是 true/false，手动改"; exit 1; }
   echo "✓ 合并档位 = ${1}（${CI_FILE}）"
 }
 copy() { # src dst

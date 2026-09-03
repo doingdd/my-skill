@@ -46,7 +46,7 @@ ci-review:
       unresolved="$(curl -sf -H "$H" "$API/discussions?per_page=100" | jq '[.[] | select(.notes[0].resolvable==true and .notes[0].resolved==false)] | length')"
       [ "$unresolved" = 0 ] || { echo "跳过：$unresolved 条未解决线程，留人裁决"; exit 0; }
       title="$(curl -sf -H "$H" "$API" | jq -r .title)"
-      ready="$(sed -E 's/^((\[?(Draft|WIP)\]?:?) *)+//I' <<<"$title")"
+      ready="$(sed -E 's/^(([[(]?(Draft|WIP)[])]?[-:]?) *)+//I' <<<"$title")"   # Draft: / [Draft] / (Draft) / Draft- / WIP:
       [ "$title" = "$ready" ] || curl -sf -H "$H" -X PUT "$API" --data-urlencode "title=$ready" >/dev/null
       squash=false; [ "$CI_REVIEW_MERGE_METHOD" = "squash" ] && squash=true
       # 本 job 还在跑，pipeline 未结束；merge_when_pipeline_succeeds 让 GitLab 在 pipeline 成功后合并
