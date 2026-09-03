@@ -1,0 +1,40 @@
+<!doctype html><meta charset="utf-8"><style>
+*{box-sizing:border-box} body{margin:0;background:#F5F0E6;font-family:-apple-system,"PingFang SC","Hiragino Sans GB","Noto Sans CJK SC",sans-serif;color:#2B2622}
+.card{width:1200px;height:675px;padding:44px 52px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.top{display:flex;align-items:baseline;gap:18px;margin-bottom:8px}
+.name{font:700 40px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#5D4037}
+.tag{font-size:16px;color:#fff;background:#5D4037;border-radius:999px;padding:5px 14px}
+.one{font-size:22px;color:#6B5E52;margin:4px 0 22px}
+.grid{display:grid;grid-template-columns:5fr 7fr;gap:22px;flex:1;min-height:0}
+.pane{background:#fff;border:2px solid #5D4037;border-radius:18px;padding:18px 22px;box-shadow:0 6px 0 rgba(93,64,55,.12);display:flex;flex-direction:column;min-height:0}
+.pane h4{margin:0 0 10px;font-size:15px;letter-spacing:.12em;color:#8C7B6E;text-transform:uppercase}
+pre{margin:0;white-space:pre-wrap;word-break:break-all;font:16px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#2B2622;overflow:hidden}
+.pane.in pre{font-size:20px;line-height:1.6}
+.hl{color:#2F6FB3;font-weight:700}
+.ok{color:#2E7D32}.warn{color:#C62828}
+.foot{position:absolute;right:52px;bottom:26px;font-size:15px;color:#9A8B7E}
+.arrow{position:absolute;left:calc(5fr);}
+.src{font-size:13px;color:#9A8B7E;margin-top:auto;padding-top:8px}
+</style>
+<div class="card">
+  <div class="top"><span class="name">repo-map</span><span class="tag">本地仓库地图 · 自动注入</span></div>
+  <div class="one">扫描全部本地 git 仓库建索引；提到仓库名，hook 自动把路径和读写角色注入给 Agent</div>
+  <div class="grid">
+    <div class="pane in"><h4>输入 · 触发</h4><pre>你只需要说仓库名：
+
+「把这个改动同步到 doc-reader」
+
+不用再贴路径</pre></div>
+    <div class="pane"><h4>真实产出</h4><pre>UserPromptSubmit hook 自动注入：
+
+<span class="hl">本地仓库地图命中（repo-map 自动注入）:</span>
+- doc-reader → ~/Desktop/Works/code/doc-reader（自研·可写） —— Doc Reader 📖
+
+约定: 引用时优先读该仓库 README/知识入口而非全库遍历；
+&quot;第三方·只读&quot;仓库禁止写入；为当前项目任务修改其他仓库时，
+改动在对方仓库独立成 commit、独立授权，不与当前仓库改动混杂……
+
+索引增量自愈；可选 launchd 定时同步，新仓库自动进图</pre><div class="src">真实注入文本 · 2026-09-01 本机（路径已缩写）</div></div>
+  </div>
+  <div class="foot">agent-skills-zh · npx skills add hanzhangzzz/agent-skills-zh</div>
+</div>

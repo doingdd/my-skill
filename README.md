@@ -74,6 +74,10 @@ Then just talk to your agent — every skill lists its own trigger phrases (Engl
 <td><a href="./harness/"><img src="./assets/readme/cards/harness.png" alt="harness TODO.md 看板"></a><br><b>harness</b> · Inspector → Worker → Reviewer 看板循环</td>
 <td><a href="./do-something/"><img src="./assets/readme/cards/do-something.png" alt="do-something DO.md"></a><br><b>do-something</b> · 无人值守自主推进，合并即收割</td>
 </tr>
+<tr>
+<td><a href="./ci-review/"><img src="./assets/readme/cards/ci-review.png" alt="ci-review 在 PR #8 上的真实评论"></a><br><b>ci-review</b> · CI 里的验证型 CR，只验执行不评方向</td>
+<td>飞轮实景：do-something 提出方向并实践 → ci-review 验证质量 → 下一轮先回应评论 → 人类只在想收割时出现。<br><br>本仓 PR #8 实录：机器人在审查规范的安装副本里发现一处逻辑矛盾（带失败场景与复现命令），开发者修复 push 后，增量审查确认"矛盾已由此 commit 消除"，零重复评论。</td>
+</tr>
 </table>
 
 <a id="install"></a>
