@@ -104,5 +104,18 @@ raw "trunk 仓库（无 master/main）--all 放行"  allow "$WORK/repoTrunk" "gi
 # ── 多 push 位点从宽拦截 ──
 raw "一条命令两个 push 位点拦截"                  ask "$WORK/repo"  "git push origin feature && git -C $WORK/repoB push --all"
 
+# ── 第四轮复审回归与等价写法（位点前 token、中段位点、+强推、refs/heads 删除、HEAD）──
+run "master 上链式命令后裸 push 拦截（位点前 token 不泄入）"  ask   master "git add -A && git commit -m \"x\" && git push"
+raw  "中段位点 -C --all 拦截（cwd 为 trunk 仓库）"            ask   "$WORK/repoTrunk" "echo note && git -C $WORK/repoB push --all"
+raw  "中段位点 -C 裸 push 拦截（B 在 master）"                ask   "$WORK/repoTrunk" "echo x && git -C $WORK/repoB push"
+run "+main 强推形态拦截"                  ask   master "git push origin +main"
+run "feature 上 :refs/heads/main 删除拦截" ask   feature "git push origin :refs/heads/main"
+run "feature 上 --delete refs/heads/main 拦截"  ask feature "git push origin --delete refs/heads/main"
+run "feature 上 --delete= 形态拦截"        ask   feature "git push origin --delete=refs/heads/main"
+run "master 上 HEAD 形态拦截"              ask   master "git push origin HEAD"
+run "master 上推功能分支也 ask（语义收紧）"  ask   master "git push origin feature"
+run "feature 上删远端非默认分支放行"        allow feature "git push origin :refs/heads/feature"
+run "feature 上 feature:dev2 放行"         allow feature "git push origin feature:dev2"
+
 echo "── 通过 $pass / 失败 $fail"
 [ "$fail" -eq 0 ]
