@@ -13,12 +13,42 @@ cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // ""')
 # -C 路径：双引号/单引号/裸词（引号内可含空格）
 # git 前边界是非名字字符：兼容 &&git、$(git、`git` 等非行首形态，又不误吞 gitx 之类同名二进制
 path_alt="(\"[^\"]*\"|'[^']*'|[^[:space:]]+)"
-prefix="(^|[^[:alnum:]_-])git([[:space:]]+-C[[:space:]]+${path_alt})?[[:space:]]+push"
+prefix="(^|[^[:alnum:]_-])git([[:space:]]+-C[[:space:]]*${path_alt})?[[:space:]]+push"
 
 sites=$(printf '%s' "$cmd" | grep -oE "${prefix}" 2>/dev/null)
 [ -z "$sites" ] && exit 0
 
 allowlist="$HOME/.claude/hooks/push-default-branch-allowlist.txt"
+# 指向默认分支的 token 形态（norm 之后匹配）：裸词、refs/heads、斜杠、冒号 refspec 全族
+pure() { # 纯字面 token（只含 refspec 合法字符）才可静态分类；
+         # 含 \ $ 引号 反引号 展开等痕迹 → shell 语义无法静态解码，调用方一律 ask
+  case $1 in
+    *[![:alnum:]_/.:+-]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+is_default_spec() { # $1=norm 后的 token；逐 glob 判定是否指向默认分支（case 变量展开不解析 | 交替）
+  local s
+  for s in master main refs/heads/master refs/heads/main "*/master" "*/main" \
+           ":master" ":main" ":refs/heads/master" ":refs/heads/main" \
+           "*:master" "*:main" "*:refs/heads/master" "*:refs/heads/main"; do
+    case $1 in $s) return 0 ;; esac
+  done
+  return 1
+}
+
+norm() { # 白名单保留法：只留合法 refspec 字符（引号/转义/展开符号在真实 ref 中不存在，shell 引用形态无界，
+         #  枚举不完就反向只认白名单），再迭代剥 + 强推前缀
+  local t prev
+  t=$(printf '%s' "$1" | tr -cd '[:alnum:]_/.:+-')
+  while :; do
+    prev=$t
+    t=${t#+}
+    [ "$t" = "$prev" ] && break
+  done
+  printf '%s' "$t"
+}
 
 deny() {
   jq -rn --arg reason "$1（永久放行本仓库：将仓库根路径加入 ~/.claude/hooks/push-default-branch-allowlist.txt）" \
@@ -52,8 +82,8 @@ case $site in
 esac
 cpath=""
 case $site in
-  *"-C "*)
-    cpath=$(printf '%s' "$site" | sed -E "s/^git[[:space:]]+-C[[:space:]]+//; s/[[:space:]]+push\$//")
+  *-C*)
+    cpath=$(printf '%s' "$site" | sed -E "s/^git[[:space:]]+-C[[:space:]]*//; s/[[:space:]]+push\$//")
     cpath=${cpath#\"}; cpath=${cpath%\"}; cpath=${cpath#\'}; cpath=${cpath%\'}
     ;;
 esac
@@ -102,30 +132,33 @@ prev_delete=0
 for tok in $args_after_push; do
   if [ "$prev_delete" = 1 ]; then
     prev_delete=0
-    case ${tok#+} in
-      master|main|refs/heads/master|refs/heads/main|*/master|*/main)
-        deny "即将删除远端默认分支（${tok}）。共享项目请走分支+MR；确认属正常操作后放行。"
-        ;;
-    esac
+    if ! pure "$tok"; then
+      deny "删除目标含 shell 引用/转义/展开，无法静态判定，请人工确认。"
+    fi
+    if is_default_spec "$(norm "$tok")"; then
+      deny "即将删除远端默认分支（${tok}）。共享项目请走分支+MR；确认属正常操作后放行。"
+    fi
     continue
   fi
   case $tok in
     --delete|-d) prev_delete=1; continue ;;
     --delete=*)
-      case ${tok#--delete=} in
-        master|main|refs/heads/master|refs/heads/main|*/master|*/main)
-          deny "即将删除远端默认分支。共享项目请走分支+MR；确认属正常操作后放行。"
-          ;;
-      esac
+      if ! pure "${tok#--delete=}"; then
+        deny "删除目标含 shell 引用/转义/展开，无法静态判定，请人工确认。"
+      fi
+      if is_default_spec "$(norm "${tok#--delete=}")"; then
+        deny "即将删除远端默认分支。共享项目请走分支+MR；确认属正常操作后放行。"
+      fi
       continue
       ;;
   esac
   case $tok in -*) continue ;; esac
-  case ${tok#+} in
-    master|main|refs/heads/master|refs/heads/main|*/master|*/main)
-      deny "refspec 显式指向默认分支（${tok}）。共享项目请走分支+MR；个人/小型项目确认后放行。"
-      ;;
-  esac
+  if ! pure "$tok"; then
+    deny "refspec 含 shell 引用/转义/展开，无法静态判定目标，请人工确认。"
+  fi
+  if is_default_spec "$(norm "$tok")"; then
+    deny "refspec 显式指向默认分支（${tok}）。共享项目请走分支+MR；个人/小型项目确认后放行。"
+  fi
 done
 
 exit 0

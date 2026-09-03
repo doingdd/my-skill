@@ -129,5 +129,40 @@ run "-d 删远端默认分支拦截"                        ask   feature "git p
 run "-d 删远端非默认分支放行"                      allow feature "git push origin -d feature"
 raw  "删默认分支+链式 checkout 仍拦（规则 2 不受截断影响）"  ask "$WORK/repo" "git push origin :refs/heads/main && git checkout master"
 
+# ── 收割后遗留洞族（verdict 移交清单）：引号 refspec 与 -C 粘连形态 ──
+run "引号 refs/heads/main 拦截"            ask   feature "git push origin \"refs/heads/main\""
+run "引号 main 拦截"                       ask   feature "git push origin 'main'"
+run "引号 --delete refs/heads/main 拦截"   ask   feature "git push origin --delete \"refs/heads/main\""
+run "+引号 refs/heads/main 拦截"           ask   feature "git push origin +\"refs/heads/main\""
+raw  "-C 粘连路径 --all 拦截"               ask   "$WORK/repoTrunk" "git -C$WORK/repoB push --all"
+raw  "-C 粘连路径显式推 main 拦截"           ask   "$WORK/repoTrunk" "git -C$WORK/repoB push origin main"
+run "-C 空格形态不回归"                    ask   master "git -C $WORK/repoB push origin main"
+
+# ── 第六轮复审：引号内 + 与冒号引号形态 ──
+run "引号内 + 前缀 \"+main\" 拦截"          ask   feature "git push origin \"+main\""
+run "单引号内 + 前缀拦截"                   ask   feature "git push origin '+main'"
+run "引号内 + 删默认分支拦截"                ask   feature "git push origin --delete \"+main\""
+run "引号 :main 删除拦截"                   ask   feature "git push origin \":main\""
+run "引号 HEAD:main 拦截"                   ask   feature "git push origin \"HEAD:main\""
+run "单引号 HEAD:main 拦截"                 ask   feature "git push origin 'HEAD:main'"
+run "引号在中段 HEAD:\"main\" 拦截"          ask   feature 'git push origin HEAD:"main"'
+run "引号 :refs/heads/main 拦截"            ask   feature "git push origin \":refs/heads/main\""
+run "非默认 refspec 不误拦"                 allow feature "git push origin feature:dev"
+
+# ── 第七轮复审：ANSI-C 引号与反斜杠转义（白名单 norm 收类）──
+run "ANSI-C 引号 \$'master' 拦截"           ask   feature "git push origin \$'master'"
+run "ANSI-C 引号 \$'+main' 拦截"            ask   feature "git push origin \$'+main'"
+run "反斜杠转义 m\\aster 拦截"              ask   feature "git push origin m\\aster"
+run "反斜杠转义删除 :m\\aster 拦截"          ask   feature "git push origin :m\\aster"
+run "ANSI-C --delete \$'main' 拦截"         ask   feature "git push origin --delete \$'main'"
+run "连字符分支名不被白名单误伤"              allow feature "git push origin m-aster"
+
+# ── 第八轮复审：转义序列编码文本存活（纯/杂分流收类）──
+run "ANSI-C 十六进制转义 \\x6d... 拦截"      ask   feature "git push origin \$'\\x6d\\x61\\x69\\x6e'"
+run "八进制转义 \\155 拦截"                  ask   feature "git push origin \$'\\155\\141\\163\\164\\145\\162'"
+run "带引号的纯 token 也 ask（引号即杂）"     ask   feature "git push origin \"feature\""
+run "@{u} 含展开痕迹 ask（上游可被指到 main）"  ask   feature "git push origin @{u}"
+run "纯字面非默认 refs/heads 放行"            allow feature "git push origin refs/heads/feature"
+
 echo "── 通过 $pass / 失败 $fail"
 [ "$fail" -eq 0 ]
