@@ -20,6 +20,14 @@ sites=$(printf '%s' "$cmd" | grep -oE "${prefix}" 2>/dev/null)
 
 allowlist="$HOME/.claude/hooks/push-default-branch-allowlist.txt"
 # 指向默认分支的 token 形态（norm 之后匹配）：裸词、refs/heads、斜杠、冒号 refspec 全族
+pure() { # 纯字面 token（只含 refspec 合法字符）才可静态分类；
+         # 含 \ $ 引号 反引号 展开等痕迹 → shell 语义无法静态解码，调用方一律 ask
+  case $1 in
+    *[![:alnum:]_/.:+-]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
 is_default_spec() { # $1=norm 后的 token；逐 glob 判定是否指向默认分支（case 变量展开不解析 | 交替）
   local s
   for s in master main refs/heads/master refs/heads/main "*/master" "*/main" \
@@ -124,6 +132,9 @@ prev_delete=0
 for tok in $args_after_push; do
   if [ "$prev_delete" = 1 ]; then
     prev_delete=0
+    if ! pure "$tok"; then
+      deny "删除目标含 shell 引用/转义/展开，无法静态判定，请人工确认。"
+    fi
     if is_default_spec "$(norm "$tok")"; then
       deny "即将删除远端默认分支（${tok}）。共享项目请走分支+MR；确认属正常操作后放行。"
     fi
@@ -132,6 +143,9 @@ for tok in $args_after_push; do
   case $tok in
     --delete|-d) prev_delete=1; continue ;;
     --delete=*)
+      if ! pure "${tok#--delete=}"; then
+        deny "删除目标含 shell 引用/转义/展开，无法静态判定，请人工确认。"
+      fi
       if is_default_spec "$(norm "${tok#--delete=}")"; then
         deny "即将删除远端默认分支。共享项目请走分支+MR；确认属正常操作后放行。"
       fi
@@ -139,6 +153,9 @@ for tok in $args_after_push; do
       ;;
   esac
   case $tok in -*) continue ;; esac
+  if ! pure "$tok"; then
+    deny "refspec 含 shell 引用/转义/展开，无法静态判定目标，请人工确认。"
+  fi
   if is_default_spec "$(norm "$tok")"; then
     deny "refspec 显式指向默认分支（${tok}）。共享项目请走分支+MR；个人/小型项目确认后放行。"
   fi

@@ -157,5 +157,12 @@ run "反斜杠转义删除 :m\\aster 拦截"          ask   feature "git push or
 run "ANSI-C --delete \$'main' 拦截"         ask   feature "git push origin --delete \$'main'"
 run "连字符分支名不被白名单误伤"              allow feature "git push origin m-aster"
 
+# ── 第八轮复审：转义序列编码文本存活（纯/杂分流收类）──
+run "ANSI-C 十六进制转义 \\x6d... 拦截"      ask   feature "git push origin \$'\\x6d\\x61\\x69\\x6e'"
+run "八进制转义 \\155 拦截"                  ask   feature "git push origin \$'\\155\\141\\163\\164\\145\\162'"
+run "带引号的纯 token 也 ask（引号即杂）"     ask   feature "git push origin \"feature\""
+run "@{u} 含展开痕迹 ask（上游可被指到 main）"  ask   feature "git push origin @{u}"
+run "纯字面非默认 refs/heads 放行"            allow feature "git push origin refs/heads/feature"
+
 echo "── 通过 $pass / 失败 $fail"
 [ "$fail" -eq 0 ]
