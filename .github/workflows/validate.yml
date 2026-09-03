@@ -1,0 +1,15 @@
+name: validate
+
+# 市场质量门禁：SKILL.md 规范、索引一致性、脚本可执行位。
+# 检查逻辑见 .github/scripts/validate_marketplace.py，纯标准库，无外部依赖。
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 .github/scripts/validate_marketplace.py .
