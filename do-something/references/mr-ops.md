@@ -9,7 +9,7 @@ do-something 在 MR 模式下要做的远端操作，GitHub 用 `gh`，GitLab �
 | 要什么 | GitHub | GitLab |
 |---|---|---|
 | do/main 是否已并入默认分支 | `git merge-base --is-ancestor do/main origin/<default>` | 同左 |
-| 找现有 MR | `gh pr list --head do/main --state all --json number,state,url,isDraft` | `glab mr list --source-branch do/main --all -F json` |
+| 找现有 MR（`state` 为 MERGED 也算收割，squash 合并后上一行判不出） | `gh pr list --head do/main --state all --json number,state,url,isDraft` | `glab mr list --source-branch do/main --all -F json`（`state` 为 merged） |
 | CI 状态 | `gh pr checks <n>`（非零退出 = 有失败） | `glab ci status --branch do/main` |
 | 失败的 CI 日志 | `gh run list --branch do/main --limit 1 --json databaseId` → `gh run view <id> --log-failed` | `glab ci view --branch do/main` 找失败 job → `glab ci trace <job-id>` |
 
@@ -47,7 +47,7 @@ glab api -X PUT "projects/:id/merge_requests/<iid>/discussions/<discussion-id>" 
 ```
 
 机器人线程的识别：ci-review 发的评论正文以 `<!-- ci-review -->` 开头；作者是人就不设回合上限。
-"同一线程来回 3 轮"按你自己在该线程里的回复条数计。
+"同一线程来回 5 轮"按你自己在该线程里的回复条数计。
 
 ## 结束：push 与 MR 正文
 

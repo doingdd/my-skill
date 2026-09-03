@@ -195,10 +195,10 @@ Machine-readable index of every skill in this repository. Agents can parse this 
 ```json
 {
   "name": "ci-review",
-  "version": "1.0.0",
-  "description": "Install a CI-triggered LLM code reviewer into a repo: on every PR/MR push, Claude Code runs headless, reproduces every claim the change makes, hunts correctness bugs with concrete failure scenarios, and posts inline comments plus one sticky summary. Judges execution, not direction — the other half of the do-something flywheel. GitHub and GitLab templates. CI 里的验证型代码审查机器人",
+  "version": "1.1.0",
+  "description": "Install a CI-triggered LLM code reviewer into a repo: on every PR/MR push, Claude Code runs headless, reproduces every claim the change makes, hunts correctness bugs with concrete failure scenarios, and posts inline comments plus one sticky summary with a machine-readable verdict. Two tiers remembered in the repo: review-only, or auto-merge do/* branches when the verdict passes and no thread is open. Detects GitHub/GitLab, asks only for what is missing, sets CI variables itself. Judges execution, not direction — the other half of the do-something flywheel. CI 里的验证型代码审查机器人，可选审查通过自动合并",
   "trigger": "/ci-review",
-  "keywords": ["code review", "ci", "github actions", "gitlab ci", "claude-code-action", "pull request", "merge request", "flywheel", "代码审查", "自动 review"],
+  "keywords": ["code review", "ci", "github actions", "gitlab ci", "claude-code-action", "pull request", "merge request", "auto merge", "flywheel", "代码审查", "自动 review", "自动合并"],
   "compatibility": "Claude Code",
   "install_path": "ci-review/",
   "repo": "https://github.com/hanzhangzzz/agent-skills-zh",

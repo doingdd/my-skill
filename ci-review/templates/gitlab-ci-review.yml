@@ -4,7 +4,8 @@
 #   ANTHROPIC_AUTH_TOKEN  网关或 Anthropic 的 API key（masked）；用订阅额度则改设 CLAUDE_CODE_OAUTH_TOKEN
 #   ANTHROPIC_BASE_URL    Anthropic 兼容网关地址，如 https://open.bigmodel.cn/api/anthropic；不设 = 官方 Anthropic
 #   ANTHROPIC_MODEL       网关上的模型名，如 glm-5.3；不设 = CLI 默认
-#   GITLAB_TOKEN          项目访问令牌，api scope，Reporter 以上（CI_JOB_TOKEN 不能发 MR 评论，masked）
+#   GITLAB_TOKEN          项目访问令牌，api scope（masked）。仅审查：Reporter 以上；自动合并：Developer 以上
+#                         （CI_JOB_TOKEN 不能发 MR 评论）
 ci-review:
   stage: test
   image: node:22
@@ -12,6 +13,11 @@ ci-review:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   variables:
     GIT_DEPTH: 0
+    # 合并档位（/ci-review merge on|off 改这里）：
+    #   "false" = 仅审查；"true" = 审查通过即合并，仅限 CI_REVIEW_MERGE_BRANCHES 匹配的来源分支
+    CI_REVIEW_MERGE: "false"
+    CI_REVIEW_MERGE_BRANCHES: "do/*"   # 空格分隔的 glob，默认只合 do-something 的分支
+    CI_REVIEW_MERGE_METHOD: "squash"   # squash | merge
   before_script:
     - apt-get update -qq && apt-get install -y -qq jq curl git > /dev/null
     - curl -fsSL https://claude.ai/install.sh | bash
@@ -28,3 +34,21 @@ ci-review:
       读取仓库里的 .gitlab/ci-review.md，严格按它执行。" \
         --allowedTools "Bash,Read,Grep,Glob" \
         --output-format json
+    # 合并由下面的脚本决定，不经模型：模型只在 sticky 里写 verdict，脚本核对四个条件后才合并。
+    - |
+      [ "$CI_REVIEW_MERGE" = "true" ] || exit 0
+      hit=0; for g in $CI_REVIEW_MERGE_BRANCHES; do case "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME" in $g) hit=1;; esac; done
+      [ "$hit" = 1 ] || { echo "跳过：$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME 不在自动合并范围（${CI_REVIEW_MERGE_BRANCHES}）"; exit 0; }
+      API="$CI_API_V4_URL/projects/$CI_PROJECT_ID/merge_requests/$CI_MERGE_REQUEST_IID"; H="PRIVATE-TOKEN: $GITLAB_TOKEN"
+      sticky="$(curl -sf -H "$H" "$API/notes?per_page=100" | jq -r '[.[] | select(.body | startswith("<!-- ci-review last="))] | last | .body // ""')"
+      grep -q "<!-- ci-review last=$CI_COMMIT_SHA verdict=pass -->" <<<"$sticky" \
+        || { echo "跳过：sticky 不是本 sha 的 verdict=pass"; exit 0; }
+      unresolved="$(curl -sf -H "$H" "$API/discussions?per_page=100" | jq '[.[] | select(.notes[0].resolvable==true and .notes[0].resolved==false)] | length')"
+      [ "$unresolved" = 0 ] || { echo "跳过：$unresolved 条未解决线程，留人裁决"; exit 0; }
+      title="$(curl -sf -H "$H" "$API" | jq -r .title)"
+      ready="$(sed -E 's/^((\[?(Draft|WIP)\]?:?) *)+//I' <<<"$title")"
+      [ "$title" = "$ready" ] || curl -sf -H "$H" -X PUT "$API" --data-urlencode "title=$ready" >/dev/null
+      squash=false; [ "$CI_REVIEW_MERGE_METHOD" = "squash" ] && squash=true
+      # 本 job 还在跑，pipeline 未结束；merge_when_pipeline_succeeds 让 GitLab 在 pipeline 成功后合并
+      curl -sf -H "$H" -X PUT "$API/merge" -d "squash=$squash" -d "should_remove_source_branch=true" -d "merge_when_pipeline_succeeds=true" >/dev/null
+      echo "已提交合并 MR !${CI_MERGE_REQUEST_IID}（${CI_COMMIT_SHA}），pipeline 成功后生效"
