@@ -138,5 +138,16 @@ raw  "-C 粘连路径 --all 拦截"               ask   "$WORK/repoTrunk" "git -
 raw  "-C 粘连路径显式推 main 拦截"           ask   "$WORK/repoTrunk" "git -C$WORK/repoB push origin main"
 run "-C 空格形态不回归"                    ask   master "git -C $WORK/repoB push origin main"
 
+# ── 第六轮复审：引号内 + 与冒号引号形态 ──
+run "引号内 + 前缀 \"+main\" 拦截"          ask   feature "git push origin \"+main\""
+run "单引号内 + 前缀拦截"                   ask   feature "git push origin '+main'"
+run "引号内 + 删默认分支拦截"                ask   feature "git push origin --delete \"+main\""
+run "引号 :main 删除拦截"                   ask   feature "git push origin \":main\""
+run "引号 HEAD:main 拦截"                   ask   feature "git push origin \"HEAD:main\""
+run "单引号 HEAD:main 拦截"                 ask   feature "git push origin 'HEAD:main'"
+run "引号在中段 HEAD:\"main\" 拦截"          ask   feature 'git push origin HEAD:"main"'
+run "引号 :refs/heads/main 拦截"            ask   feature "git push origin \":refs/heads/main\""
+run "非默认 refspec 不误拦"                 allow feature "git push origin feature:dev"
+
 echo "── 通过 $pass / 失败 $fail"
 [ "$fail" -eq 0 ]

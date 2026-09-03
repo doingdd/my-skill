@@ -19,12 +19,25 @@ sites=$(printf '%s' "$cmd" | grep -oE "${prefix}" 2>/dev/null)
 [ -z "$sites" ] && exit 0
 
 allowlist="$HOME/.claude/hooks/push-default-branch-allowlist.txt"
+# 指向默认分支的 token 形态（norm 之后匹配）：裸词、refs/heads、斜杠、冒号 refspec 全族
+is_default_spec() { # $1=norm 后的 token；逐 glob 判定是否指向默认分支（case 变量展开不解析 | 交替）
+  local s
+  for s in master main refs/heads/master refs/heads/main "*/master" "*/main" \
+           ":master" ":main" ":refs/heads/master" ":refs/heads/main" \
+           "*:master" "*:main" "*:refs/heads/master" "*:refs/heads/main"; do
+    case $1 in $s) return 0 ;; esac
+  done
+  return 1
+}
 
-norm() { # 去引号与 + 强推前缀，返回规范化 token
-  local t=$1
-  t=${t#+}
-  t=${t#\"}; t=${t%\"}
-  t=${t#\'}; t=${t%\'}
+norm() { # 删全部引号字符（合法 refspec 不含引号）并迭代剥 + 强推前缀
+  local t=$1 prev
+  t=${t//\"/}; t=${t//\'/}
+  while :; do
+    prev=$t
+    t=${t#+}
+    [ "$t" = "$prev" ] && break
+  done
   printf '%s' "$t"
 }
 
@@ -110,30 +123,24 @@ prev_delete=0
 for tok in $args_after_push; do
   if [ "$prev_delete" = 1 ]; then
     prev_delete=0
-    case $(norm "$tok") in
-      master|main|refs/heads/master|refs/heads/main|*/master|*/main)
-        deny "即将删除远端默认分支（${tok}）。共享项目请走分支+MR；确认属正常操作后放行。"
-        ;;
-    esac
+    if is_default_spec "$(norm "$tok")"; then
+      deny "即将删除远端默认分支（${tok}）。共享项目请走分支+MR；确认属正常操作后放行。"
+    fi
     continue
   fi
   case $tok in
     --delete|-d) prev_delete=1; continue ;;
     --delete=*)
-      case $(norm "${tok#--delete=}") in
-        master|main|refs/heads/master|refs/heads/main|*/master|*/main)
-          deny "即将删除远端默认分支。共享项目请走分支+MR；确认属正常操作后放行。"
-          ;;
-      esac
+      if is_default_spec "$(norm "${tok#--delete=}")"; then
+        deny "即将删除远端默认分支。共享项目请走分支+MR；确认属正常操作后放行。"
+      fi
       continue
       ;;
   esac
   case $tok in -*) continue ;; esac
-  case $(norm "$tok") in
-    master|main|refs/heads/master|refs/heads/main|*/master|*/main)
-      deny "refspec 显式指向默认分支（${tok}）。共享项目请走分支+MR；个人/小型项目确认后放行。"
-      ;;
-  esac
+  if is_default_spec "$(norm "$tok")"; then
+    deny "refspec 显式指向默认分支（${tok}）。共享项目请走分支+MR；个人/小型项目确认后放行。"
+  fi
 done
 
 exit 0
