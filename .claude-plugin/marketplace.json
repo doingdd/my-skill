@@ -92,7 +92,7 @@
       "source": "./",
       "strict": false,
       "description": "Autonomously pick and finish the highest-leverage task in the project; all runs continue on one do/main branch with DO.md as memory, humans merge to harvest. Optional MR mode keeps a living draft MR and answers CI/review feedback first. 自主推进项目，适合 cron/loop 无人值守；MR 模式与 ci-review 组成飞轮",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "skills": [
         "./do-something"
       ]

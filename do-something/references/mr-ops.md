@@ -9,7 +9,7 @@ do-something 在 MR 模式下要做的远端操作，GitHub 用 `gh`，GitLab �
 | 要什么 | GitHub | GitLab |
 |---|---|---|
 | do/main 是否已并入默认分支 | `git merge-base --is-ancestor do/main origin/<default>` | 同左 |
-| 找现有 MR（`state` 为 MERGED 也算收割，squash 合并后上一行判不出） | `gh pr list --head do/main --state all --json number,state,url,isDraft` | `glab mr list --source-branch do/main --all -F json`（`state` 为 merged） |
+| 找现有 MR（`state` 为 MERGED 也算收割，squash 合并后上一行判不出；同时读取 `title` 防止新 MR 沿用旧标题） | `gh pr list --head do/main --state all --json number,state,url,isDraft,title` | `glab mr list --source-branch do/main --all -F json`（`state` 为 merged） |
 | CI 状态 | `gh pr checks <n>`（非零退出 = 有失败） | `glab ci status --branch do/main` |
 | 失败的 CI 日志 | `gh run list --branch do/main --limit 1 --json databaseId` → `gh run view <id> --log-failed` | `glab ci view --branch do/main` 找失败 job → `glab ci trace <job-id>` |
 
@@ -49,18 +49,28 @@ glab api -X PUT "projects/:id/merge_requests/<iid>/discussions/<discussion-id>" 
 机器人线程的识别：ci-review 发的评论正文以 `<!-- ci-review -->` 开头；作者是人就不设回合上限。
 "同一线程来回 5 轮"按你自己在该线程里的回复条数计。
 
-## 结束：push 与 MR 正文
+## 结束：push、MR 标题与正文
+
+先从 `origin/<default>...HEAD` 的完整 diff 概括 MR 的主要可交付成果，再设置标题：
+
+```bash
+TITLE='do: <具体对象 + 已实现的结果>'
+```
+
+`TITLE` 描述这批改动做成了什么，不复述 DO.md 的长期目的，不写“继续优化”“推进项目”等过程话。
+新建 MR 时若它与上一个已合并的 `do/main` MR 同名，根据当前 diff 补足具体对象或结果；不要追加日期或序号。
+续更现有 MR 时也按相对默认分支的全部未合并改动重算标题，不能只概括最后一个 commit。
 
 ```bash
 git push -u origin do/main
 
 # GitHub：无 MR 则建 draft，有则更新正文
-gh pr create --draft --head do/main --base <default> --title 'do: <目的一句话>' --body-file /tmp/do-body.md
-gh pr edit <n> --body-file /tmp/do-body.md
+gh pr create --draft --head do/main --base <default> --title "$TITLE" --body-file /tmp/do-body.md
+gh pr edit <n> --title "$TITLE" --body-file /tmp/do-body.md
 
 # GitLab
-glab mr create --draft --source-branch do/main --target-branch <default> --title 'do: <目的一句话>' --description "$(cat /tmp/do-body.md)" --yes
-glab mr update <iid> --description "$(cat /tmp/do-body.md)"
+glab mr create --draft --source-branch do/main --target-branch <default> --title "$TITLE" --description "$(cat /tmp/do-body.md)" --yes
+glab mr update <iid> --title "$TITLE" --description "$(cat /tmp/do-body.md)"
 ```
 
 `/tmp/do-body.md` = DO.md 的"目的"一节 + "日志"一节原文。不写别的：MR 正文就是 DO.md 的远端镜像。
