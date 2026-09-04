@@ -16,17 +16,19 @@ CODE="$WORK/code"; mkdir -p "$CODE"
 pass=0; fail=0
 ok() { echo "✓ $1"; pass=$((pass+1)); }
 bad() { echo "✗ $1 ${2:+—— 实得: ${2:0:120}}"; fail=$((fail+1)); }
-assert() { # assert <名称> <实际串> <egrep 断言...>
+assert() { # assert <名称> <实际串> <egrep 断言...>；失败只计一次
   local label="$1" out="$2"; shift 2
   local a good=1
   for a in "$@"; do
     if [ "${a#!}" != "$a" ]; then
-      printf '%s' "$out" | grep -qE "${a#!}" && { echo "✗ ${label} 不应命中 [${a#!}]"; good=0; }
+      if printf '%s' "$out" | grep -qE "${a#!}"; then
+        echo "✗ ${label} 不应命中 [${a#!}]"; good=0
+      fi
     elif ! printf '%s' "$out" | grep -qE "$a"; then
       echo "✗ ${label} 断言未命中 [$a] 实得: $(printf '%s' "$out" | head -1)"; good=0
     fi
   done
-  [ "$good" = 1 ] && ok "$label" || bad "$label"
+  if [ "$good" = 1 ]; then ok "$label"; else fail=$((fail+1)); fi
 }
 
 g() { local d="$1"; shift; git -C "$d" -c user.email=t@t -c user.name=t "$@"; }
@@ -50,8 +52,12 @@ EOF
 out=$(python3 "$RM" scan 2>&1)
 assert "scan 退出与输出" "$out" '!Traceback'
 [ -f "$HOME/.claude/repo-map-cache.json" ] && ok "scan 产出缓存" || bad "scan 产出缓存"
-cache=$(cat "$HOME/.claude/repo-map-cache.json")
-assert "角色推断" "$cache" '自研·可写' '协作·可写' '本地·可写' '第三方·只读'
+# 角色逐仓库钉死映射（而非仅验证字符串存在——存在性断言挡不住角色对调）
+for spec in "alpha:自研·可写" "beta:协作·可写" "gamma:自研·可写" "delta:第三方·只读" "zeta:本地·可写"; do
+  repo="${spec%%:*}"; role="${spec#*:}"
+  out=$(python3 "$RM" resolve "$repo" 2>&1)
+  assert "角色映射 ${repo} → ${role}" "$out" "（${role}"
+done
 
 # T2 list
 out=$(python3 "$RM" list 2>&1)
@@ -84,7 +90,8 @@ assert "边界: kube 不命中 kubernetes" "$out" '!kubernetes'
 mk "$CODE/beta-v2"; echo b2 > "$CODE/beta-v2/x.txt"; g "$CODE/beta-v2" add -A; g "$CODE/beta-v2" commit -q -m i
 python3 "$RM" scan >/dev/null 2>&1
 out=$(printf '{"prompt":"看下 beta-v2","cwd":"'$WORK'"}' | python3 "$PH" 2>&1)
-assert "边界: beta-v2 同时命中两个含 beta 词条" "$out" 'beta-v2'
+assert "边界: beta-v2 命中自身" "$out" 'beta-v2'
+assert "边界: beta-v2 场景不误注入 beta 条目" "$out" '!→ .*'"$CODE"'/beta（' 
 out=$(printf '{"prompt":"看下 beta 的文档","cwd":"'$WORK'"}' | python3 "$PH" 2>&1)
 assert "边界: beta 不命中 beta-v2" "$out" '!beta-v2'
 
