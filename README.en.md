@@ -42,6 +42,7 @@ Then just talk to your agent. Every skill lists its trigger phrases (English and
 | [do-something](./do-something/) | Autonomously pick and finish the highest-leverage task in the project; all runs continue on one `do/main` branch, humans merge to harvest. MR mode keeps a living draft MR and answers CI/review feedback first | Spare tokens and an idle project — let the agent work while you sleep (cron/loop) | `/do-something` |
 | [ci-review](./ci-review/) | Install a CI-triggered LLM reviewer: on every PR/MR push Claude reproduces the change's claims, hunts correctness bugs with failure scenarios, posts inline comments + one sticky summary with a verdict. Optional tier: auto-merge `do/*` branches when the verdict passes. Judges execution, not direction | You want every PR/MR machine-verified before a human looks, or you run do-something in MR mode and want the flywheel to harvest itself | `/ci-review` |
 | [git-push-guard](./git-push-guard/) | Hook-only plugin: intercepts direct pushes to `master`/`main`, asks for confirmation, per-repo allowlist | You let an agent commit and want shared-branch discipline enforced | auto on `git push` (plugin install only) |
+| [hook-test-kit](./hook-test-kit/) | Behavior-matrix test scaffolding for Claude Code hooks — scratch fixtures, EMPTY/!-negation assertions, mutation-experiment finish. 给 hook 脚本补行为测试 | `/hook-test-kit` · 写了/改了 hook 要测试 |
 
 ## Gallery
 
@@ -151,6 +152,10 @@ node scripts/eval_prompt_director.mjs --case-id 40 --prompt-file examples/readme
 ### harness
 
 A lightweight autonomous loop: the Inspector reads the project and writes actionable tasks to `TODO.md`, the Worker claims and implements them with verification, the Reviewer checks diffs and results before anything is recorded. Run once, loop until nothing safe is left, or schedule it inside a Claude Code session.
+
+### hook-test-kit
+
+Behavior-matrix test scaffolding for Claude Code hooks (PreToolUse / SessionStart / UserPromptSubmit): scratch fixtures, JSON-over-stdin, an EMPTY/!-negation assertion protocol, and known bash pitfalls pre-fixed. Every suite finishes with a mutation experiment — break each interception rule, the suite must go red.
 
 ## Contributing
 
