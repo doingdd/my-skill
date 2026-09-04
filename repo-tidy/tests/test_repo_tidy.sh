@@ -7,6 +7,7 @@ PASS=0; FAIL=0
 ok(){ if eval "$2"; then PASS=$((PASS+1)); echo "  ✓ $1"; else FAIL=$((FAIL+1)); echo "  ✗ $1"; fi; }
 
 rm -rf "$T"; mkdir -p "$T"
+T_REAL="$(cd "$T" && pwd -P)"  # macOS 的 /var 是 /private/var 软链，输出使用真实路径
 git -c init.defaultBranch=master init --bare -q "$T/remote.git"
 git -c init.defaultBranch=master clone -q "$T/remote.git" "$T/proj" 2>/dev/null
 cd "$T/proj"
@@ -56,7 +57,7 @@ OUT=$($TIDY "$T/proj" --new t2); echo "$OUT"
 ok "sibling worktree 目录存在" '[ -d "$T/proj--t2" ]'
 ok "worktree 在 task/t2"      '[ "$(git -C "$T/proj--t2" rev-parse --abbrev-ref HEAD)" = task/t2 ]'
 ok "基于最新远端 master"      '[ "$(git -C "$T/proj--t2" rev-parse HEAD)" = "$(git -C "$T/proj" rev-parse origin/master)" ]'
-ok "输出含 cd 路径"           'grep -q "cd $T/proj--t2" <<<"$OUT"'
+ok "输出含 cd 路径"           'grep -Fq "cd $T_REAL/proj--t2" <<<"$OUT"'
 
 echo "== T5 任务合并后 tidy 自动回收 worktree =="
 cd "$T/proj--t2"; git config user.email t@t.t; git config user.name t

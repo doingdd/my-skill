@@ -91,8 +91,8 @@ grep "^name:" <skill-name>/SKILL.md | sed 's/name: //'
 #### 6.2 内容检查
 
 ```bash
-# 全部机械检查走市场门禁（行数、frontmatter、硬编码安装路径、索引一致性、脚本可执行位）
-python3 .github/scripts/validate_marketplace.py .
+# 全仓行为与市场门禁共用同一入口（各 skill 测试、frontmatter、索引、生成物、脚本可执行位）
+bash .github/scripts/run_behavior_tests.sh
 ```
 
 注意：`~/.claude/settings.json` 这类用户级配置文件本来就在 `~/.claude`，属合法引用；
