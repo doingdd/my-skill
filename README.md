@@ -9,7 +9,7 @@ Translate English docs into Chinese, archive WeChat / Xiaohongshu / X content as
 
 [![GitHub stars](https://img.shields.io/github/stars/hanzhangzzz/agent-skills-zh?style=flat&logo=github)](https://github.com/hanzhangzzz/agent-skills-zh/stargazers)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
-[![Skills](https://img.shields.io/badge/skills-11-blue)](#skills)
+[![Skills](https://img.shields.io/badge/skills-14-blue)](#skills)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-compatible-8A2BE2)](#install)
 [![Codex](https://img.shields.io/badge/Codex-compatible-black)](#install)
 [![skills.sh](https://img.shields.io/badge/skills.sh-hanzhangzzz%2Fagent--skills--zh-orange)](https://skills.sh/hanzhangzzz/agent-skills-zh)
