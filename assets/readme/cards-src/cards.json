@@ -76,5 +76,45 @@
   "out_label": "PR #8 上的真实评论（GLM-5.3）",
   "output": "**\"范围为空（例如只改了 DO.md）\"与上一行的机械规则矛盾**\n失败场景：DO.md 随分支进入 diff → diff 非空 → 捷径分支永不触发\n复现：git diff <base>...t --stat → DO.md | 1 +\n\n→ 开发者修复 push → 增量审查（sticky）：\n<ok>无代码改动 —— 范围只含两个 *.md，按捷径分支只更新 sticky</ok>\n<ok>\"修正逻辑矛盾\"成立 —— 本条 sticky 正是新捷径分支的首次真实触发</ok>\n发现 0 条重复评论；改规范 = 改 .github/ci-review.md，下次 push 生效",
   "src": "评论原文来自 agent-skills-zh PR #8，模型经智谱 Anthropic 兼容网关"
+ },
+ {
+  "name": "md2view",
+  "tag": "Markdown → 可读视图",
+  "one": "把又长又臭的 md 重编码成左原文·右重组·滚动同步的双栏视图，每个字都能一键回到原文出处",
+  "input": "一篇复盘/报告/规格/长 README\n\n（\"把这篇变成能读的视图\"）",
+  "output": "reader.html  <ok>53KB 自包含</ok>\n├── 左栏: 原文（分块锚点）\n├── 右栏: 信息重组（表格/矩阵/标注条）\n└── <ok>机器验证</ok> 溯源不过不产出 · 防垫字检查",
+  "src": "单测 27/27 · 真实管线冒烟通过"
+ },
+ {
+  "name": "hook-test-kit",
+  "tag": "hook → 行为测试",
+  "one": "给 Claude Code hook 脚本生成行为矩阵测试骨架——scratch 隔离、EMPTY/!否定协议、变异实验收尾",
+  "input": "\"给 repo-tidy 的 hook 补测试\"",
+  "output": "test_git-repo-status.sh\n├── run/assert 协议（bash 坑位预修）\n├── 11 场景: trunk/无远端/空仓库/detached…\n└── <ok>变异实验</ok> 改坏必红、恢复复绿",
+  "src": "狗粮全链路验证"
+ },
+ {
+  "name": "hkr-render",
+  "tag": "Markdown → 公众号排版",
+  "one": "一键排成微信合规的内联样式 HTML：7 主题、外链自动转脚注、多图文直推草稿箱",
+  "input": "一篇 md\n\n（\"公众号排版，用含彰主题\"）",
+  "output": "preview.html\n├── 内联样式，无外链样式表（微信合规）\n├── 7 主题: 含彰/墨韵/赤陶/杂志…\n└── 外链自动转脚注 · <ok>多图文直推草稿箱</ok>",
+  "src": "7 主题 × 样例全过"
+ },
+ {
+  "name": "doc-reader",
+  "tag": "英文文档 → 中文精译",
+  "one": "章节级精准翻译英文技术文档/PDF，图片 100% 保留，本地三栏预览（原文·译文·AI 幻灯）",
+  "input": "https://blog.example.com/post\n（或本地 PDF）",
+  "output": "translation.md   逐节对照\n├── images/   <ok>图片 100% 保留</ok>\n└── preview.html  原文·译文·AI 幻灯 三栏",
+  "src": "doc-reader"
+ },
+ {
+  "name": "gpt-image2-prompt-director",
+  "tag": "弱想法 → 生图 brief",
+  "one": "把模糊想法变成高质量 gpt-image-2 生成提示词：头像/表情包/信息图/海报/产品图，附专家提示词集基准评测",
+  "input": "\"我想要一个赛博朋克风头像\"\n\n（或: 修一下这个 prompt）",
+  "output": "prompt-brief.md\n├── 视觉框架 + 工件规格\n├── 平台参数（尺寸/风格约束）\n└── <ok>专家提示词集基准评测</ok>",
+  "src": "gpt-image2-prompt-director"
  }
 ]

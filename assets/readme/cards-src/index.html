@@ -224,3 +224,69 @@ gh variable set CI_REVIEW_MODEL --body glm-5.3</pre></div>
   </div>
   <div class="foot">agent-skills-zh · npx skills add hanzhangzzz/agent-skills-zh</div>
 </div>
+<div class="card">
+  <div class="top"><span class="name">md2view</span><span class="tag">Markdown → 可读视图</span></div>
+  <div class="one">把又长又臭的 md 重编码成左原文·右重组·滚动同步的双栏视图，每个字都能一键回到原文出处</div>
+  <div class="grid">
+    <div class="pane in"><h4>输入 · 触发</h4><pre>一篇复盘/报告/规格/长 README
+
+（&quot;把这篇变成能读的视图&quot;）</pre></div>
+    <div class="pane"><h4>真实产出</h4><pre>reader.html  <span class="ok">53KB 自包含</span>
+├── 左栏: 原文（分块锚点）
+├── 右栏: 信息重组（表格/矩阵/标注条）
+└── <span class="ok">机器验证</span> 溯源不过不产出 · 防垫字检查</pre><div class="src">单测 27/27 · 真实管线冒烟通过</div></div>
+  </div>
+  <div class="foot">agent-skills-zh · npx skills add hanzhangzzz/agent-skills-zh</div>
+</div>
+<div class="card">
+  <div class="top"><span class="name">hook-test-kit</span><span class="tag">hook → 行为测试</span></div>
+  <div class="one">给 Claude Code hook 脚本生成行为矩阵测试骨架——scratch 隔离、EMPTY/!否定协议、变异实验收尾</div>
+  <div class="grid">
+    <div class="pane in"><h4>输入 · 触发</h4><pre>&quot;给 repo-tidy 的 hook 补测试&quot;</pre></div>
+    <div class="pane"><h4>真实产出</h4><pre>test_git-repo-status.sh
+├── run/assert 协议（bash 坑位预修）
+├── 11 场景: trunk/无远端/空仓库/detached…
+└── <span class="ok">变异实验</span> 改坏必红、恢复复绿</pre><div class="src">狗粮全链路验证</div></div>
+  </div>
+  <div class="foot">agent-skills-zh · npx skills add hanzhangzzz/agent-skills-zh</div>
+</div>
+<div class="card">
+  <div class="top"><span class="name">hkr-render</span><span class="tag">Markdown → 公众号排版</span></div>
+  <div class="one">一键排成微信合规的内联样式 HTML：7 主题、外链自动转脚注、多图文直推草稿箱</div>
+  <div class="grid">
+    <div class="pane in"><h4>输入 · 触发</h4><pre>一篇 md
+
+（&quot;公众号排版，用含彰主题&quot;）</pre></div>
+    <div class="pane"><h4>真实产出</h4><pre>preview.html
+├── 内联样式，无外链样式表（微信合规）
+├── 7 主题: 含彰/墨韵/赤陶/杂志…
+└── 外链自动转脚注 · <span class="ok">多图文直推草稿箱</span></pre><div class="src">7 主题 × 样例全过</div></div>
+  </div>
+  <div class="foot">agent-skills-zh · npx skills add hanzhangzzz/agent-skills-zh</div>
+</div>
+<div class="card">
+  <div class="top"><span class="name">doc-reader</span><span class="tag">英文文档 → 中文精译</span></div>
+  <div class="one">章节级精准翻译英文技术文档/PDF，图片 100% 保留，本地三栏预览（原文·译文·AI 幻灯）</div>
+  <div class="grid">
+    <div class="pane in"><h4>输入 · 触发</h4><pre>https://blog.example.com/post
+（或本地 PDF）</pre></div>
+    <div class="pane"><h4>真实产出</h4><pre>translation.md   逐节对照
+├── images/   <span class="ok">图片 100% 保留</span>
+└── preview.html  原文·译文·AI 幻灯 三栏</pre><div class="src">doc-reader</div></div>
+  </div>
+  <div class="foot">agent-skills-zh · npx skills add hanzhangzzz/agent-skills-zh</div>
+</div>
+<div class="card">
+  <div class="top"><span class="name">gpt-image2-prompt-director</span><span class="tag">弱想法 → 生图 brief</span></div>
+  <div class="one">把模糊想法变成高质量 gpt-image-2 生成提示词：头像/表情包/信息图/海报/产品图，附专家提示词集基准评测</div>
+  <div class="grid">
+    <div class="pane in"><h4>输入 · 触发</h4><pre>&quot;我想要一个赛博朋克风头像&quot;
+
+（或: 修一下这个 prompt）</pre></div>
+    <div class="pane"><h4>真实产出</h4><pre>prompt-brief.md
+├── 视觉框架 + 工件规格
+├── 平台参数（尺寸/风格约束）
+└── <span class="ok">专家提示词集基准评测</span></pre><div class="src">gpt-image2-prompt-director</div></div>
+  </div>
+  <div class="foot">agent-skills-zh · npx skills add hanzhangzzz/agent-skills-zh</div>
+</div>
