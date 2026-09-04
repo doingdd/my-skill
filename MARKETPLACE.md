@@ -142,6 +142,22 @@ Machine-readable index of every skill in this repository. Agents can parse this 
 }
 ```
 
+### hook-test-kit
+
+```json
+{
+  "name": "hook-test-kit",
+  "version": "1.0.0",
+  "description": "为 Claude Code hook 脚本生成行为矩阵测试骨架：scratch fixture 隔离、stdin 喂 JSON、EMPTY/!否定断言协议、bash 坑位预修，变异实验收尾",
+  "trigger": "/hook-test-kit",
+  "keywords": ["hook", "测试", "PreToolUse", "SessionStart", "UserPromptSubmit", "行为测试"],
+  "compatibility": "Claude Code",
+  "install_path": "hook-test-kit/",
+  "repo": "https://github.com/hanzhangzzz/agent-skills-zh",
+  "license": "MIT"
+}
+```
+
 ### repo-map
 
 ```json

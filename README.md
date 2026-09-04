@@ -44,6 +44,7 @@ Then just talk to your agent — every skill lists its own trigger phrases (Engl
 | [do-something](./do-something/) | Autonomously pick and finish the highest-leverage task in the project; all runs continue on one `do/main` branch, humans merge to harvest. MR mode keeps a living draft MR and answers CI/review feedback first. 自主推进项目，人类合并即收割；MR 模式与 ci-review 组成飞轮 | Spare tokens and an idle project — let the agent work while you sleep (cron/loop) | `/do-something` · `做点什么` · `自己看着办` |
 | [ci-review](./ci-review/) | Install a CI-triggered LLM reviewer: on every PR/MR push Claude reproduces the change's claims, hunts correctness bugs with failure scenarios, posts inline comments + one sticky summary with a verdict. Optional tier: auto-merge `do/*` branches when the verdict passes. CI 里的验证型代码审查机器人，只验证"做对了没"，可选审查通过自动合并 | You want every PR/MR verified by a machine before a human looks, or you run do-something in MR mode and want the flywheel to harvest itself | `/ci-review` · `装一个 CI 代码审查` |
 | [git-push-guard](./git-push-guard/) | Hook-only plugin: intercepts direct pushes to `master`/`main`, asks for confirmation, per-repo allowlist. 纯 hook：直推默认分支拦截 | You let an agent commit and want shared-branch discipline enforced | auto on `git push` to master/main (plugin install only) |
+| [hook-test-kit](./hook-test-kit/) | Scaffold behavior-matrix tests for Claude Code hooks: scratch fixtures, stdin JSON, EMPTY/! assertion protocol, mutation-experiment finish. 给 hook 脚本补行为测试 | 写了/改了 hook 脚本要测试 · `/hook-test-kit` |
 
 ## 效果一览 · Gallery
 
