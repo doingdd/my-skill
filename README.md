@@ -50,6 +50,7 @@ Then just talk to your agent — every skill lists its own trigger phrases (Engl
 
 每张图都是真实产出或 skill 自带的真实文案/看板，不是示意图。
 
+<!-- cards-gallery-start -->
 <table>
 <tr>
 <td><a href="./doc-reader/"><img src="./assets/readme/cards/doc-reader.png" alt="doc-reader 展示卡"></a><br><b>doc-reader</b> · 英文文章 → 三栏中文预览 + AI 幻灯片</td>
@@ -84,6 +85,7 @@ Then just talk to your agent — every skill lists its own trigger phrases (Engl
 <td></td>
 </tr>
 </table>
+<!-- cards-gallery-end -->
 
 <a id="install"></a>
 ## Install · 安装
