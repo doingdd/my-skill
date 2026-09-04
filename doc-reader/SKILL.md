@@ -42,6 +42,8 @@ description: |
 > **Python 依赖**：`pip install html-to-markdown`（`web_fetcher.py` 需要；已适配 3.x 的 ConversionResult API）。首次运行缺库时脚本会 fail-fast 并提示本命令。
 | `build.py` | 构建三栏预览 HTML |
 
+> **Python 依赖**：`pip install html-to-markdown`（`web_fetcher.py` 需要；已适配 3.x 的 ConversionResult API）。首次运行缺库时脚本会 fail-fast 并提示本命令。
+
 **🚨 关键执行规则:**
 
 每次执行 `generate_slides.py` 和 `build.py` 前，**必须**将脚本从本 skill 的 `scripts/` 目录复制到当前工作目录 `output/{slug}/`。
