@@ -29,6 +29,8 @@ if [ -f /tmp/harness-context.txt ]; then
   USER_CONTEXT="$(cat /tmp/harness-context.txt)"
 fi
 DELIVERED=0   # 是否真的把上下文投递给了 claude（决定收尾是否消费）
+# trap EXIT：无论 set -e 中断、正常退出还是 --loop break，投递过的上下文都收尾消费
+trap '[ "$DELIVERED" = 1 ] && rm -f /tmp/harness-context.txt' EXIT
 
 cd "$PROJECT_DIR"
 
@@ -70,6 +72,8 @@ $(cat "$doc")
     fi
   done
 
+  DELIVERED=1   # 调用即投递：prompt 已作为参数递出，CLI 随后异常不影响投递事实
+
   claude -p "$(cat "$WORKER_PROMPT")
 
 项目路径: $PROJECT_DIR
@@ -91,8 +95,6 @@ ${EXTRA_PROMPT}
     --permission-mode bypassPermissions \
     --verbose \
     --output-format stream-json 2>&1 | tail -3
-  DELIVERED=1
-
   echo "=== Worker finished at $(date) ==="
 }
 
@@ -111,6 +113,8 @@ $(cat "$doc")
 "
     fi
   done
+
+  DELIVERED=1
 
   claude -p "$(cat "$REVIEWER_PROMPT")
 
@@ -132,8 +136,6 @@ Worker 刚完成了任务。请审查 Worker 的改动，更新 TODO.md。
     --permission-mode bypassPermissions \
     --verbose \
     --output-format stream-json 2>&1 | tail -3
-  DELIVERED=1
-
   echo "=== Reviewer finished at $(date) ==="
 }
 
@@ -179,11 +181,6 @@ while true; do
   echo "Waiting 5 seconds before next iteration..."
   sleep 5
 done
-
-# 收尾消费：本轮上下文已实际投递才删；未投递（无可做任务早退）原样保留
-if [ "$DELIVERED" = 1 ]; then
-  rm -f /tmp/harness-context.txt
-fi
 
 echo ""
 echo "=== Worker+Reviewer session ended at $(date) ==="

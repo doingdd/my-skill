@@ -12,6 +12,7 @@ trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/shim"
 cat > "$WORK/shim/claude" <<'SHIM'
 #!/bin/bash
+[ -n "${MOCK_FAIL:-}" ] && exit 3
 { echo "=== INVOCATION cwd=$(pwd)"; printf '%s\n' "$@"; } >> "${MOCK_LOG:?}"
 [ -n "${MOCK_MARK:-}" ] && printf '%s\n' "$MOCK_MARK" >> "$PWD/TODO.md"
 echo '{"type":"result"}'
@@ -105,6 +106,15 @@ if [ "$(grep -c 'INVOCATION' "$MOCK_LOG")" = 2 ]; then echo "✓ worker-reviewer
 printf -- '- [ ] [被拒绝] 打回的任务\n' > "$PROJ/TODO.md"
 out=$(run_wr "$PROJ")
 check "worker-reviewer：被拒绝任务可重新领取" "被拒绝] 打回的任务"
+
+# T7b claude CLI 异常退出：投递已发生 → trap EXIT 仍收尾消费（set -e 中断不可达回归钉）
+reset_case 7
+printf -- '- [ ] [待领取] 修内存泄漏\n' > "$PROJ/TODO.md"
+echo "异常退出轮上下文" > /tmp/harness-context.txt
+out=$(cd "$PROJ" && MOCK_LOG="$MOCK_LOG" MOCK_FAIL=1 bash "$KIT/worker-reviewer.sh" 2>&1); rc=$?
+if [ $rc -ne 0 ] && [ ! -f /tmp/harness-context.txt ]; then
+  echo "✓ claude 异常退出：脚本非零退出且上下文已收尾消费"; pass=$((pass+1))
+else echo "✗ claude 异常退出：rc=$rc 上下文$([ -f /tmp/harness-context.txt ] && echo 未消费)"; fail=$((fail+1)); fi
 
 # T8 收尾消费：有可做任务且实际投递 → 脚本收尾删除
 reset_case 8
