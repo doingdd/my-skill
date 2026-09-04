@@ -44,7 +44,7 @@ description: |
 
 **🚨 关键执行规则:**
 
-每次执行 `generate_slides.py` 和 `build.py` 前，**必须**将脚本从本 skill 的 `scripts/` 目录复制到当前工作目录 `output/{slug}/`。
+每次执行 `generate_slides.py` 和 `build.py` 前，**必须**将脚本从本 skill 的 `scripts/` 目录复制到当前工作目录 `output/{slug}/`。`build.py` 还需同目录放置 `marked.min.js`（预览的内嵌渲染库，随 scripts/ 一起复制）。
 
 图片生成要求 `codex` 位于 `PATH`、Codex CLI 已登录，并且当前版本和账号可使用内置 imagegen。安装 CLI 本身不等于已经具备图片生成权限。
 
