@@ -195,8 +195,8 @@ Machine-readable index of every skill in this repository. Agents can parse this 
 ```json
 {
   "name": "do-something",
-  "version": "1.3.1",
-  "description": "Autonomously pick and finish the highest-leverage task in the current project: backlog first, then purpose-driven reasoning, then choose a purpose; all runs continue on one do/main branch with DO.md as memory, humans merge to harvest or delete to veto. Optional MR mode (DO.md `MR: on`) keeps a living draft MR and answers CI failures and review threads first — pairs with ci-review. 自主推进项目，适合 cron/loop 无人值守；MR 模式与 ci-review 组成飞轮",
+  "version": "1.4.0",
+  "description": "Autonomously answer feedback first, select the highest-value task supported by real evidence, finish and verify a durable outcome, or return NO-OP when nothing qualifies. MR mode pairs with ci-review and requires separate value and execution verdicts before auto-merge. 自主推进项目，以真实价值和完成度为门，不为保持循环制造提交",
   "trigger": "/do-something",
   "keywords": ["autonomous", "agent", "cron", "loop", "unattended", "project improvement", "backlog", "merge request", "flywheel", "做点什么", "自己看着办", "推进一下"],
   "compatibility": "Claude Code, Codex",
