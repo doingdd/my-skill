@@ -25,6 +25,8 @@ USER_CONTEXT="${1:-}"
 if [ -f /tmp/harness-context.txt ]; then
   USER_CONTEXT="$(cat /tmp/harness-context.txt)"
 fi
+# "本轮"语义 = consume-once：读后即删，防止陈旧上下文泄漏进后续无关轮次
+rm -f /tmp/harness-context.txt
 
 cd "$PROJECT_DIR"
 

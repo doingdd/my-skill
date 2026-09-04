@@ -28,6 +28,8 @@ USER_CONTEXT=""
 if [ -f /tmp/harness-context.txt ]; then
   USER_CONTEXT="$(cat /tmp/harness-context.txt)"
 fi
+# "本轮"语义 = consume-once：读后即删，防止陈旧上下文泄漏进后续无关轮次
+rm -f /tmp/harness-context.txt
 
 cd "$PROJECT_DIR"
 
@@ -50,7 +52,7 @@ fi
 
 # 检查 TODO.md 中是否有可做的任务（[待领取] 或 [被拒绝]）
 has_work() {
-  grep -qE '^\s*-\s*\[[ x]\]\s*\[(待领取|被拒绝)\]' TODO.md 2>/dev/null
+  grep -qE '^[[:space:]]*-[[:space:]]*\[[ x]\][[:space:]]*\[(待领取|被拒绝)\]' TODO.md 2>/dev/null
 }
 
 run_worker() {
