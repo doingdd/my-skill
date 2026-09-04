@@ -25,8 +25,8 @@ USER_CONTEXT="${1:-}"
 if [ -f /tmp/harness-context.txt ]; then
   USER_CONTEXT="$(cat /tmp/harness-context.txt)"
 fi
-# "本轮"语义 = consume-once：读后即删，防止陈旧上下文泄漏进后续无关轮次
-rm -f /tmp/harness-context.txt
+# 注意：不在此消费——full 模式下 worker-reviewer.sh 是同轮后继读者；
+# 消费由 worker-reviewer 在实际投递后的脚本收尾执行
 
 cd "$PROJECT_DIR"
 

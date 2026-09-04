@@ -64,7 +64,7 @@ reset_case 3
 echo "上下文来自文件" > /tmp/harness-context.txt
 out=$(cd "$PROJ" && MOCK_LOG="$MOCK_LOG" bash "$KIT/inspector.sh" 2>&1)
 check "inspector：上下文文件内容注入" "上下文来自文件"
-if [ -f /tmp/harness-context.txt ]; then echo "✗ consume-once 失效：文件仍在"; fail=$((fail+1)); else echo "✓ inspector：上下文文件读后即删"; pass=$((pass+1)); fi
+if [ -f /tmp/harness-context.txt ]; then echo "✓ inspector：不消费（同轮 worker-reviewer 还要读）"; pass=$((pass+1)); else echo "✗ inspector 误消费：full 模式下 worker 将收不到额外指令"; fail=$((fail+1)); fi
 
 # ── worker-reviewer ──
 reset_case 4
@@ -77,6 +77,11 @@ out=$(run_wr "$PROJ")
 if printf '%s' "$out" | grep -q "No actionable tasks" && ! grep -q "INVOCATION" "$MOCK_LOG" 2>/dev/null; then
   echo "✓ worker-reviewer：无 TODO.md 不调 claude"; pass=$((pass+1))
 else echo "✗ worker-reviewer：无 TODO.md 行为异常"; fail=$((fail+1)); fi
+echo "本轮指令" > /tmp/harness-context.txt   # 场景前置：reset_case 的清理不能算到脚本头上
+out=$(run_wr "$PROJ")
+if printf '%s' "$out" | grep -q "No actionable tasks" && [ -f /tmp/harness-context.txt ]; then
+  echo "✓ worker-reviewer：无可做任务早退不消费上下文"; pass=$((pass+1))
+else echo "✗ 未投递却消费了上下文（无条件销毁回归）"; fail=$((fail+1)); fi
 
 # T5 [待领取] + Worker 未完成 → 只调 Worker，不调 Reviewer
 printf -- '- [ ] [待领取] 修内存泄漏\n' > "$PROJ/TODO.md"
@@ -101,11 +106,12 @@ printf -- '- [ ] [被拒绝] 打回的任务\n' > "$PROJ/TODO.md"
 out=$(run_wr "$PROJ")
 check "worker-reviewer：被拒绝任务可重新领取" "被拒绝] 打回的任务"
 
-# T8 consume-once（worker 侧）
+# T8 收尾消费：有可做任务且实际投递 → 脚本收尾删除
 reset_case 8
+printf -- '- [ ] [待领取] 消费语义场景\n' > "$PROJ/TODO.md"
 echo "worker 轮上下文" > /tmp/harness-context.txt
 out=$(run_wr "$PROJ")
-if [ -f /tmp/harness-context.txt ]; then echo "✗ worker 侧 consume-once 失效"; fail=$((fail+1)); else echo "✓ worker-reviewer：上下文文件读后即删"; pass=$((pass+1)); fi
+if [ -f /tmp/harness-context.txt ]; then echo "✗ 投递后未消费"; fail=$((fail+1)); else echo "✓ worker-reviewer：投递后收尾消费"; pass=$((pass+1)); fi
 
 echo "── 通过 $pass / 失败 $fail"
 [ "$fail" -eq 0 ]

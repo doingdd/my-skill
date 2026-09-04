@@ -28,8 +28,7 @@ USER_CONTEXT=""
 if [ -f /tmp/harness-context.txt ]; then
   USER_CONTEXT="$(cat /tmp/harness-context.txt)"
 fi
-# "本轮"语义 = consume-once：读后即删，防止陈旧上下文泄漏进后续无关轮次
-rm -f /tmp/harness-context.txt
+DELIVERED=0   # 是否真的把上下文投递给了 claude（决定收尾是否消费）
 
 cd "$PROJECT_DIR"
 
@@ -92,6 +91,7 @@ ${EXTRA_PROMPT}
     --permission-mode bypassPermissions \
     --verbose \
     --output-format stream-json 2>&1 | tail -3
+  DELIVERED=1
 
   echo "=== Worker finished at $(date) ==="
 }
@@ -132,6 +132,7 @@ Worker 刚完成了任务。请审查 Worker 的改动，更新 TODO.md。
     --permission-mode bypassPermissions \
     --verbose \
     --output-format stream-json 2>&1 | tail -3
+  DELIVERED=1
 
   echo "=== Reviewer finished at $(date) ==="
 }
@@ -178,6 +179,11 @@ while true; do
   echo "Waiting 5 seconds before next iteration..."
   sleep 5
 done
+
+# 收尾消费：本轮上下文已实际投递才删；未投递（无可做任务早退）原样保留
+if [ "$DELIVERED" = 1 ]; then
+  rm -f /tmp/harness-context.txt
+fi
 
 echo ""
 echo "=== Worker+Reviewer session ended at $(date) ==="
