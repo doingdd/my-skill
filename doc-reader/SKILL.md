@@ -38,6 +38,8 @@ description: |
 |------|------|
 | `web_fetcher.py` | 高质量网页抓取，优于 WebFetch 工具 |
 | `generate_slides.py` | 并发调用 Codex CLI（默认 4 路），由内置 `$imagegen` 生成整组幻灯片 |
+
+> **Python 依赖**：`pip install html-to-markdown`（`web_fetcher.py` 需要；已适配 3.x 的 ConversionResult API）。首次运行缺库时脚本会 fail-fast 并提示本命令。
 | `build.py` | 构建三栏预览 HTML |
 
 **🚨 关键执行规则:**
