@@ -173,11 +173,16 @@ check_exact_index("README.md Skills 表格", readme_names)
 check_exact_index("README.en.md Skills 表格", readme_en_names)
 check_exact_index("MARKETPLACE.md", mkt_names)
 
-badges = re.findall(r"skills-(\d+)-blue", readme)
-if len(badges) != 1:
-    fail(f"README.md skill badge 数量应为 1，实际 {len(badges)}")
-elif int(badges[0]) != len(entry_names):
-    fail(f"README.md skill badge={badges[0]}，实际 plugin entry={len(entry_names)}")
+def check_badge(label, text):
+    badges = re.findall(r"skills-(\d+)-blue", text)
+    if len(badges) != 1:
+        fail(f"{label} skill badge 数量应为 1，实际 {len(badges)}")
+    elif int(badges[0]) != len(entry_names):
+        fail(f"{label} skill badge={badges[0]}，实际 plugin entry={len(entry_names)}")
+
+
+check_badge("README.md", readme)
+check_badge("README.en.md", readme_en)
 
 cards_path = os.path.join(root, "assets/readme/cards-src/cards.json")
 try:
@@ -186,8 +191,9 @@ try:
     invalid_names = [name for name in card_names_list if not isinstance(name, str) or not name]
     if invalid_names:
         fail("cards.json 存在缺失或非字符串 name")
-    card_names = {name for name in card_names_list if isinstance(name, str) and name}
-    if len(card_names_list) != len(card_names):
+    valid_names = [name for name in card_names_list if isinstance(name, str) and name]
+    card_names = set(valid_names)
+    if len(valid_names) != len(card_names):
         fail("cards.json 存在重复 name")
     check_exact_index("cards.json", card_names)
 except Exception as e:

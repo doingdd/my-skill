@@ -17,6 +17,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 README = HERE.parent.parent.parent / "README.md"
+README_EN = HERE.parent.parent.parent / "README.en.md"
 START = "<!-- cards-gallery-start -->"
 END = "<!-- cards-gallery-end -->"
 FLYWHEEL = ('<td>飞轮实景：do-something 提出方向并实践 → ci-review 验证质量 → 下一轮先回应评论 → '
@@ -53,31 +54,38 @@ def render(cards):
     return "<table>\n" + "\n".join(rows) + "\n</table>"
 
 
+def update_badge(text, skill_count, label):
+    badges = BADGE_RE.findall(text)
+    if len(badges) != 1:
+        raise SystemExit(f"✗ {label} skill 数量 badge 必须恰好一个")
+    return BADGE_RE.sub(f"skills-{skill_count}-blue", text, count=1)
+
+
 def update_readme(text, block, skill_count):
     if text.count(START) != 1 or text.count(END) != 1:
         raise SystemExit("✗ README.md 画廊区段标记必须各恰好一个")
-    badges = BADGE_RE.findall(text)
-    if len(badges) != 1:
-        raise SystemExit("✗ README.md skill 数量 badge 必须恰好一个")
     pre, rest = text.split(START, 1)
     _, post = rest.split(END, 1)
     updated = pre + START + "\n" + block + "\n" + END + post
-    return BADGE_RE.sub(f"skills-{skill_count}-blue", updated, count=1)
+    return update_badge(updated, skill_count, "README.md")
 
 
 def main():
     cards = json.loads((HERE / "cards.json").read_text(encoding="utf-8"))
     block = render(cards)
     t = README.read_text(encoding="utf-8")
+    t_en = README_EN.read_text(encoding="utf-8")
     expected = update_readme(t, block, len(cards))
+    expected_en = update_badge(t_en, len(cards), "README.en.md")
     if "--check" in sys.argv:
-        if t != expected:
-            print("✗ README 画廊或 skill badge 与 cards.json 不一致——运行 build_gallery.py 重新生成", file=sys.stderr)
+        if t != expected or t_en != expected_en:
+            print("✗ README 画廊或中英文 skill badge 与 cards.json 不一致——运行 build_gallery.py 重新生成", file=sys.stderr)
             sys.exit(1)
-        print("✓ 画廊与 skill badge 均和 cards.json 一致")
+        print("✓ 画廊与中英文 skill badge 均和 cards.json 一致")
         return
     README.write_text(expected, encoding="utf-8")
-    print(f"✓ 画廊与 skill badge 已从 cards.json 生成（{len(cards)} 卡 + 飞轮格）")
+    README_EN.write_text(expected_en, encoding="utf-8")
+    print(f"✓ 画廊与中英文 skill badge 已从 cards.json 生成（{len(cards)} 卡 + 飞轮格）")
 
 
 if __name__ == "__main__":

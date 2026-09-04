@@ -24,6 +24,12 @@ class BuildGalleryTest(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "画廊区段标记"):
             MODULE.update_readme(source, "x", 1)
 
+    def test_update_badge_works_for_english_readme(self) -> None:
+        self.assertEqual(
+            "skills-14-blue",
+            MODULE.update_badge("skills-11-blue", 14, "README.en.md"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

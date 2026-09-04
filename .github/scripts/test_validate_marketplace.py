@@ -48,6 +48,15 @@ class MarketplaceMutationTest(unittest.TestCase):
             result = validate(repo)
             self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
 
+    def test_wrong_english_badge_count_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = copy_repo(Path(tmp))
+            path = repo / "README.en.md"
+            text = re.sub(r"skills-\d+-blue", "skills-999-blue", path.read_text(), count=1)
+            path.write_text(text)
+            result = validate(repo)
+            self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
+
     def test_missing_hook_only_skill_in_chinese_table_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = copy_repo(Path(tmp))
