@@ -100,8 +100,8 @@ def build_html():
 
     # 内嵌 marked 库（离线可用，不依赖 CDN——jsdelivr 在大陆间歇性不可达）
     marked_lib = escape_script_content(read_file('marked.min.js'))
-    if not marked_lib:
-        print("❌ marked.min.js 为空或缺失，无法构建自包含预览", file=sys.stderr)
+    if not marked_lib.strip():
+        print("❌ marked.min.js 为空或仅含空白，无法构建自包含预览", file=sys.stderr)
         sys.exit(1)
 
     # 读取源文件
