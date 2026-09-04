@@ -176,6 +176,16 @@
       "skills": [
         "./hkr-render"
       ]
+    },
+    {
+      "name": "hook-test-kit",
+      "source": "./",
+      "strict": false,
+      "description": "为 Claude Code hook 脚本生成行为矩阵测试骨架：scratch fixture、stdin 喂 JSON、EMPTY/!否定断言协议、bash 坑位预修，变异实验收尾。给 hook 补行为测试",
+      "version": "1.0.0",
+      "skills": [
+        "./hook-test-kit"
+      ]
     }
   ]
 }
