@@ -2,7 +2,7 @@
 
 do-something 在 MR 模式下要做的远端操作，GitHub 用 `gh`，GitLab 用 `glab` + REST。
 先判断平台：`git remote get-url origin` 含 `github.com` → GitHub；否则按 GitLab 处理。
-两边都要求 CLI 已登录（`gh auth status` / `glab auth status`），未登录就在日志里记下并退回"绝不 push"行为。
+两边都要求 CLI 已登录（`gh auth status` / `glab auth status`），未登录就在 DO.md 当前状态记下并退回"绝不 push"行为。
 
 ## 第 0 步：读状态
 
@@ -61,6 +61,31 @@ TITLE='do: <具体对象 + 已实现的结果>'
 新建 MR 时若它与上一个已合并的 `do/main` MR 同名，根据当前 diff 补足具体对象或结果；不要追加日期或序号。
 续更现有 MR 时也按相对默认分支的全部未合并改动重算标题，不能只概括最后一个 commit。
 
+`/tmp/do-body.md` 只描述当前 MR，不复制 DO.md 历史。格式固定：
+
+```markdown
+## 证据
+<失败、用户/issue 信号、高频未覆盖路径或重复劳动的可核对事实>
+
+## 为什么现在做
+<本次结果如何直接推进项目目的；为什么它高于其他候选>
+
+## 持久化产出
+<修复、永久测试、生成器/门禁或用户可见能力>
+
+## 完成度
+<承诺范围是否全部完成；仍有关键路径未验证就明确写未完成，不能申请 value=pass>
+
+## 验证
+<干净副本可重跑的命令、预期退出码和最终产物证据>
+
+## 运行版本
+do-something-blob: `<git hash-object do-something/SKILL.md 的输出>`
+```
+
+运行版本在 commit 前计算。若 skill 不在仓库内，用实际加载的 `SKILL.md` 路径执行 `git hash-object`；
+无法得到 blob 就写明实际路径与文件 SHA-256，不能省略版本证据。
+
 ```bash
 git push -u origin do/main
 
@@ -73,4 +98,4 @@ glab mr create --draft --source-branch do/main --target-branch <default> --title
 glab mr update <iid> --title "$TITLE" --description "$(cat /tmp/do-body.md)"
 ```
 
-`/tmp/do-body.md` = DO.md 的"目的"一节 + "日志"一节原文。不写别的：MR 正文就是 DO.md 的远端镜像。
+创建或更新后重新读取远端标题与正文，确认没有被 shell 转义、缓存模板或旧 session 改回。

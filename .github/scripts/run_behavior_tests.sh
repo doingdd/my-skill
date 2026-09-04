@@ -24,6 +24,7 @@ run "repo-map" bash repo-map/scripts/test_repo_map.sh
 run "harness" bash harness/scripts/test_harness.sh
 run "md2view" bash -c 'cd md2view/scripts && python3 -m unittest test_build_reader test_parse_blocks test_verify_anchors'
 run "do-something contracts" python3 do-something/tests/test_mr_title_contract.py
+run "do-something value policy" python3 do-something/tests/test_flywheel_policy.py
 run "ci-review verdict gate" bash ci-review/tests/test_verdict_gate.sh
 run "ci-review policy" python3 ci-review/tests/test_review_policy.py
 run "ci-review installer" bash ci-review/tests/test_install.sh
