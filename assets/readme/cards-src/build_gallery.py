@@ -28,6 +28,8 @@ def render(cards):
     cells = []
     for c in cards:
         name = c.get("name", "")
+        if not name:
+            raise SystemExit("✗ cards.json 某条目缺 name 字段，拒绝生成空链接格")
         tagline = c.get("tagline")
         if not tagline:
             raise SystemExit(f"✗ cards.json 的 {name} 缺 tagline 字段")
