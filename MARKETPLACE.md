@@ -211,8 +211,8 @@ Machine-readable index of every skill in this repository. Agents can parse this 
 ```json
 {
   "name": "ci-review",
-  "version": "1.1.0",
-  "description": "Install a CI-triggered LLM code reviewer into a repo: on every PR/MR push, Claude Code runs headless, reproduces every claim the change makes, hunts correctness bugs with concrete failure scenarios, and posts inline comments plus one sticky summary with a machine-readable verdict. Two tiers remembered in the repo: review-only, or auto-merge do/* branches when the verdict passes and no thread is open. Detects GitHub/GitLab, asks only for what is missing, sets CI variables itself. Judges execution, not direction — the other half of the do-something flywheel. CI 里的验证型代码审查机器人，可选审查通过自动合并",
+  "version": "1.2.0",
+  "description": "Install a CI-triggered LLM code reviewer into a repo: every PR/MR gets a reproducible execution verdict; configured bot branches such as do/* also need a separate value verdict proving evidence, purpose alignment, durable output, and completion before deterministic auto-merge. Markdown behavior files are reviewed as code, and failed verdicts become red checks. CI 里的验证型代码审查机器人，机器人分支价值与执行双门禁",
   "trigger": "/ci-review",
   "keywords": ["code review", "ci", "github actions", "gitlab ci", "claude-code-action", "pull request", "merge request", "auto merge", "flywheel", "代码审查", "自动 review", "自动合并"],
   "compatibility": "Claude Code",
