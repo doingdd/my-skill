@@ -164,8 +164,11 @@ if os.path.exists(gallery_gen):
     r = subprocess.run([sys.executable, gallery_gen, "--check"],
                        capture_output=True, text=True)
     if r.returncode != 0:
-        fail("README 画廊与 cards.json 不一致——运行 "
-             "assets/readme/cards-src/build_gallery.py 重新生成")
+        detail = (r.stdout + r.stderr).strip()
+        # traceback 的根因（异常类型+消息）在最后一个非空行
+        last = [l for l in detail.splitlines() if l.strip()]
+        reason = last[-1][:200] if last else "运行 assets/readme/cards-src/build_gallery.py 重新生成"
+        fail("画廊校验未通过——" + reason)
 
 if failures:
     print(f"\n共 {failures} 处违规")

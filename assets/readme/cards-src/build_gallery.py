@@ -9,6 +9,7 @@
 卡片顺序 = cards.json 顺序；每行 2 格；飞轮实景格固定收尾。
 tagline（·后的一句话）以 cards.json 的 tagline 字段为准，缺失则报错。
 """
+import html
 import json
 import sys
 from pathlib import Path
@@ -26,12 +27,19 @@ FLYWHEEL = ('<td>飞轮实景：do-something 提出方向并实践 → ci-review
 def render(cards):
     cells = []
     for c in cards:
+        name = c.get("name", "")
         tagline = c.get("tagline")
         if not tagline:
-            raise SystemExit(f"✗ cards.json 的 {c['name']} 缺 tagline 字段")
+            raise SystemExit(f"✗ cards.json 的 {name} 缺 tagline 字段")
+        skill_dir = HERE.parent.parent.parent / name   # 仓库根 = cards-src 上三级
+        # 只验目录存在（链接活性）：hook-only skill（如 git-push-guard）本就没有 SKILL.md
+        if not skill_dir.is_dir():
+            raise SystemExit(f"✗ cards.json 的 {name} 没有对应 skill 目录（{skill_dir}），拒绝生成死链")
+        # HTML 转义：tagline/name 里的 <>"& 只能当字面文本，防撑爆表格结构
+        q = html.escape(name, quote=True)
         cells.append(
-            f'<td><a href="./{c["name"]}/"><img src="./assets/readme/cards/{c["name"]}.png" '
-            f'alt="{c["name"]} 展示卡"></a><br><b>{c["name"]}</b> · {tagline}</td>')
+            f'<td><a href="./{q}/"><img src="./assets/readme/cards/{q}.png" '
+            f'alt="{q} 展示卡"></a><br><b>{q}</b> · {html.escape(tagline)}</td>')
     cells.append(FLYWHEEL)
     rows = []
     for i in range(0, len(cells), 2):
