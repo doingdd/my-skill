@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""从 cards.json 生成 README 画廊表格区段（单一事实源，消灭手改吞格事故）。
+
+用法: python3 build_gallery.py [--check]
+  默认  : 重写 README.md 中 <!-- cards-gallery-start --> 到 <!-- cards-gallery-end -->
+          之间的表格区段（含两标记本身）。
+  --check: 只校验 README 现有区段与生成结果一致，不一致退出码 1（供市场门禁调用）。
+
+卡片顺序 = cards.json 顺序；每行 2 格；飞轮实景格固定收尾。
+tagline（·后的一句话）以 cards.json 的 tagline 字段为准，缺失则报错。
+"""
+import json
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+README = HERE.parent.parent.parent / "README.md"
+START = "<!-- cards-gallery-start -->"
+END = "<!-- cards-gallery-end -->"
+FLYWHEEL = ('<td>飞轮实景：do-something 提出方向并实践 → ci-review 验证质量 → 下一轮先回应评论 → '
+            '人类只在想收割时出现。<br><br>本仓 PR #8 实录：机器人在审查规范的安装副本里发现一处'
+            '逻辑矛盾（带失败场景与复现命令），开发者修复 push 后，增量审查确认"矛盾已由此 commit '
+            '消除"，零重复评论。</td>')
+
+
+def render(cards):
+    cells = []
+    for c in cards:
+        tagline = c.get("tagline")
+        if not tagline:
+            raise SystemExit(f"✗ cards.json 的 {c['name']} 缺 tagline 字段")
+        cells.append(
+            f'<td><a href="./{c["name"]}/"><img src="./assets/readme/cards/{c["name"]}.png" '
+            f'alt="{c["name"]} 展示卡"></a><br><b>{c["name"]}</b> · {tagline}</td>')
+    cells.append(FLYWHEEL)
+    rows = []
+    for i in range(0, len(cells), 2):
+        left = cells[i]
+        right = cells[i + 1] if i + 1 < len(cells) else "<td></td>"
+        rows.append("<tr>\n" + left + "\n" + right + "\n</tr>")
+    return "<table>\n" + "\n".join(rows) + "\n</table>"
+
+
+def main():
+    cards = json.loads((HERE / "cards.json").read_text(encoding="utf-8"))
+    block = render(cards)
+    t = README.read_text(encoding="utf-8")
+    if START not in t or END not in t:
+        raise SystemExit("✗ README.md 缺少画廊区段标记，请先手工包一层")
+    pre, rest = t.split(START, 1)
+    _, post = rest.split(END, 1)
+    if "--check" in sys.argv:
+        current = (START + rest.split(END, 1)[0] + END).strip()
+        expected = (START + "\n" + block + "\n" + END).strip()
+        if current != expected:
+            print("✗ README 画廊与 cards.json 不一致——运行 build_gallery.py 重新生成", file=sys.stderr)
+            sys.exit(1)
+        print("✓ 画廊与 cards.json 一致")
+        return
+    README.write_text(pre + START + "\n" + block + "\n" + END + post, encoding="utf-8")
+    print(f"✓ 画廊已从 cards.json 生成（{len(cards)} 卡 + 飞轮格）")
+
+
+if __name__ == "__main__":
+    main()

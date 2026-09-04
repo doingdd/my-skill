@@ -157,6 +157,16 @@ for name in sorted(readme_names | mkt_names):
     if name not in skill_dirs and name not in hook_only:
         fail(f"索引里的 {name} 没有对应目录（且非 hook-only entry）")
 
+# ── 画廊单一事实源 ────────────────────────────────────────────────
+gallery_gen = os.path.join(root, "assets/readme/cards-src/build_gallery.py")
+if os.path.exists(gallery_gen):
+    import subprocess
+    r = subprocess.run([sys.executable, gallery_gen, "--check"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        fail("README 画廊与 cards.json 不一致——运行 "
+             "assets/readme/cards-src/build_gallery.py 重新生成")
+
 if failures:
     print(f"\n共 {failures} 处违规")
     sys.exit(1)
